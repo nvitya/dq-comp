@@ -1,0 +1,28 @@
+// single line comment: this is a dq test program
+
+/*
+  multi
+  line
+  comment
+*/
+
+#{opt blockmode braces}
+
+var globvar : int;
+
+// the second
+
+varx gvar2 : int = 6;  // value
+
+/* some more comment
+
+  */  var gvar3 : intx = 31;
+
+#{include "dq_preproc_inc1.dq"}
+
+// include once more, with the other quotes
+
+#{include 'dq_preproc_inc1.dq' }
+
+
+var gvar4 : int = 99;
