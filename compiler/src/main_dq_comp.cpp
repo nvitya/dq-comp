@@ -23,11 +23,13 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <print>
 
 #include <fstream>
 #include <sstream>
 
 #include "dqc.h"
+#include "version.h"
 
 using namespace std;
 
@@ -113,7 +115,7 @@ int main(int argc, char ** argv)
 {
   int r;
 
-  printf("DQ Compiler - V0.1\n");
+  print("DQ Compiler - v{}\n", DQ_COMPILER_VERSION);
 
   // Top level error handlers for stack tracing
   set_terminate(my_crash_handler);  // uncaught exception handler with stacktrace
