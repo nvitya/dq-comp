@@ -8,7 +8,7 @@
  * file:    scf_dq.cpp
  * authors: nvitya
  * created: 2026-01-31
- * brief:   
+ * brief:
  */
 
 // scf_dq.cpp
@@ -84,13 +84,13 @@ OScFile * OScFeederDq::LoadFile(const string afilename)
   OScFile * f = new OScFile();
   if (!f->Load(afilename, fullname))
   {
-    print("Error loading file: \" மூல \"!\n", fullname);
+    print("Error loading file: \"{}\"!\n", fullname);
 
     delete f;
     return nullptr;
   }
 
-  print("File \" மூல \" loaded: {} bytes\n", fullname, f->length);
+  print("File \"{}\" loaded: {} bytes\n", fullname, f->length);
 
   scfiles.push_back(f);
   return f;
