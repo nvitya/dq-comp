@@ -20,7 +20,10 @@
 using namespace std;
 
 class OType;
+class OValSym;
 class OScope;
+
+// Symbol and Scope
 
 class OSymbol
 {
@@ -45,7 +48,8 @@ public:
   OScope *    parent_scope;
   string      debugname; // Helpful for debugging (e.g., "Class Body", "Func Body")
 
-  map<string, OSymbol *>  symbols;
+  map<string, OType *>    typesyms;
+  map<string, OValSym *>  valsyms;
 
 public:
   OScope(OScope * aparent, const string & adebugname)
@@ -55,33 +59,14 @@ public:
   {
   }
 
-  void Define(OSymbol * asymbol)
-  {
-    // In a real compiler, check for duplicates here
-    symbols[asymbol->name] = asymbol;
-  }
+  OType *     DefineType(OType * atype);
+  OValSym *   DefineValSym(OValSym * atype);
 
-  OSymbol * Find(const string & name, OScope ** rscope = nullptr)
-  {
-    auto it = symbols.find(name);
-    if (it != symbols.end())
-    {
-      if (rscope)
-      {
-        *rscope = this;
-      }
-      return it->second;
-    }
-
-    // If not found here, check the parent scope
-    if (parent_scope != nullptr)
-    {
-      return parent_scope->Find(name, rscope);
-    }
-
-    return nullptr;
-  }
+  OType *     FindType(const string & name, OScope ** rscope = nullptr);
+  OValSym *   FindValSym(const string & name, OScope ** rscope = nullptr);
 };
+
+// Types
 
 enum ETypeKind
 {
@@ -144,3 +129,28 @@ public:
   inline OScope * Members() { return &member_scope; }
 };
 
+// Value Symbols
+
+enum EValSymKind
+{
+  VSK_CONST = 0,
+  VSK_VARIABLE,
+  VSK_PARAMETER,
+  VSK_FUNCTION
+};
+
+class OValSym : public OSymbol
+{
+private:
+  using        super = OSymbol;
+
+public:
+  EValSymKind  kind;
+
+  OValSym(const string aname, OType * atype, EValSymKind akind = VSK_VARIABLE)
+  :
+    super(aname, atype),  // Types usually don't have a "type" themselves, or are meta-types
+    kind(akind)
+  {
+  }
+};

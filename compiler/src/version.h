@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.0.3"
+#define DQ_COMPILER_VERSION  "0.0.4"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.0.4:
+  - compiler symbol, type, scope objects
 v0.0.3:
   - feeder SetPosition functions
 v0.0.2: version added

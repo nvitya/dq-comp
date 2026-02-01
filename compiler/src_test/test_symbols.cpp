@@ -31,27 +31,26 @@ void test_symbols()
   OScope * global_scope = new OScope(nullptr, "global");
   OScope * scope = global_scope;
 
-  OPrimitiveType * type_int = new OPrimitiveType("int");
-  global_scope->Define(type_int);
+  OType * type_int = global_scope->DefineType(new OPrimitiveType("int"));
 
   OCompoundType * type_class = new OCompoundType("OMyClass", global_scope);
   scope = type_class->Members();
-  scope->Define(new OSymbol("field1", type_int));
-  scope->Define(new OSymbol("field2", type_int));
+  scope->DefineValSym(new OValSym("field1", type_int));
+  scope->DefineValSym(new OValSym("field2", type_int));
 
-  global_scope->Define(type_class);
+  global_scope->DefineType(type_class);
 
   // Resolution Test
   OScope * found_scope;
 
-  OSymbol * found = scope->Find("field1", &found_scope);
-  if (found)
+  OValSym * found_vs = scope->FindValSym("field1", &found_scope);
+  if (found_vs)
   {
-    print("Found member: {} in scope {}\n", found->name, found_scope->debugname);
+    print("Found member: {} in scope {}\n", found_vs->name, found_scope->debugname);
   }
 
   // If we look for 'int' inside the class, it bubbles up to Global
-  OSymbol * found_type = scope->Find("int", &found_scope);
+  OType * found_type = scope->FindType("int", &found_scope);
   if (found_type)
   {
     print("Found type: {} in scope {}\n", found_type->name, found_scope->debugname);
