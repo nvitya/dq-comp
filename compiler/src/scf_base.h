@@ -8,7 +8,7 @@
  * file:    scf_base.h
  * authors: nvitya
  * created: 2026-01-31
- * brief:   
+ * brief:
  */
 
 #pragma once
@@ -83,6 +83,8 @@ public:
 public: // parsing functions
 
   void SaveCurPos(OScPosition & rpos) { rpos.scfile = curfile; rpos.pos = curp; }
+  void SetCurPos(OScPosition & rpos);
+  void SetCurPos(OScFile * afile, char * apos = nullptr);
 
   void SkipSpaces(bool askiplineend = true);  // jumps to the first non-space character
 

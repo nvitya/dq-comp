@@ -8,7 +8,7 @@
  * file:    scf_base.cpp
  * authors: nvitya
  * created: 2026-01-31
- * brief:   
+ * brief:
  */
 
 // scf_base.cpp
@@ -270,6 +270,34 @@ string OScFeederBase::PrevStr()
 {
   string result(prevp, prevlen);
   return result;
+}
+
+void OScFeederBase::SetCurPos(OScPosition & rpos)
+{
+  curfile = rpos.scfile;
+  bufend = curfile->pend;
+  curp = rpos.pos;
+  prevp = curp;
+  prevlen = 0;
+}
+
+void OScFeederBase::SetCurPos(OScFile * afile, char * apos)
+{
+  curfile = afile;
+  if (curfile)
+  {
+    bufend = curfile->pend;
+    curp = apos;
+    prevp = curp;
+    prevlen = 0;
+  }
+  else
+  {
+    bufend = nullptr;
+    curp = nullptr;
+    prevp = nullptr;
+    prevlen = 0;
+  }
 }
 
 void OScFeederBase::SkipSpaces(bool askiplineend)

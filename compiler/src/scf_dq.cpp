@@ -49,8 +49,7 @@ int OScFeederDq::Init(const string afilename)
     return 1;
   }
 
-  curp = curfile->pstart;
-  bufend = curfile->pend;
+  SetCurPos(curfile, curfile->pstart);
 
   return 0;
 }
@@ -147,12 +146,7 @@ repeat_skip:  // jumped here when returning from an include
   {
     OScPosition rpos = returnpos.back();
     returnpos.pop_back();
-
-    curfile = rpos.scfile;
-    bufend = curfile->pend;
-    curp = rpos.pos;
-    prevp = curp;
-    prevlen = 0;
+    SetCurPos(rpos);
 
     goto repeat_skip;
   }
@@ -244,11 +238,7 @@ void OScFeederDq::ParseDirectiveInclude()
   returnpos.push_back(retpos);   // add to the return stack
 
   // switch to the include
-  curfile = incfile;
-  bufend = incfile->pend;
-  curp = incfile->pstart;
-  prevp = curp;
-  prevlen = 0;
+  SetCurPos(incfile, incfile->pstart);
 }
 
 void OScFeederDq::PreprocError(const string amsg, OScPosition * ascpos, bool atryrecover)

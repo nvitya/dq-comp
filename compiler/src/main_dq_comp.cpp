@@ -31,6 +31,12 @@
 #include "dqc.h"
 #include "version.h"
 
+#define CALL_TESTCODE 1
+
+#if CALL_TESTCODE
+  #include "testcode.h"
+#endif
+
 using namespace std;
 
 void print_backtrace()
@@ -120,6 +126,11 @@ int main(int argc, char ** argv)
   // Top level error handlers for stack tracing
   set_terminate(my_crash_handler);  // uncaught exception handler with stacktrace
   signal(SIGSEGV, signal_handler);  // separate method for segfaults for stacktrace
+
+  #if CALL_TESTCODE
+    print("Calling testcode...\n");
+    testcode();
+  #endif
 
   // create the compiler object
   g_compiler = new ODqCompiler();
