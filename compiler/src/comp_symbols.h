@@ -13,6 +13,8 @@
 
 #pragma once
 
+#include "stdint.h"
+
 #include <string>
 #include <vector>
 #include <map>
@@ -70,12 +72,17 @@ public:
 
 enum ETypeKind
 {
-  TK_UNSPECIFIED = 0,
-  TK_PRIMITIVE,
+  TK_ALIAS = 0,
+  TK_INT,
+  TK_FLOAT,
+  TK_BOOL,
   TK_POINTER,
   TK_ARRAY,
-  TK_FUNCTION,
-  TK_COMPOUND   // object, struct
+  TK_STRING,    // ODynString, OCString
+
+  TK_ENUM,
+  TK_COMPOUND,  // object, struct
+  TK_FUNCTION
 };
 
 class OType : public OSymbol
@@ -84,7 +91,8 @@ private:
   using        super = OSymbol;
 
 public:
-  ETypeKind    kind = TK_UNSPECIFIED;
+  ETypeKind    kind;
+  uint32_t     bytesize = 0;  // 0 = size is not fixed (string, dyn. array)
 
   OType(const string aname, ETypeKind akind)
   :
@@ -93,23 +101,25 @@ public:
   {
   }
 
-  inline bool IsPrimitive()  { return (kind == TK_PRIMITIVE); }
   inline bool IsCompound()   { return (kind == TK_COMPOUND);  }
 };
 
-class OPrimitiveType : public OType
+class OTypeAlias : public OType
 {
 private:
   using        super = OType;
 
 public:
+  OType *      ptype;
 
-  OPrimitiveType(const string name)
+  OTypeAlias(const string aname, OType * aptype)
   :
-    super(name, TK_PRIMITIVE)
+    super(aname, TK_ALIAS),
+    ptype(aptype)
   {
   }
 };
+
 
 class OCompoundType : public OType
 {
@@ -151,6 +161,24 @@ public:
   :
     super(aname, atype),  // Types usually don't have a "type" themselves, or are meta-types
     kind(akind)
+  {
+  }
+};
+
+class OConstValSym : public OValSym
+{
+private:
+  using        super = OValSym;
+
+public:
+  uint8_t *    dataptr = nullptr;
+  uint32_t     datalen = 0;
+
+  uint8_t      inlinedata[16] = {0};  // for primitive data (Float80 is the biggest)
+
+  OConstValSym(const string aname, OType * atype)
+  :
+    super(aname, atype, VSK_CONST)
   {
   }
 };

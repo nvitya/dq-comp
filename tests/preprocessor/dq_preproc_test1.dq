@@ -8,6 +8,24 @@
 
 #{opt blockmode braces}
 
+#{define LINUX}
+// #{define WINDOWS}
+
+#{ifdef LINUX}
+
+  var platformvar : int = 1;
+
+#{elifdef WINDOWS}
+
+  var platformvar : int = 2;
+
+#{else}
+
+  var platformvar : int = 3;
+
+#{endif}
+
+
 var globvar : int;
 
 // the second

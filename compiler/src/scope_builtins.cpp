@@ -1,0 +1,50 @@
+/*
+ * Copyright (c) 2026 Viktor Nagy
+ * This file is part of the DQ-Compiler project at https://github.com/nvitya/dq-comp
+ *
+ * This source code is licensed under the MIT License.
+ * See the LICENSE file in the project root for the full license text.
+ * ---------------------------------------------------------------------------------
+ * file:    scope_builtins.cpp
+ * authors: nvitya
+ * created: 2026-02-02
+ * brief:
+ */
+
+#include "scope_builtins.h"
+
+OScopeBuiltins *  g_builtins;
+
+void OScopeBuiltins::Init()
+{
+  type_bool = new OTypeBool();
+  DefineType(type_bool);
+
+  type_int8  = new OTypeInt("int8",   8, true);
+  type_int16 = new OTypeInt("int16", 16, true);
+  type_int32 = new OTypeInt("int32", 32, true);
+  type_int64 = new OTypeInt("int64", 64, true);
+  type_int   = new OTypeAlias("int", type_int64);
+  DefineType(type_int8);
+  DefineType(type_int16);
+  DefineType(type_int32);
+  DefineType(type_int64);
+  DefineType(type_int);
+
+  type_uint8  = new OTypeInt("uint8",   8, false);
+  type_uint16 = new OTypeInt("uint16", 16, false);
+  type_uint32 = new OTypeInt("uint32", 32, false);
+  type_uint64 = new OTypeInt("uint64", 64, false);
+  type_uint   = new OTypeAlias("uint", type_uint64);
+  DefineType(type_uint8);
+  DefineType(type_uint16);
+  DefineType(type_uint32);
+  DefineType(type_uint64);
+  DefineType(type_uint);
+}
+
+void init_scope_builtins()
+{
+  g_builtins = new OScopeBuiltins();
+  g_builtins->Init();
+}

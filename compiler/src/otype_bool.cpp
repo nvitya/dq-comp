@@ -5,18 +5,10 @@
  * This source code is licensed under the MIT License.
  * See the LICENSE file in the project root for the full license text.
  * ---------------------------------------------------------------------------------
- * file:    comp_defines.cpp
+ * file:    otype_int.h
  * authors: nvitya
- * created: 2026-01-31
- * brief:   
+ * created: 2026-02-02
+ * brief:
  */
 
-#include "comp_defines.h"
-
-ODefines::ODefines()
-{
-}
-
-ODefines::~ODefines()
-{
-}
+#include "otype_bool.h"

@@ -5,29 +5,10 @@
  * This source code is licensed under the MIT License.
  * See the LICENSE file in the project root for the full license text.
  * ---------------------------------------------------------------------------------
- * file:    dqc_codegen.h
+ * file:    otype_int.h
  * authors: nvitya
- * created: 2026-01-31
+ * created: 2026-02-02
  * brief:
  */
 
-#pragma once
-
-#include "stdint.h"
-#include <string>
-#include "comp_options.h"
-
-#include "dqc_parser.h"
-
-using namespace std;
-
-class ODqCompCodegen : public ODqCompParser
-{
-private:
-  using                super = ODqCompParser;
-
-public:
-  ODqCompCodegen();
-  virtual ~ODqCompCodegen();
-
-};
+#include "otype_int.h"

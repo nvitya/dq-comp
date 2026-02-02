@@ -5,29 +5,22 @@
  * This source code is licensed under the MIT License.
  * See the LICENSE file in the project root for the full license text.
  * ---------------------------------------------------------------------------------
- * file:    dqc_codegen.h
+ * file:    scope_defines.cpp
  * authors: nvitya
- * created: 2026-01-31
+ * created: 2026-02-02
  * brief:
  */
 
-#pragma once
+#include "scope_defines.h"
 
-#include "stdint.h"
-#include <string>
-#include "comp_options.h"
-
-#include "dqc_parser.h"
-
-using namespace std;
-
-class ODqCompCodegen : public ODqCompParser
+void OScopeDefines::Init()
 {
-private:
-  using                super = ODqCompParser;
 
-public:
-  ODqCompCodegen();
-  virtual ~ODqCompCodegen();
+}
 
-};
+void init_scope_defines()
+{
+  g_defines = new OScopeDefines();
+  g_defines->Init();
+}
+

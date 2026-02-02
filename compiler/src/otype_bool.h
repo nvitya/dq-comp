@@ -5,30 +5,27 @@
  * This source code is licensed under the MIT License.
  * See the LICENSE file in the project root for the full license text.
  * ---------------------------------------------------------------------------------
- * file:    comp_defines.h
+ * file:    otype_bool.h
  * authors: nvitya
- * created: 2026-01-31
- * brief:   
+ * created: 2026-02-02
+ * brief:
  */
 
 #pragma once
 
-#include <string>
+#include "comp_symbols.h"
 
-using namespace std;
-
-class ODefine
+class OTypeBool : public OType
 {
+private:
+  using        super = OType;
+
 public:
+  OTypeBool()
+  :
+    super("bool", TK_BOOL)
+  {
+    bytesize = 1;
+  }
 
-  ODefine();
-  virtual ~ODefine();
-};
-
-class ODefines
-{
-public:
-
-  ODefines();
-  virtual ~ODefines();
 };

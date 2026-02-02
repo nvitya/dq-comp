@@ -8,7 +8,7 @@
  * file:    dqc_clargs.h
  * authors: nvitya
  * created: 2026-01-31
- * brief:   
+ * brief:
  */
 
 #pragma once
@@ -16,7 +16,6 @@
 #include "stdint.h"
 #include <string>
 #include "comp_options.h"
-#include "comp_defines.h"
 
 #include "dqc_codegen.h"
 

@@ -31,7 +31,7 @@
 #include "dqc.h"
 #include "version.h"
 
-#define CALL_TESTCODE 1
+#define CALL_TESTCODE 0
 
 #if CALL_TESTCODE
   #include "testcode.h"
@@ -132,8 +132,7 @@ int main(int argc, char ** argv)
     testcode();
   #endif
 
-  // create the compiler object
-  g_compiler = new ODqCompiler();
+  dqc_init(); // creates the compiler object
 
   // process the command line arguments
   r = g_compiler->Run(argc, argv);

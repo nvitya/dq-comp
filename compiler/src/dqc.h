@@ -16,7 +16,6 @@
 #include "stdint.h"
 #include <string>
 #include "comp_options.h"
-#include "comp_defines.h"
 
 #include "dqc_clargs.h"
 
@@ -35,3 +34,5 @@ public:
 };
 
 extern ODqCompiler *  g_compiler;
+
+void dqc_init();

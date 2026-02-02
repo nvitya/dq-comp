@@ -5,33 +5,32 @@
  * This source code is licensed under the MIT License.
  * See the LICENSE file in the project root for the full license text.
  * ---------------------------------------------------------------------------------
- * file:    dqc_ast.h
+ * file:    scope_defines.cpp
  * authors: nvitya
- * created: 2026-01-31
+ * created: 2026-02-02
  * brief:
  */
 
 #pragma once
 
-#include "stdint.h"
-#include <string>
-#include "comp_options.h"
+#include "comp_symbols.h"
 
-#include "dqc_base.h"
-
-using namespace std;
-
-class ODqCompAst : public ODqCompBase
+class OScopeDefines : public OScope
 {
 private:
-  using            super = ODqCompBase;
+  using         super = OScope;
 
 public:
 
-public:
-  ODqCompAst();
-  virtual ~ODqCompAst();
+  OScopeDefines()
+  :
+    super(nullptr, "defines")
+  {
+  }
 
-  void AddVarDecl(OScPosition & scpos, string aid, const string atype, bool ainit, int64_t ainitval);
-
+  void Init();
 };
+
+extern OScopeDefines *  g_defines;
+
+void init_scope_defines();

@@ -5,33 +5,32 @@
  * This source code is licensed under the MIT License.
  * See the LICENSE file in the project root for the full license text.
  * ---------------------------------------------------------------------------------
- * file:    dqc_ast.h
+ * file:    otype_int.h
  * authors: nvitya
- * created: 2026-01-31
+ * created: 2026-02-02
  * brief:
  */
 
 #pragma once
 
-#include "stdint.h"
-#include <string>
-#include "comp_options.h"
+#include "comp_symbols.h"
 
-#include "dqc_base.h"
-
-using namespace std;
-
-class ODqCompAst : public ODqCompBase
+class OTypeInt : public OType
 {
 private:
-  using            super = ODqCompBase;
+  using        super = OType;
 
 public:
+  uint8_t      bitlength;
+  bool         issigned;
 
-public:
-  ODqCompAst();
-  virtual ~ODqCompAst();
-
-  void AddVarDecl(OScPosition & scpos, string aid, const string atype, bool ainit, int64_t ainitval);
+  OTypeInt(const string name, uint8_t abitlength, bool asigned)
+  :
+    super(name, TK_INT),
+    bitlength(abitlength),
+    issigned(asigned)
+  {
+    bytesize = ((abitlength + 7) >> 3);
+  }
 
 };

@@ -19,6 +19,7 @@
 #include <print>
 
 #include "comp_symbols.h"
+#include "otype_int.h"
 
 using namespace std;
 
@@ -31,7 +32,7 @@ void test_symbols()
   OScope * global_scope = new OScope(nullptr, "global");
   OScope * scope = global_scope;
 
-  OType * type_int = global_scope->DefineType(new OPrimitiveType("int"));
+  OType * type_int = global_scope->DefineType(new OTypeInt("int", 64, true));
 
   OCompoundType * type_class = new OCompoundType("OMyClass", global_scope);
   scope = type_class->Members();

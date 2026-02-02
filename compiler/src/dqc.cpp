@@ -12,6 +12,8 @@
  */
 
 #include "dqc.h"
+#include "scope_builtins.h"
+#include "scope_defines.h"
 
 ODqCompiler *  g_compiler = nullptr;
 
@@ -43,4 +45,12 @@ int ODqCompiler::Run(int argc, char ** argv)
   ParseModule();
 
   return error;
+}
+
+void dqc_init()
+{
+  init_scope_builtins();
+  init_scope_defines();
+
+  g_compiler = new ODqCompiler();
 }
