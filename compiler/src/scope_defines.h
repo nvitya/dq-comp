@@ -29,6 +29,12 @@ public:
   }
 
   void Init();
+
+protected:
+  
+
+  void LinuxInit();
+  void WindowsInit();
 };
 
 extern OScopeDefines *  g_defines;

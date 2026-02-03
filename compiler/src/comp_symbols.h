@@ -19,6 +19,8 @@
 #include <vector>
 #include <map>
 
+#include "comp_config.h"
+
 using namespace std;
 
 class OType;
@@ -181,4 +183,6 @@ public:
     super(aname, atype, VSK_CONST)
   {
   }
+
+  void SetInlineData(void * asrcdata, uint32_t alen);
 };

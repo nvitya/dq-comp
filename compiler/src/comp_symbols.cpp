@@ -12,6 +12,8 @@
  */
 
 #include "comp_symbols.h"
+#include <stdexcept>
+#include "string.h"
 
 OType * OScope::DefineType(OType * atype)
 {
@@ -67,4 +69,19 @@ OValSym * OScope::FindValSym(const string & name, OScope ** rscope)
   }
 
   return nullptr;
+}
+
+void OConstValSym::SetInlineData(void * asrcdata, uint32_t alen)
+{
+  if (alen > sizeof(inlinedata))
+  {
+    throw length_error("OConstValSym: data too big for inline storage");
+  }
+  datalen = alen;
+  dataptr = &inlinedata[0];
+
+  if (asrcdata)
+  {
+    memcpy(&inlinedata[0], asrcdata, datalen);
+  }
 }

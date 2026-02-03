@@ -15,6 +15,8 @@
 
 #include "stdint.h"
 #include <string>
+
+#include "comp_config.h"
 #include "comp_options.h"
 #include "scf_dq.h"
 

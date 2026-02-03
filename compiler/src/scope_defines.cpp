@@ -11,11 +11,28 @@
  * brief:
  */
 
+#include "comp_config.h"
 #include "scope_defines.h"
+#include "scope_builtins.h"
+
+
+OScopeDefines *  g_defines;
 
 void OScopeDefines::Init()
 {
+  #if defined(HOST_WIN)
 
+    WindowsInit();
+
+  #elif defined(HOST_LINUX)
+
+    LinuxInit();
+
+  #else
+
+    #error "unsupported platform"
+
+  #endif
 }
 
 void init_scope_defines()
@@ -24,3 +41,12 @@ void init_scope_defines()
   g_defines->Init();
 }
 
+void OScopeDefines::LinuxInit()
+{
+  DefineValSym(g_builtins->type_bool->CreateConst("LINUX", true));
+}
+
+void OScopeDefines::WindowsInit()
+{
+  DefineValSym(g_builtins->type_bool->CreateConst("WINDOWS", true));
+}

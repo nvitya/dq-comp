@@ -17,6 +17,8 @@
 #include <vector>
 #include "stdint.h"
 
+#include "comp_config.h"
+
 using namespace std;
 
 class OScFile

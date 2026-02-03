@@ -13,6 +13,7 @@
 
 #pragma once
 
+#include "comp_config.h"
 #include "comp_symbols.h"
 
 #include "otype_int.h"
