@@ -30,11 +30,8 @@ public:
 
   void Init();
 
-protected:
-  
+  bool Defined(const string aname);
 
-  void LinuxInit();
-  void WindowsInit();
 };
 
 extern OScopeDefines *  g_defines;

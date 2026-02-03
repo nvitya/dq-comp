@@ -45,12 +45,36 @@
 
 
 #if defined(__LP64__) || defined(_WIN64)
+  #define HOST_64BIT
   #define HOST_BITS     64
   #define HOST_PTRSIZE   8
-  #define HOST_64BIT
 #else
+  #define HOST_32BIT
   #define HOST_BITS     32
   #define HOST_PTRSIZE   4
-  #define HOST_32BIT
 #endif
 
+
+#if !defined(TARGET_LINUX) && !defined(TARGET_WIN)
+  #ifdef HOST_WIN
+    #define TARGET_WIN
+  #else
+    #define TARGET_LINUX
+  #endif
+#endif
+
+#if !defined(TARGET_64BIT) && !defined(TARGET_32BIT)
+  #ifdef HOST_32BIT
+    #define TARGET_32BIT
+  #else
+    #define TARGET_64BIT
+  #endif
+#endif
+
+#ifdef TARGET_32BIT
+  #define TARGET_BITS     32
+  #define TARGET_PTRSIZE   4
+#else
+  #define TARGET_BITS     64
+  #define TARGET_PTRSIZE   8
+#endif

@@ -38,12 +38,12 @@ void OScopeBuiltins::Init()
   DefineType(type_uint32);
   DefineType(type_uint64);
 
-  #if defined(HOST_64BIT)
-    type_int   = new OTypeAlias("int", type_int64);
-    type_uint   = new OTypeAlias("uint", type_uint64);
+  #if defined(TARGET_32BIT)
+    type_int   = new OTypeInt("int",  4, type_int32);
+    type_uint  = new OTypeInt("uint", 4, type_uint32);
   #else
-    type_int   = new OTypeAlias("int", type_int32);
-    type_uint   = new OTypeAlias("uint", type_uint32);
+    type_int   = new OTypeInt("int",  8, type_int64);
+    type_uint  = new OTypeInt("uint", 8, type_uint64);
   #endif
   DefineType(type_int);
   DefineType(type_uint);

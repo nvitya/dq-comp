@@ -8,7 +8,7 @@
  * file:    scf_dq.h
  * authors: nvitya
  * created: 2026-01-31
- * brief:   
+ * brief:
  */
 
 #pragma once
@@ -51,5 +51,7 @@ public: // directive processing
   void PreprocError(const string amsg, OScPosition * ascpos = nullptr, bool atryrecover = true);
 
   void ParseDirectiveInclude();
+
+  bool CheckConditionals(const string aid);  // processes if, ifdef, else, elif, elifdef, endif. Returns true, when one of those found
 
 };

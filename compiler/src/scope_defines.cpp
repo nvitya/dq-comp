@@ -15,25 +15,7 @@
 #include "scope_defines.h"
 #include "scope_builtins.h"
 
-
 OScopeDefines *  g_defines;
-
-void OScopeDefines::Init()
-{
-  #if defined(HOST_WIN)
-
-    WindowsInit();
-
-  #elif defined(HOST_LINUX)
-
-    LinuxInit();
-
-  #else
-
-    #error "unsupported platform"
-
-  #endif
-}
 
 void init_scope_defines()
 {
@@ -41,12 +23,50 @@ void init_scope_defines()
   g_defines->Init();
 }
 
-void OScopeDefines::LinuxInit()
+void OScopeDefines::Init()
 {
-  DefineValSym(g_builtins->type_bool->CreateConst("LINUX", true));
+  // using variables here to compile check the inactive branches too
+  bool target_win = false;
+  bool target_linux = false;
+  bool target_32bit = false;
+
+  #if defined(TARGET_WIN)
+    target_win = true;
+  #elif defined(TARGET_LINUX)
+    target_linux = true;
+  #else
+    #error "unsupported target platform"
+  #endif
+
+
+  if (target_win)
+  {
+    DefineValSym(g_builtins->type_bool->CreateConst("WINDOWS", true));
+  }
+
+  if (target_linux)
+  {
+    DefineValSym(g_builtins->type_bool->CreateConst("LINUX", true));
+  }
+
+  if (target_32bit)
+  {
+    DefineValSym(g_builtins->type_bool->CreateConst("TARGET_32BIT", true));
+    DefineValSym(g_builtins->type_int->CreateConst("PTRSIZE", 4));
+  }
+  else
+  {
+    DefineValSym(g_builtins->type_bool->CreateConst("TARGET_64BIT", true));
+    DefineValSym(g_builtins->type_int->CreateConst("PTRSIZE", 8));
+  }
 }
 
-void OScopeDefines::WindowsInit()
+bool OScopeDefines::Defined(const string aname)
 {
-  DefineValSym(g_builtins->type_bool->CreateConst("WINDOWS", true));
+  if (FindValSym(aname))
+  {
+    return true;
+  }
+  return false;
 }
+

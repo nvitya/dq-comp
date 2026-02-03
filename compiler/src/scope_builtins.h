@@ -27,13 +27,13 @@ private:
 public:
   OTypeBool *   type_bool;
 
-  OTypeAlias *  type_int;
+  OTypeInt *    type_int;
   OTypeInt *    type_int8;
   OTypeInt *    type_int16;
   OTypeInt *    type_int32;
   OTypeInt *    type_int64;
 
-  OTypeAlias *  type_uint;
+  OTypeInt *    type_uint;
   OTypeInt *    type_uint8;
   OTypeInt *    type_uint16;
   OTypeInt *    type_uint32;

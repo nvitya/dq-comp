@@ -179,6 +179,10 @@ void OScFeederDq::ParseDirective()
   {
     ParseDirectiveInclude(); // already contains end
   }
+  else if (CheckConditionals(sid))  // ifdef, if, else, etc
+  {
+
+  }
   else  // unknown
   {
     PreprocError(format("Unknown compiler directive \"#{{{} ... }}\"", sid));
@@ -260,4 +264,56 @@ void OScFeederDq::PreprocError(const string amsg, OScPosition * ascpos, bool atr
       CheckSymbol("}"); // consume
     }
   }
+}
+
+bool OScFeederDq::CheckConditionals(const string aid)
+{
+  string sid;
+
+  if ("ifdef" == aid)
+  {
+    SkipSpaces();
+    if (not ReadIdentifier(sid))
+    {
+      PreprocError("Define symbol name is missing after ifdef");
+    }
+    else
+    {
+      print("{}: ", scpos_start_directive.Format());
+      print("#ifdef \"{}\" found\n", sid);
+    }
+  }
+  else if ("if" == aid)
+  {
+    print("{}: #if found\n", scpos_start_directive.Format());
+  }
+  else if ("else" == aid)
+  {
+    print("{}: #else found\n", scpos_start_directive.Format());
+  }
+  else if ("elif" == aid)
+  {
+    print("{}: #elif found\n", scpos_start_directive.Format());
+  }
+  else if ("elifdef" == aid)
+  {
+    print("{}: #elif found\n", scpos_start_directive.Format());
+  }
+  else if ("endif" == aid)
+  {
+    print("{}: #endif found\n", scpos_start_directive.Format());
+  }
+  else
+  {
+    return false;
+  }
+
+  // find the end
+  SkipSpaces();
+  if (not CheckSymbol("}"))
+  {
+    PreprocError("Closing \"}\" is missing");
+  }
+
+  return true;
 }
