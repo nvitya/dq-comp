@@ -23,6 +23,7 @@
 #include <filesystem>
 
 #include "scf_dq.h"
+#include "scope_defines.h"
 
 //---------------------------------------------------------
 
@@ -32,6 +33,14 @@ OScFeederDq::OScFeederDq()
 
 OScFeederDq::~OScFeederDq()
 {
+  // free the conditional chain
+  while (curcond)
+  {
+    OScfCondition * p = curcond->parent;
+    delete curcond;
+    curcond = p;
+  }
+
   Reset();
 }
 
@@ -270,38 +279,147 @@ bool OScFeederDq::CheckConditionals(const string aid)
 {
   string sid;
 
-  if ("ifdef" == aid)
+  // starters
+
+  if (("ifdef" == aid) || ("ifndef" == aid))
+  {
+    SkipSpaces();
+
+    curcond = new OScfCondition(curcond, scpos_start_directive, inactive_code);
+
+    if (!ReadIdentifier(sid))
+    {
+      PreprocError("Define symbol name is missing after ifdef");
+      inactive_code = true;
+    }
+    else
+    {
+      if (not inactive_code)
+      {
+        bool isdefined = g_defines->Defined(sid);
+        if ((("ifdef" == aid) and isdefined) or (("ifndef" == aid) and not isdefined))
+        {
+          curcond->branch_taken = true;
+        }
+        else
+        {
+          inactive_code = true;
+        }
+      }
+    }
+
+    print("{}: #{{{}}} \"{}\" {}\n", scpos_start_directive.Format(), aid, sid, (inactive_code ? "(inactive)" : ""));
+  }
+  else if ("if" == aid)
+  {
+    print("{}: #if found, NOT IMPLEMENTED YET!\n", scpos_start_directive.Format());
+  }
+
+  // closer
+
+  else if ("endif" == aid)
+  {
+    if (!curcond)
+    {
+      PreprocError("#{{endif}} without previous #{{if...}}!");
+    }
+    else
+    {
+      if (curcond->startpos.scfile != curfile)
+      {
+        PreprocError("#{{endif}} for different include file!");
+      }
+      inactive_code = curcond->parent_inactive;
+      curcond = curcond->parent;
+      print("{}: #{{endif}} {}\n", scpos_start_directive.Format(), (inactive_code ? "(inactive)" : ""));
+    }
+  }
+
+  // continuing
+
+  else if ("else" == aid)
+  {
+    if (!curcond)
+    {
+      PreprocError("#{{else}} without #{{if...}}");
+    }
+    else if (FCOND_ELSE == curcond->state)
+    {
+      PreprocError(format("#{{else}} directive after previous #{{else}} at {}", curcond->elsepos.Format()));
+    }
+    else
+    {
+      inactive_code = curcond->parent_inactive;
+
+      if (curcond->startpos.scfile != curfile)  // same include ?
+      {
+        PreprocError("#{{else}} for #{{if...}} in different include file!");
+        curcond = new OScfCondition(curcond, scpos_start_directive, inactive_code);
+        inactive_code = true;
+      }
+
+      curcond->state = FCOND_ELSE;
+      curcond->elsepos.Assign(scpos_start_directive);
+
+      if (not inactive_code and curcond->branch_taken)
+      {
+        inactive_code = true;
+      }
+
+      print("{}: #{{else}} {}\n", scpos_start_directive.Format(), (inactive_code ? "(inactive)" : ""));
+    }
+  }
+  else if (("elifdef" == aid) || ("elifndef" == aid))
   {
     SkipSpaces();
     if (not ReadIdentifier(sid))
     {
       PreprocError("Define symbol name is missing after ifdef");
+      inactive_code = true;
+    }
+
+    if (!curcond)
+    {
+      PreprocError(format("#{{{}}} without #{{if...}}", aid));
+      inactive_code = true;
+    }
+    else if (FCOND_ELSE == curcond->state)
+    {
+      PreprocError(format("#{{elif...}} directive after previous #{{else}} at {}", curcond->elsepos.Format()));
+      inactive_code = true;
     }
     else
     {
-      print("{}: ", scpos_start_directive.Format());
-      print("#ifdef \"{}\" found\n", sid);
+      // restore the inactive code state
+      inactive_code = (curcond->parent_inactive or curcond->branch_taken);
+
+      if (curcond->startpos.scfile != curfile)  // same include ?
+      {
+        PreprocError("#{{elifdef}} for #{{if...}} in different include file!");
+        curcond = new OScfCondition(curcond, scpos_start_directive, inactive_code);
+        inactive_code = true;
+      }
+
+      curcond->state = FCOND_ELIF;
+      if (not inactive_code)
+      {
+        bool isdefined = g_defines->Defined(sid);
+        if ((("elifdef" == aid) and isdefined) or (("elifndef" == aid) and not isdefined))
+        {
+          curcond->branch_taken = true;
+        }
+        else
+        {
+          inactive_code = true;
+        }
+      }
     }
-  }
-  else if ("if" == aid)
-  {
-    print("{}: #if found\n", scpos_start_directive.Format());
-  }
-  else if ("else" == aid)
-  {
-    print("{}: #else found\n", scpos_start_directive.Format());
+
+    print("{}: #{{{}}} \"{}\" {}\n", scpos_start_directive.Format(), aid, sid, (inactive_code ? "(inactive)" : ""));
   }
   else if ("elif" == aid)
   {
-    print("{}: #elif found\n", scpos_start_directive.Format());
-  }
-  else if ("elifdef" == aid)
-  {
-    print("{}: #elif found\n", scpos_start_directive.Format());
-  }
-  else if ("endif" == aid)
-  {
-    print("{}: #endif found\n", scpos_start_directive.Format());
+    print("{}: #{{elif}} found, NOT IMPLEMENTED YET!\n", scpos_start_directive.Format());
   }
   else
   {

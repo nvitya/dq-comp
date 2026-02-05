@@ -20,6 +20,34 @@
 
 using namespace std;
 
+enum EScfCondState
+{
+  FCOND_IF    = 0,
+  FCOND_ELIF  = 1,
+  FCOND_ELSE  = 2
+};
+
+class OScfCondition
+{
+public:
+  EScfCondState        state;
+  bool                 parent_inactive = false;
+  bool                 branch_taken = false;
+
+  OScfCondition *      parent;
+  OScPosition          startpos;
+  OScPosition          elsepos;
+
+  OScfCondition(OScfCondition * aparent, OScPosition astartpos, bool aparent_inactive)
+  :
+    parent(aparent),
+    startpos(astartpos),
+    parent_inactive(aparent_inactive),
+    state(FCOND_IF)
+  {
+  }
+};
+
 class OScFeederDq : public OScFeederBase
 {
 private:
@@ -32,6 +60,8 @@ public:
   vector<OScPosition>  returnpos;
 
   OScPosition          scpos_start_directive;
+  OScfCondition *      curcond = nullptr;
+  bool                 inactive_code = false;
 
   OScFeederDq();
   virtual ~OScFeederDq();

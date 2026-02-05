@@ -13,11 +13,16 @@
 
 #{ifdef LINUX}
 
-  var platformvar : int = 1;
+  #{ifdef VALAMI}
+    var platformvar : int = 1;
+  #{endif}
 
 #{elifdef WINDOWS}
 
   var platformvar : int = 2;
+  #{ifdef WINVALAMI}
+  #{else}
+  #{endif}
 
 #{else}
 
