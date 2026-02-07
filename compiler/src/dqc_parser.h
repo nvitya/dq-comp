@@ -28,6 +28,7 @@ private:
 
 public:
   OScPosition      scpos_statement_start;
+  OScPosition *    errorpos = nullptr;  // if nullptr then uses the scpos_statement_start
 
 public:
   ODqCompParser();
@@ -39,5 +40,9 @@ public:
   bool CheckType(const string atype, OScPosition * ascpos);
 
   void StatementError(const string amsg, OScPosition * scpos = nullptr, bool atryrecover = true);
+
+  void Error(const string amsg, OScPosition * ascpos = nullptr);
+  void Warning(const string amsg, OScPosition * ascpos = nullptr);
+  void Hint(const string amsg, OScPosition * ascpos = nullptr);
 
 };

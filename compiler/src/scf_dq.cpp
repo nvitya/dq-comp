@@ -24,6 +24,9 @@
 
 #include "scf_dq.h"
 #include "scope_defines.h"
+#include "scope_builtins.h"
+
+#include "dqc.h"
 
 //---------------------------------------------------------
 
@@ -83,6 +86,7 @@ OScFile * OScFeederDq::LoadFile(const string afilename)
   {
     if (fs->name == afilename)
     {
+      ++fs->usagecount;  // increment usage count for #{include_once}
       return fs;
     }
   }
@@ -121,7 +125,7 @@ repeat_skip:  // jumped here when returning from an include
 
     if (curp >= bufend)
     {
-      return;
+      break;  // end of current file
     }
 
     if (CheckSymbol("//")) // single line comment
@@ -166,6 +170,8 @@ repeat_skip:  // jumped here when returning from an include
 
     goto repeat_skip;
   }
+
+  return;
 }
 
 void OScFeederDq::SkipInactiveCode()  // for an inactive #{if...} branch, called only from SkipWhite()
@@ -252,16 +258,60 @@ void OScFeederDq::ParseDirective()
       return;
     }
   }
+  else if ("define" == sid)
+  {
+    ParseDirectiveDefine();
+  }
   else if ("include" == sid)
   {
     ParseDirectiveInclude(); // already contains end
+  }
+  else if ("include_once" == sid)
+  {
+    FindDirectiveEnd();
+    if (curfile->usagecount > 1)
+    {
+      // skip to the end
+      curp = bufend;
+
+      print("{}: ", scpos_start_directive.Format());
+      print("include_once found, returning from the include now\n");
+    }
   }
   else  // unknown
   {
     PreprocError(format("Unknown compiler directive \"#{{{} ... }}\"", sid));
     return;
   }
+}
 
+void OScFeederDq::ParseDirectiveDefine()
+{
+  // #{define DEFNAME }
+  // note: include already consumed!
+
+  string sid;
+
+  SkipSpaces();
+
+  // identifier must come here
+  if (not ReadIdentifier(sid))
+  {
+    PreprocError("#{define} error: identifier is missing");
+    return;
+  }
+
+  if (not FindDirectiveEnd())
+  {
+    return;
+  }
+
+  // TODO: handle advanced constructs like #{define MAXLEN : int = 32}
+
+  // Override the source code position, to point to the #{define ...} statement start
+  g_compiler->errorpos = &scpos_start_directive;
+  g_defines->DefineValSym(g_builtins->type_bool->CreateConst(sid, true));
+  g_compiler->errorpos = nullptr;  // return to the default error position (statement start)
 }
 
 void OScFeederDq::ParseDirectiveInclude()
@@ -317,14 +367,11 @@ void OScFeederDq::ParseDirectiveInclude()
 
 void OScFeederDq::PreprocError(const string amsg, OScPosition * ascpos, bool atryrecover)
 {
-  OScPosition log_scpos(curfile, curp);
+  OScPosition * epos = ascpos;
+  if (!epos)  epos = &scpos_start_directive;
 
-  if (ascpos and ascpos->scfile) // use the position provided
-  {
-    log_scpos.Assign(*ascpos);
-  }
-
-  print("{}: {}\n", log_scpos.Format(), amsg);
+  g_compiler->Error(amsg, epos);
+  //print("{}: {}\n", log_scpos.Format(), amsg);
 
   // try to recover
   if (atryrecover)

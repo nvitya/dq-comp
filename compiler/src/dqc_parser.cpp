@@ -32,6 +32,10 @@ void ODqCompParser::ParseModule()
   while (not scf->Eof())
   {
     scf->SkipWhite(); // jumps to the first normal token
+    if (scf->Eof())
+    {
+      return; // end of module
+    }
 
     scf->SaveCurPos(scpos_statement_start);  // to display the statement start
 
@@ -147,7 +151,8 @@ void ODqCompParser::StatementError(const string amsg, OScPosition * scpos, bool 
     log_scpos.Assign(*scpos);
   }
 
-  print("{}: {}\n", log_scpos.Format(), amsg);
+  Error(amsg, &log_scpos);
+  //print("{}: {}\n", log_scpos.Format(), amsg);
 
   // try to recover
   if (atryrecover)
@@ -170,4 +175,31 @@ bool ODqCompParser::CheckStatementClose()
     return false;
   }
   return true;
+}
+
+void ODqCompParser::Error(const string amsg, OScPosition * ascpos)
+{
+  OScPosition * epos = ascpos;
+  if (!epos) epos = errorpos;
+  if (!epos) epos = &scpos_statement_start;
+
+  print("{} ERROR: {}\n", epos->Format(), amsg);
+}
+
+void ODqCompParser::Warning(const string amsg, OScPosition * ascpos)
+{
+  OScPosition * epos = ascpos;
+  if (!epos) epos = errorpos;
+  if (!epos) epos = &scpos_statement_start;
+
+  print("{} WARNING: {}\n", epos->Format(), amsg);
+}
+
+void ODqCompParser::Hint(const string amsg, OScPosition * ascpos)
+{
+  OScPosition * epos = ascpos;
+  if (!epos) epos = errorpos;
+  if (!epos) epos = &scpos_statement_start;
+
+  print("{} HINT: {}\n", epos->Format(), amsg);
 }

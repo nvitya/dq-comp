@@ -11,20 +11,37 @@
  * brief:   Compiler Symbol Objects
  */
 
-#include "comp_symbols.h"
 #include <stdexcept>
 #include "string.h"
+#include <format>
+
+#include "comp_symbols.h"
+#include "dqc.h"
+
+using namespace std;
 
 OType * OScope::DefineType(OType * atype)
 {
-  // TODO: check for duplicates
+  auto found = typesyms.find(atype->name);
+  if (found != typesyms.end())
+  {
+    g_compiler->Error(format("Type \"{}\" is already defined in scope \"{}\"", atype->name, this->debugname));
+    return found->second;
+  }
+
   typesyms[atype->name] = atype;
   return atype;
 }
 
 OValSym * OScope::DefineValSym(OValSym * avalsym)
 {
-  // TODO: check for duplicates
+  auto found = valsyms.find(avalsym->name);
+  if (found != valsyms.end())
+  {
+    g_compiler->Error(format("\"{}\" is already defined in scope \"{}\"", avalsym->name, this->debugname));
+    return found->second;
+  }
+
   valsyms[avalsym->name] = avalsym;
   return avalsym;
 }

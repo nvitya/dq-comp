@@ -31,6 +31,8 @@ public:
   char *    pstart = nullptr;
   char *    pend   = nullptr;
 
+  int       usagecount = 1;
+
   OScFile();
   ~OScFile();
 

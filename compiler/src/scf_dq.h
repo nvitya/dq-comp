@@ -83,6 +83,7 @@ public: // directive processing
   void PreprocError(const string amsg, OScPosition * ascpos = nullptr, bool atryrecover = true);
 
   void ParseDirectiveInclude();
+  void ParseDirectiveDefine();
   bool FindDirectiveEnd();
 
   bool CheckConditionals(const string aid);  // processes if, ifdef, else, elif, elifdef, endif. Returns true, when one of those found

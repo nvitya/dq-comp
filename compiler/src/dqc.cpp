@@ -11,6 +11,8 @@
  * brief:   DQ Compiler Object global instance
  */
 
+ #include <print>
+
 #include "dqc.h"
 #include "scope_builtins.h"
 #include "scope_defines.h"

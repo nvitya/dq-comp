@@ -18,10 +18,11 @@
 #include "comp_options.h"
 
 #include "dqc_clargs.h"
+#include "scf_base.h"
 
 using namespace std;
 
-class ODqCompiler : ODqCompClargs
+class ODqCompiler : public ODqCompClargs
 {
 private:
   using            super = ODqCompClargs;
