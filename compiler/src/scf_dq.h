@@ -76,11 +76,14 @@ public: // parsing functions
 
   void SkipWhite(); // jumps to the first normal token
 
+  void SkipInactiveCode();
+
 public: // directive processing
   void ParseDirective();
   void PreprocError(const string amsg, OScPosition * ascpos = nullptr, bool atryrecover = true);
 
   void ParseDirectiveInclude();
+  bool FindDirectiveEnd();
 
   bool CheckConditionals(const string aid);  // processes if, ifdef, else, elif, elifdef, endif. Returns true, when one of those found
 

@@ -441,7 +441,7 @@ bool OScFeederBase::SearchPattern(const char * checkchars, bool aconsume)  // re
   return false;
 }
 
-bool OScFeederBase::CheckSymbol(const char * checkstring)
+bool OScFeederBase::CheckSymbol(const char * checkstring, bool aconsume)
 {
   char *  p = curp;
   char *  csptr = (char *)checkstring;
@@ -460,7 +460,11 @@ bool OScFeederBase::CheckSymbol(const char * checkstring)
     return false;
   }
 
-  curp = p;
+  if (aconsume)
+  {
+    curp = p;
+  }
+
   return true;
 }
 
@@ -559,7 +563,7 @@ bool OScFeederBase::ReadQuotedString(string & rvalue)
   SaveCurPos(prevpos);  // for precise error position tracking
   prevp = curp;
 
-  if ( (curp >= bufend) or ((*curp != '"') and (*curp != '\'')) ) // Corrected: Changed " to " and ' to \'
+  if ( (curp >= bufend) or ((*curp != '"') and (*curp != '\'')) )
   {
     return false;
   }
@@ -568,7 +572,7 @@ bool OScFeederBase::ReadQuotedString(string & rvalue)
 
   char *  savedpos = curp;
   char    startquote = *curp;  // single or double
-  char    stopchars[5] = {startquote, '\\', '\n', '\r', 0}; // Corrected: Added \\ for backslash
+  char    stopchars[5] = {startquote, '\\', '\n', '\r', 0};
 
   ++curp;  // skip "
   prevp = curp;
@@ -588,13 +592,13 @@ bool OScFeederBase::ReadQuotedString(string & rvalue)
       ++curp; // skip the closing
       break;
     }
-    else if ('\\' == *curp) // escape char // Corrected: Changed ' to \'
+    else if ('\\' == *curp) // escape char
     {
-      if (CheckSymbol("\\\"")) // Corrected: Escaped " within the string literal
+      if (CheckSymbol("\\\"")) // Escaped " within the string literal
       {
         result += "\"";
       }
-      else if (CheckSymbol("\\\'")) // Corrected: Escaped ' within the string literal
+      else if (CheckSymbol("\\\'")) // Escaped ' within the string literal
       {
         result += "\'";
       }
@@ -610,7 +614,7 @@ bool OScFeederBase::ReadQuotedString(string & rvalue)
       {
         result += "\t";
       }
-      else if (CheckSymbol("\\\\")) // Corrected: Escaped \\ within the string literal
+      else if (CheckSymbol("\\\\")) // Escaped \\ within the string literal
       {
         result += "\\";
       }

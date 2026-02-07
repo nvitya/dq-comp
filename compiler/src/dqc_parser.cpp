@@ -8,7 +8,7 @@
  * file:    dqc_parser.cpp
  * authors: nvitya
  * created: 2026-01-31
- * brief:   
+ * brief:
  */
 
 #include <print>
@@ -169,6 +169,5 @@ bool ODqCompParser::CheckStatementClose()
     StatementError("\";\" is expected to close the previous statement");
     return false;
   }
-  scf->SkipWhite();
   return true;
 }

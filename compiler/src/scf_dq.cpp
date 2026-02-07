@@ -147,9 +147,16 @@ repeat_skip:  // jumped here when returning from an include
     }
     else // should be a normal token then
     {
-      return;
+      if (not inactive_code)
+      {
+        return; // active token found
+      }
+      else
+      {
+        SkipInactiveCode();  // might return early to let the SkipWhite() to process some parts
+      }
     }
-  }
+  } // while
 
   if (returnpos.size() > 0) // is there any return position recorded ?
   {
@@ -158,6 +165,55 @@ repeat_skip:  // jumped here when returning from an include
     SetCurPos(rpos);
 
     goto repeat_skip;
+  }
+}
+
+void OScFeederDq::SkipInactiveCode()  // for an inactive #{if...} branch, called only from SkipWhite()
+{
+  // #{if...} and #{endif} must be handled correctly
+  // handle strings like var s : str = "My #{ifdef WINDOWS} value";
+
+  while (curp < bufend)
+  {
+    if (not ReadTo("\"\'#/"))  // skip to: directive start, string start, comment start
+    {
+      // file/include end reached
+      return; // return to the SkipWhite() to handle this
+    }
+
+    // / | " | ' | #  was found, not consumed
+
+    if (('"' == *curp) or ('\'' == *curp))  // string start ?
+    {
+      string s;
+      if (not ReadQuotedString(s)) // try to consume the string
+      {
+        ++curp;  // if string closing was not found skip the string starter
+      }
+
+      continue;
+    }
+
+    // Call CheckSymbol with consume=false, to not consume the symbols
+
+    if (CheckSymbol("#{", false))  // directive
+    {
+      return;  // return to the SkipWhite() to handle this
+    }
+
+    // ony the '/' remained
+
+    if (CheckSymbol("//", false)) // single line comment
+    {
+      return;  // return to the SkipWhite() to handle this
+    }
+
+    if (CheckSymbol("/*", false)) // multi-line comment
+    {
+      return;  // return to the SkipWhite() to handle this
+    }
+
+    ++curp;  // otherwise: skip this char ('/')
   }
 }
 
@@ -184,13 +240,21 @@ void OScFeederDq::ParseDirective()
 
   // process the directive...
 
-  if ("include" == sid)
-  {
-    ParseDirectiveInclude(); // already contains end
-  }
-  else if (CheckConditionals(sid))  // ifdef, if, else, etc
+  if (CheckConditionals(sid))  // ifdef, if, else, etc
   {
 
+  }
+  else if (inactive_code)
+  {
+    // ignore the directives in the inactive code
+    if (not FindDirectiveEnd())
+    {
+      return;
+    }
+  }
+  else if ("include" == sid)
+  {
+    ParseDirectiveInclude(); // already contains end
   }
   else  // unknown
   {
@@ -215,11 +279,8 @@ void OScFeederDq::ParseDirectiveInclude()
     return;
   }
 
-  // find the end
-  SkipSpaces();
-  if (not CheckSymbol("}"))
+  if (not FindDirectiveEnd())
   {
-    PreprocError("Closing \"}\" is missing");
     return;
   }
 
@@ -275,7 +336,7 @@ void OScFeederDq::PreprocError(const string amsg, OScPosition * ascpos, bool atr
   }
 }
 
-bool OScFeederDq::CheckConditionals(const string aid)
+bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a conditional processed
 {
   string sid;
 
@@ -426,11 +487,19 @@ bool OScFeederDq::CheckConditionals(const string aid)
     return false;
   }
 
-  // find the end
+  FindDirectiveEnd();
+  return true;
+}
+
+bool OScFeederDq::FindDirectiveEnd()
+{
+  // the #{id is already consumed, find the end
+
   SkipSpaces();
   if (not CheckSymbol("}"))
   {
-    PreprocError("Closing \"}\" is missing");
+    PreprocError("Compiler directive closer \"}\" is missing");
+    return false;
   }
 
   return true;

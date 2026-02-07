@@ -95,7 +95,7 @@ public: // parsing functions
   bool ReadLine();                 // sets prevptr, prevlen
   bool ReadTo(const char * checkchars);  // sets prevptr, prevlen
   bool ReadToChar(char achar);     // sets prevptr, prevlen
-  bool CheckSymbol(const char * checkstring);
+  bool CheckSymbol(const char * checkstring, bool aconsume = true);
   bool SearchPattern(const char * checkchars, bool aconsume = true);  // sets prevptr, prevlen
 
   bool ReadIdentifier(string & rvalue);  // returns "" when invalid

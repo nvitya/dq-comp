@@ -13,9 +13,7 @@
 
 #{ifdef LINUX}
 
-  #{ifdef VALAMI}
-    var platformvar : int = 1;
-  #{endif}
+  var platformvar : int = 1;
 
 #{elifdef WINDOWS}
 
@@ -25,6 +23,15 @@
   #{endif}
 
 #{else}
+
+  // inactive code test
+  /*
+    multi-line comment
+  */
+
+  var s : stringa = " #{endif} ";  // #{endif} in string and comment
+
+  varxxx blabla;  // this is an invalid statement
 
   var platformvar : int = 3;
 
