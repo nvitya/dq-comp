@@ -8,7 +8,7 @@
  * file:    dqc_base.cpp
  * authors: nvitya
  * created: 2026-01-31
- * brief:   
+ * brief:
  */
 
 #include "dqc_base.h"
@@ -28,4 +28,24 @@ int ODqCompBase::SetError(int aerror, const string amsg)
   error = aerror;
   errormsg = amsg;
   return error;
+}
+
+const string dq_reserved_words =
+   "|var|function|use|implementation|initialization|finalization"
+   "|and|not|or"
+   "|NOT|AND|OR|XOR|IDIV|IMOD"
+   "|"
+;
+
+bool ODqCompBase::ReservedWord(const string aname)
+{
+  string search_target = "|" + aname + "|";
+  if (dq_reserved_words.find(search_target) != string::npos)
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
 }

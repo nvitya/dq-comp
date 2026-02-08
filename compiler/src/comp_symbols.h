@@ -94,6 +94,7 @@ private:
 
 public:
   ETypeKind    kind;
+  bool         incomplete = false;
   uint32_t     bytesize = 0;  // 0 = size is not fixed (string, dyn. array)
 
   OType(const string aname, ETypeKind akind)

@@ -16,7 +16,7 @@
 #include "stdint.h"
 #include <string>
 #include "comp_options.h"
-
+#include "statements.h"
 #include "dqc_ast.h"
 
 using namespace std;
@@ -35,11 +35,14 @@ public:
   virtual ~ODqCompParser();
 
   void ParseModule();
-  void ParseStatementVar();
+  void ParseStatementVar(OScope * ascope);
+  void ParseFunction();
   bool CheckStatementClose();
   bool CheckType(const string atype, OScPosition * ascpos);
 
   void StatementError(const string amsg, OScPosition * scpos = nullptr, bool atryrecover = true);
+
+  void ReadStatementBlock(OStmtBlock * block, const string blockend);
 
   void Error(const string amsg, OScPosition * ascpos = nullptr);
   void Warning(const string amsg, OScPosition * ascpos = nullptr);

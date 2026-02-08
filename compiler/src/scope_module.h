@@ -5,36 +5,37 @@
  * This source code is licensed under the MIT License.
  * See the LICENSE file in the project root for the full license text.
  * ---------------------------------------------------------------------------------
- * file:    dqc_base.h
+ * file:    scope_module.h
  * authors: nvitya
- * created: 2026-01-31
+ * created: 2026-02-07
  * brief:
  */
 
 #pragma once
 
-#include "stdint.h"
-#include <string>
-
 #include "comp_config.h"
-#include "comp_options.h"
-#include "scf_dq.h"
+#include "comp_symbols.h"
 
-using namespace std;
+#include "otype_int.h"
+#include "otype_bool.h"
 
-class ODqCompBase
+class OScopeModule : public OScope  // module global scope
 {
-public:
-  OScFeederDq *    scf = nullptr;
-
-  int              error = 0;
-  string           errormsg = "";
+private:
+  using         super = OScope;
 
 public:
-  ODqCompBase();
-  virtual ~ODqCompBase();
+  
 
-  int SetError(int aerror, const string amsg);
+  OScopeModule()
+  :
+    super(nullptr, "global")
+  {
+  }
 
-  bool ReservedWord(const string aname);
+  void Init();
 };
+
+extern OScopeModule *  g_module;
+
+void init_scope_module();

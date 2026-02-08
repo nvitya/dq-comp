@@ -18,6 +18,7 @@
 
 #include "otype_int.h"
 #include "otype_bool.h"
+#include "otype_func.h"
 
 class OScopeBuiltins : public OScope
 {
@@ -26,6 +27,7 @@ private:
 
 public:
   OTypeBool *   type_bool;
+  OTypeFunc *   type_func;
 
   OTypeInt *    type_int;
   OTypeInt *    type_int8;

@@ -14,7 +14,9 @@
 #include <print>
 #include <format>
 
+#include "scope_module.h"
 #include "dqc_parser.h"
+#include "otype_func.h"
 
 ODqCompParser::ODqCompParser()
 {
@@ -51,7 +53,11 @@ void ODqCompParser::ParseModule()
 
     if ("var" == sid) // global variable definition
     {
-      ParseStatementVar();
+      ParseStatementVar(g_module);
+    }
+    else if ("function" == sid)
+    {
+      ParseFunction();
     }
     else  // unknown
     {
@@ -64,7 +70,7 @@ void ODqCompParser::ParseModule()
   //printf("First normal token:\n\"%s\"\n", scf->curp);
 }
 
-void ODqCompParser::ParseStatementVar()
+void ODqCompParser::ParseStatementVar(OScope * ascope)
 {
   // syntax form: "var identifier : type [ = initial value];"
   // note: "var" is already consumed
@@ -125,6 +131,160 @@ void ODqCompParser::ParseStatementVar()
 
   // everything is fine
   AddVarDecl(scpos_statement_start, sid, stype, initialized, initvalue);
+}
+
+void ODqCompParser::ParseFunction()
+{
+  // note: "function" is already consumed
+  // syntax form: "function identifier[(arglist)] [-> return_type] <statement_block | ;>"
+  // statement block must follow, when ';' then it is a forward declaration
+
+  string   sid;
+  string   stype;
+
+  scf->SkipWhite();
+  if (not scf->ReadIdentifier(sid))
+  {
+    StatementError("Identifier is expected after \"function\". Syntax: \"function identifier(arglist) -> return_type\"");
+    return;
+  }
+
+  OTypeFunc    * tfunc  = new OTypeFunc(sid);
+  OValSymFunc  * vsfunc = new OValSymFunc(sid, tfunc, g_module);
+
+  scf->SkipWhite();
+  if (scf->CheckSymbol("("))  // parameter list start
+  {
+    string spname;
+    string sptype;
+
+    while (not scf->Eof())
+    {
+      scf->SkipWhite();
+      if (scf->CheckSymbol(")"))
+      {
+        break;
+      }
+
+      if (tfunc->params.size() > 0)
+      {
+        if (not scf->CheckSymbol(","))
+        {
+          StatementError("\",\" expected for parameter lists");
+        }
+      }
+
+      if (not scf->ReadIdentifier(spname))
+      {
+        StatementError("Parameter name expected");
+        if (not scf->ReadTo(",)"))  // try to skip to next parameter
+        {
+          break;  // serious problem, would lead to endless-loop
+        }
+        continue;
+      }
+
+      if (not tfunc->ParNameValid(spname))
+      {
+        StatementError("Invalid function parameter name \""+spname+"\"");
+        scf->ReadTo(",)");  // try to skip to next parameter
+        continue;
+      }
+
+      scf->SkipWhite();
+      if (not scf->CheckSymbol(":"))
+      {
+        StatementError("Parameter type specification expected: \": type\"");
+        scf->ReadTo(",)");  // try to skip to next parameter
+        continue;
+      }
+
+      scf->SkipWhite();
+      if (not scf->ReadIdentifier(sptype))
+      {
+        StatementError("Function parameter type name expected");
+        scf->ReadTo(",)");  // try to skip to next parameter
+        continue;
+      }
+
+      OType * ptype = g_module->FindType(sptype);
+      if (!ptype)
+      {
+        StatementError(format("Unknown function parameter type \"{}\"", sptype));
+        scf->ReadTo(",)");  // try to skip to next parameter
+        continue;
+      }
+
+      // OK
+      tfunc->AddParam(spname, ptype);
+
+    }  // while function parameters
+  }
+
+  scf->SkipWhite();
+  if (scf->CheckSymbol("->"))  // return type
+  {
+    scf->SkipWhite();
+    string frtname;
+    if (not scf->ReadIdentifier(frtname))
+    {
+      StatementError("Function return type identifier expected after \"->\"");
+    }
+    else
+    {
+      tfunc->rettype = g_module->FindType(frtname);
+      if (not tfunc->rettype)
+      {
+        StatementError(format("Unknown function parameter type \"{}\"", frtname));
+      }
+    }
+  }
+
+  // go on with the function body
+
+  ReadStatementBlock(vsfunc->body, "endfunc");
+}
+
+void ODqCompParser::ReadStatementBlock(OStmtBlock * block, const string blockend)
+{
+  string block_closer;
+
+  scf->SkipWhite();
+  if (scf->CheckSymbol("{"))
+  {
+    block_closer = "}";
+  }
+  else if (scf->CheckSymbol(":"))
+  {
+    block_closer = blockend;
+  }
+  else
+  {
+    StatementError("\":\" is missing for statement block start");
+    block_closer = blockend;
+  }
+
+  while (not scf->Eof())
+  {
+    scf->SkipWhite();
+    if (scf->CheckSymbol(block_closer.c_str()))
+    {
+      return;  // block closer was found
+    }
+
+    if (scf->Eof())
+    {
+      StatementError(format("Statement block closer \"{}\" is missing");
+      return;
+    }
+
+    // there should be a normal statement
+
+    if (scf->CheckSymbol("var"))  // local variable declaration
+    {
+      ParseStatementVar(block->scope);
+    }
+  }
 }
 
 bool ODqCompParser::CheckType(const string atype, OScPosition * ascpos)

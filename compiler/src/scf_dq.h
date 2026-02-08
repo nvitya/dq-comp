@@ -60,8 +60,6 @@ public:
   vector<OScPosition>  returnpos;
 
   OScPosition          scpos_start_directive;
-  OScfCondition *      curcond = nullptr;
-  bool                 inactive_code = false;
 
   OScFeederDq();
   virtual ~OScFeederDq();
@@ -76,9 +74,11 @@ public: // parsing functions
 
   void SkipWhite(); // jumps to the first normal token
 
-  void SkipInactiveCode();
+protected:
 
-public: // directive processing
+  OScfCondition *      curcond = nullptr;
+  bool                 inactive_code = false;
+
   void ParseDirective();
   void PreprocError(const string amsg, OScPosition * ascpos = nullptr, bool atryrecover = true);
 
@@ -88,4 +88,5 @@ public: // directive processing
 
   bool CheckConditionals(const string aid);  // processes if, ifdef, else, elif, elifdef, endif. Returns true, when one of those found
 
+  void SkipInactiveCode();
 };
