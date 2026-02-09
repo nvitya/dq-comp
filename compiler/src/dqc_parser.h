@@ -30,9 +30,6 @@ public:
   OScPosition      scpos_statement_start;
   OScPosition *    errorpos = nullptr;  // if nullptr then uses the scpos_statement_start
 
-  bool             section_public = true;
-  OScope *         cur_mod_scope = nullptr;
-
 public:
   ODqCompParser();
   virtual ~ODqCompParser();

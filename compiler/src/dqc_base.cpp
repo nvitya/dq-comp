@@ -31,9 +31,10 @@ int ODqCompBase::SetError(int aerror, const string amsg)
 }
 
 const string dq_reserved_words =
-   "|var|function|use|implementation|initialization|finalization"
+   "|var|for|while|if|else|return|break|continue"
    "|and|not|or"
    "|NOT|AND|OR|XOR|IDIV|IMOD"
+   "|function|use|implementation|initialization|finalization"
    "|"
 ;
 

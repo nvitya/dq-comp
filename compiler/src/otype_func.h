@@ -93,6 +93,7 @@ private:
 
 public:
   //vector<OValSym *>  params;
+  OValSym *          vsresult = nullptr;
   OScope *           scope;
   OStmtBlock *       body;
 
@@ -102,10 +103,17 @@ public:
   {
     scope = new OScope(aparentscope, "function_"+aname);
     body  = new OStmtBlock(scope);
+
+    if (atype->rettype)
+    {
+      vsresult = atype->CreateValSym("result");
+      scope->DefineValSym(vsresult);
+    }
   }
 
   virtual ~OValSymFunc()
   {
+    if (vsresult)  delete vsresult;
     delete body;
     delete scope;
   }

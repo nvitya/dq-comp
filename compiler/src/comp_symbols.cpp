@@ -88,6 +88,12 @@ OValSym * OScope::FindValSym(const string & name, OScope ** rscope, bool arecurs
   return nullptr;
 }
 
+OValSym * OType::CreateValSym(const string aname)
+{
+  OValSym * result = new OValSym(aname, this);
+  return result;
+}
+
 void OConstValSym::SetInlineData(void * asrcdata, uint32_t alen)
 {
   if (alen > sizeof(inlinedata))

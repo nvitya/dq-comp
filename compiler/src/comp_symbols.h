@@ -105,6 +105,8 @@ public:
   }
 
   inline bool IsCompound()   { return (kind == TK_COMPOUND);  }
+
+  virtual OValSym * CreateValSym(const string aname);
 };
 
 class OTypeAlias : public OType

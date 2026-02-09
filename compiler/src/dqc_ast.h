@@ -16,6 +16,8 @@
 #include "stdint.h"
 #include <string>
 #include "comp_options.h"
+#include "comp_symbols.h"
+#include "dq_module.h"
 
 #include "dqc_base.h"
 
@@ -27,11 +29,13 @@ private:
   using            super = ODqCompBase;
 
 public:
+  bool             section_public = true;
+  OScope *         cur_mod_scope = nullptr;
 
 public:
   ODqCompAst();
   virtual ~ODqCompAst();
 
-  void AddVarDecl(OScPosition & scpos, string aid, const string atype, bool ainit, int64_t ainitval);
+  ODecl * AddVarDecl(OScPosition & scpos, string aid, OType * atype);
 
 };

@@ -8,7 +8,7 @@
  * file:    dqc_ast.cpp
  * authors: nvitya
  * created: 2026-01-31
- * brief:   
+ * brief:
  */
 
 #include <print>
@@ -24,14 +24,17 @@ ODqCompAst::~ODqCompAst()
 {
 }
 
-void ODqCompAst::AddVarDecl(OScPosition & scpos, string aid, const string atype, bool ainit, int64_t ainitval)
+ODecl * ODqCompAst::AddVarDecl(OScPosition & scpos, string aid, OType * atype)
 {
-  // just printing now.
+  OValSym * pvalsym = new OValSym(aid, atype, VSK_VARIABLE);
+
+  ODecl * result = g_module->DeclareValSym(section_public, pvalsym);
+
+  // TODO: add initialization
+
   print("{}: ", scpos.Format());
-  print("AddVarDecl(): var {} : {}", aid, atype);
-  if (ainit)
-  {
-    print(" = {}", ainitval);
-  }
+  print("AddVarDecl(): var {} : {}", aid, atype->name);
   print("\n");
+
+  return result;
 }

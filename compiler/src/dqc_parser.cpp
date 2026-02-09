@@ -144,11 +144,9 @@ void ODqCompParser::ParseVarDecl()
     return;
   }
 
-  // everything is fine
-  pvalsym = new OValSym(sid, ptype, VSK_VARIABLE);
-  // TODO: add initialization
-  g_module->DeclareValSym(section_public, pvalsym);
-  //AddVarDecl(scpos_statement_start, sid, stype, initialized, initvalue);
+  AddVarDecl(scpos_statement_start, sid, ptype);
+
+  // TODO: add the initialization
 }
 
 void ODqCompParser::ParseFunction()
@@ -163,7 +161,7 @@ void ODqCompParser::ParseFunction()
   scf->SkipWhite();
   if (not scf->ReadIdentifier(sid))
   {
-    StatementError("Identifier is expected after \"function\". Syntax: \"function identifier(arglist) -> return_type\"");
+    Error("Identifier is expected after \"function\". Syntax: \"function identifier(arglist) -> return_type\"");
     return;
   }
 
@@ -188,13 +186,13 @@ void ODqCompParser::ParseFunction()
       {
         if (not scf->CheckSymbol(","))
         {
-          StatementError("\",\" expected for parameter lists");
+          Error("\",\" expected for parameter lists", &scf->prevpos);
         }
       }
 
       if (not scf->ReadIdentifier(spname))
       {
-        StatementError("Parameter name expected");
+        Error("Parameter name expected", &scf->prevpos);
         if (not scf->ReadTo(",)"))  // try to skip to next parameter
         {
           break;  // serious problem, would lead to endless-loop
@@ -204,7 +202,7 @@ void ODqCompParser::ParseFunction()
 
       if (not tfunc->ParNameValid(spname))
       {
-        StatementError("Invalid function parameter name \""+spname+"\"");
+        Error("Invalid function parameter name \""+spname+"\"", &scf->prevpos);
         scf->ReadTo(",)");  // try to skip to next parameter
         continue;
       }
@@ -212,7 +210,7 @@ void ODqCompParser::ParseFunction()
       scf->SkipWhite();
       if (not scf->CheckSymbol(":"))
       {
-        StatementError("Parameter type specification expected: \": type\"");
+        Error("Parameter type specification expected: \": type\"", &scf->prevpos);
         scf->ReadTo(",)");  // try to skip to next parameter
         continue;
       }
@@ -220,7 +218,7 @@ void ODqCompParser::ParseFunction()
       scf->SkipWhite();
       if (not scf->ReadIdentifier(sptype))
       {
-        StatementError("Function parameter type name expected");
+        Error("Function parameter type name expected", &scf->prevpos);
         scf->ReadTo(",)");  // try to skip to next parameter
         continue;
       }
@@ -228,7 +226,7 @@ void ODqCompParser::ParseFunction()
       OType * ptype = cur_mod_scope->FindType(sptype);
       if (!ptype)
       {
-        StatementError(format("Unknown function parameter type \"{}\"", sptype));
+        Error(format("Unknown function parameter type \"{}\"", sptype), &scf->prevpos);
         scf->ReadTo(",)");  // try to skip to next parameter
         continue;
       }
@@ -246,14 +244,14 @@ void ODqCompParser::ParseFunction()
     string frtname;
     if (not scf->ReadIdentifier(frtname))
     {
-      StatementError("Function return type identifier expected after \"->\"");
+      Error("Function return type identifier expected after \"->\"");
     }
     else
     {
       tfunc->rettype = cur_mod_scope->FindType(frtname);
       if (not tfunc->rettype)
       {
-        StatementError(format("Unknown function parameter type \"{}\"", frtname));
+        Error(format("Unknown function return type \"{}\"", frtname));
       }
     }
   }
@@ -266,6 +264,8 @@ void ODqCompParser::ParseFunction()
 void ODqCompParser::ReadStatementBlock(OStmtBlock * block, const string blockend)
 {
   string block_closer;
+  string sid;
+  OValSym * pvalsym;
 
   scf->SkipWhite();
   if (scf->CheckSymbol("{"))
@@ -297,10 +297,45 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * block, const string blockend
     }
 
     // there should be a normal statement
-
-    if (scf->CheckSymbol("var"))  // local variable declaration
+    if (!scf->ReadIdentifier(sid))
     {
-      //ParseStatementVaxr(block->scope);
+      StatementError("keyword or identifier is missing");
+      return;
+    }
+
+    if (ReservedWord(sid))
+    {
+      if (scf->CheckSymbol("var"))  // local variable declaration
+      {
+        StatementError("var statement parsing is not implemented");
+        //ParseStatementVaxr(block->scope);
+        return;
+      }
+      else if ("return" == sid)
+      {
+
+      }
+      else
+      {
+        StatementError(format("Statement \"{}\" not implemented yet", sid));
+        return;
+      }
+    }
+    else // assignment
+    {
+      if (!g_module->ValSymDeclared(sid, &pvalsym))
+      {
+        StatementError(format("Undefined variable \"{}\"", sid));
+        return;
+      }
+
+      scf->SkipWhite();
+      if (!scf->CheckSymbol("="))
+      {
+        StatementError("Assignment operator \"=\" is expected.");
+        return;
+      }
+      
     }
   }
 }
