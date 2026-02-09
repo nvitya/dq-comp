@@ -13,28 +13,76 @@
 
 #pragma once
 
+#include <string>
+#include <format>
 #include "comp_symbols.h"
+#include "scope_builtins.h"
+
+using namespace std;
 
 enum EDeclKind
 {
-  DK_VAR,
-  DK_CONST,
-  DK_TYPE,       // type aliases, enums, function types
-  DK_FUNCTION,
-  DK_OBJECT
+  DK_TYPE,
+  DK_VALSYM
 };
 
-class ODecl
+class ODecl  // module top level declaration
 {
 public:
-  EDeclKind     kind;
-  string        name;
-  bool          ispublic;
+  EDeclKind   kind;
+  bool        ispublic;
+  union
+  {
+    OType *      ptype;
+    OValSym *    pvalsym;
+  };
+
+  ODecl(bool aispublic, OType * t)
+  :
+    kind(DK_TYPE),
+    ispublic(aispublic),
+    ptype(t)
+  {
+  }
+
+  ODecl(bool aispublic, OValSym * v)
+  :
+    kind(DK_VALSYM),
+    ispublic(aispublic),
+    pvalsym(v)
+  {
+  }
 };
 
 class OModule
 {
 public:
+  //string           name;
 
+  vector<ODecl *>  declarations;
+
+  OScope *         scope_pub;
+  OScope *         scope_priv;
+
+  OModule()
+  {
+    scope_pub  = new OScope(g_builtins, "module_pub");
+    scope_priv = new OScope(scope_pub,  "module_priv");
+  }
+
+  virtual ~OModule()
+  {
+    delete scope_priv;
+    delete scope_pub;
+  }
+
+  ODecl * DeclareType(bool apublic, OType * atype);
+  ODecl * DeclareValSym(bool apublic, OValSym * avalsym);
+
+  bool TypeDeclared(const string aname, OType ** rtype = nullptr);
+  bool ValSymDeclared(const string aname, OValSym ** rvalsym = nullptr);
 };
 
+extern OModule *  g_module;
+
+void init_dq_module();

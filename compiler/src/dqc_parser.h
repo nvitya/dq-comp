@@ -30,15 +30,18 @@ public:
   OScPosition      scpos_statement_start;
   OScPosition *    errorpos = nullptr;  // if nullptr then uses the scpos_statement_start
 
+  bool             section_public = true;
+  OScope *         cur_mod_scope = nullptr;
+
 public:
   ODqCompParser();
   virtual ~ODqCompParser();
 
   void ParseModule();
-  void ParseStatementVar(OScope * ascope);
+
+  void ParseVarDecl();
   void ParseFunction();
   bool CheckStatementClose();
-  bool CheckType(const string atype, OScPosition * ascpos);
 
   void StatementError(const string amsg, OScPosition * scpos = nullptr, bool atryrecover = true);
 

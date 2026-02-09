@@ -14,7 +14,7 @@
 #include <print>
 #include <format>
 
-#include "scope_module.h"
+#include "dq_module.h"
 #include "dqc_parser.h"
 #include "otype_func.h"
 
@@ -30,6 +30,9 @@ ODqCompParser::~ODqCompParser()
 void ODqCompParser::ParseModule()
 {
   string sid;
+
+  section_public = true;
+  cur_mod_scope = g_module->scope_pub;
 
   while (not scf->Eof())
   {
@@ -53,7 +56,7 @@ void ODqCompParser::ParseModule()
 
     if ("var" == sid) // global variable definition
     {
-      ParseStatementVar(g_module);
+      ParseVarDecl();
     }
     else if ("function" == sid)
     {
@@ -70,20 +73,26 @@ void ODqCompParser::ParseModule()
   //printf("First normal token:\n\"%s\"\n", scf->curp);
 }
 
-void ODqCompParser::ParseStatementVar(OScope * ascope)
+void ODqCompParser::ParseVarDecl()
 {
   // syntax form: "var identifier : type [ = initial value];"
   // note: "var" is already consumed
 
-  string   sid;
-  string   stype;
-  int64_t  initvalue = 0;
-  bool     initialized = false;
+  string     sid;
+  string     stype;
+  OValSym *  pvalsym;
+  OType *    ptype;
 
   scf->SkipWhite();
   if (not scf->ReadIdentifier(sid))
   {
     StatementError("Identifier is expected after \"var\". Syntax: \"var identifier : type [ = initial value];\"");
+    return;
+  }
+
+  if (g_module->ValSymDeclared(sid, &pvalsym))
+  {
+    StatementError(format("Variable \"{}\" is already declared with the type \"{}\"", sid, pvalsym->ptype->name), &scf->prevpos);
     return;
   }
 
@@ -102,11 +111,16 @@ void ODqCompParser::ParseStatementVar(OScope * ascope)
   }
 
   // check the type here for proper source code position (scf->prevpos)
-  if (!CheckType(stype, &scf->prevpos)) // statement error already issued
+  ptype = g_module->scope_priv->FindType(stype);
+  if (not ptype)
   {
+    StatementError(format("Unknown type \"{}\"", stype), &scf->prevpos);
     return;
   }
 
+#if 0
+  int64_t    initvalue = 0;
+  bool       initialized = false;
   scf->SkipWhite();
   if (scf->CheckSymbol("="))  // variable initializer specified
   {
@@ -122,6 +136,7 @@ void ODqCompParser::ParseStatementVar(OScope * ascope)
       return;
     }
   }
+#endif
 
   if (not CheckStatementClose())
   {
@@ -130,7 +145,10 @@ void ODqCompParser::ParseStatementVar(OScope * ascope)
   }
 
   // everything is fine
-  AddVarDecl(scpos_statement_start, sid, stype, initialized, initvalue);
+  pvalsym = new OValSym(sid, ptype, VSK_VARIABLE);
+  // TODO: add initialization
+  g_module->DeclareValSym(section_public, pvalsym);
+  //AddVarDecl(scpos_statement_start, sid, stype, initialized, initvalue);
 }
 
 void ODqCompParser::ParseFunction()
@@ -150,7 +168,7 @@ void ODqCompParser::ParseFunction()
   }
 
   OTypeFunc    * tfunc  = new OTypeFunc(sid);
-  OValSymFunc  * vsfunc = new OValSymFunc(sid, tfunc, g_module);
+  OValSymFunc  * vsfunc = new OValSymFunc(sid, tfunc, cur_mod_scope);
 
   scf->SkipWhite();
   if (scf->CheckSymbol("("))  // parameter list start
@@ -207,7 +225,7 @@ void ODqCompParser::ParseFunction()
         continue;
       }
 
-      OType * ptype = g_module->FindType(sptype);
+      OType * ptype = cur_mod_scope->FindType(sptype);
       if (!ptype)
       {
         StatementError(format("Unknown function parameter type \"{}\"", sptype));
@@ -232,7 +250,7 @@ void ODqCompParser::ParseFunction()
     }
     else
     {
-      tfunc->rettype = g_module->FindType(frtname);
+      tfunc->rettype = cur_mod_scope->FindType(frtname);
       if (not tfunc->rettype)
       {
         StatementError(format("Unknown function parameter type \"{}\"", frtname));
@@ -274,7 +292,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * block, const string blockend
 
     if (scf->Eof())
     {
-      StatementError(format("Statement block closer \"{}\" is missing");
+      StatementError(format("Statement block closer \"{}\" is missing", block_closer));
       return;
     }
 
@@ -282,24 +300,9 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * block, const string blockend
 
     if (scf->CheckSymbol("var"))  // local variable declaration
     {
-      ParseStatementVar(block->scope);
+      //ParseStatementVaxr(block->scope);
     }
   }
-}
-
-bool ODqCompParser::CheckType(const string atype, OScPosition * ascpos)
-{
-  if ("int" == atype)
-  {
-    // type ok.
-  }
-  else
-  {
-    StatementError(format("Unknown type \"{}\"", atype), ascpos);
-    return false;
-  }
-
-  return true;
 }
 
 void ODqCompParser::StatementError(const string amsg, OScPosition * scpos, bool atryrecover)

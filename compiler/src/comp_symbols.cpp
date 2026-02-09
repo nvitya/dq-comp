@@ -46,7 +46,7 @@ OValSym * OScope::DefineValSym(OValSym * avalsym)
   return avalsym;
 }
 
-OType * OScope::FindType(const string & name, OScope ** rscope)
+OType * OScope::FindType(const string & name, OScope ** rscope, bool arecursive)
 {
   auto it = typesyms.find(name);
   if (it != typesyms.end())
@@ -59,7 +59,7 @@ OType * OScope::FindType(const string & name, OScope ** rscope)
   }
 
   // If not found here, check the parent scope
-  if (parent_scope != nullptr)
+  if (arecursive and (parent_scope != nullptr))
   {
     return parent_scope->FindType(name, rscope);
   }
@@ -67,7 +67,7 @@ OType * OScope::FindType(const string & name, OScope ** rscope)
   return nullptr;
 }
 
-OValSym * OScope::FindValSym(const string & name, OScope ** rscope)
+OValSym * OScope::FindValSym(const string & name, OScope ** rscope, bool arecursive)
 {
   auto it = valsyms.find(name);
   if (it != valsyms.end())
@@ -80,7 +80,7 @@ OValSym * OScope::FindValSym(const string & name, OScope ** rscope)
   }
 
   // If not found here, check the parent scope
-  if (parent_scope != nullptr)
+  if (arecursive and (parent_scope != nullptr))
   {
     return parent_scope->FindValSym(name, rscope);
   }

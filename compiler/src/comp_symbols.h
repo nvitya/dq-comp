@@ -66,8 +66,8 @@ public:
   OType *     DefineType(OType * atype);
   OValSym *   DefineValSym(OValSym * atype);
 
-  OType *     FindType(const string & name, OScope ** rscope = nullptr);
-  OValSym *   FindValSym(const string & name, OScope ** rscope = nullptr);
+  OType *     FindType(const string & name, OScope ** rscope = nullptr, bool arecursive = true);
+  OValSym *   FindValSym(const string & name, OScope ** rscope = nullptr, bool arecursive = true);
 };
 
 // Types

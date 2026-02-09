@@ -13,10 +13,11 @@
 
  #include <print>
 
-#include "dqc.h"
 #include "scope_builtins.h"
 #include "scope_defines.h"
-#include "scope_module.h"
+
+#include "dqc.h"
+#include "dq_module.h"
 
 ODqCompiler *  g_compiler = nullptr;
 
@@ -54,7 +55,8 @@ void dqc_init()
 {
   init_scope_builtins();
   init_scope_defines();
-  init_scope_module();
+
+  init_dq_module();
 
   g_compiler = new ODqCompiler();
 }
