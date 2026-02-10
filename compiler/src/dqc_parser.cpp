@@ -144,7 +144,7 @@ void ODqCompParser::ParseVarDecl()
     return;
   }
 
-  AddVarDecl(scpos_statement_start, sid, ptype);
+  AddDeclVar(scpos_statement_start, sid, ptype);
 
   // TODO: add the initialization
 }
@@ -188,6 +188,7 @@ void ODqCompParser::ParseFunction()
         {
           Error("\",\" expected for parameter lists", &scf->prevpos);
         }
+        else { scf-> SkipWhite(); }
       }
 
       if (not scf->ReadIdentifier(spname))
@@ -256,6 +257,8 @@ void ODqCompParser::ParseFunction()
     }
   }
 
+  AddDeclFunc(scpos_statement_start, vsfunc);
+
   // go on with the function body
 
   ReadStatementBlock(vsfunc->body, "endfunc");
@@ -300,7 +303,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * block, const string blockend
     if (!scf->ReadIdentifier(sid))
     {
       StatementError("keyword or identifier is missing");
-      return;
+      continue;
     }
 
     if (ReservedWord(sid))
@@ -309,16 +312,18 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * block, const string blockend
       {
         StatementError("var statement parsing is not implemented");
         //ParseStatementVaxr(block->scope);
-        return;
+        continue;
       }
       else if ("return" == sid)
       {
-
+        StatementError("return statement parsing is not implemented");
+        //ParseStatementVaxr(block->scope);
+        continue;
       }
       else
       {
         StatementError(format("Statement \"{}\" not implemented yet", sid));
-        return;
+        continue;
       }
     }
     else // assignment
@@ -326,16 +331,16 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * block, const string blockend
       if (!g_module->ValSymDeclared(sid, &pvalsym))
       {
         StatementError(format("Undefined variable \"{}\"", sid));
-        return;
+        continue;
       }
 
       scf->SkipWhite();
       if (!scf->CheckSymbol("="))
       {
         StatementError("Assignment operator \"=\" is expected.");
-        return;
+        continue;
       }
-      
+
     }
   }
 }

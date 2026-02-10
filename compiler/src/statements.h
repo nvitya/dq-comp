@@ -18,18 +18,94 @@
 
 using namespace std;
 
-class OStmt
+//=============================================================================
+// EXPRESSIONS
+//=============================================================================
+
+enum class BinOp { Add, Sub, Mul };
+
+class OExpr
+{
+  virtual ~OExpr() {};
+};
+
+class OIntLit : public OExpr
 {
 public:
-
-  OStmt()
-  {
-  }
-
-  virtual ~OStmt()
+  int64_t   value;
+  OIntLit(int64_t v)
+  :
+    value(v)
   {
   }
 };
+
+class OVarRef : public OExpr
+{
+  string name;
+  VarRef(string n) : name(n) {}
+};
+
+struct BinExpr : Expr
+{
+    BinOp op;
+    Expr* left;
+    Expr* right;
+    BinExpr(BinOp o, Expr* l, Expr* r) : op(o), left(l), right(r) {}
+};
+
+
+//=============================================================================
+// STATEMENTS
+//=============================================================================
+
+class OStmt
+{
+public:
+  OStmt() { }
+  virtual ~OStmt()  { }
+};
+
+struct OStmtReturn : public OStmt
+{
+public:
+  Expr *     value;
+  OStmtReturn(Expr * v)
+  :
+    value(v)
+  {
+  }
+};
+
+#if 0
+struct OStmtVarDecl : public OStmt
+{
+public:
+  string   name;
+  string   type;
+  Expr *   initValue; // nullptr if no initialization
+  OStmtVarDecl(string n, string t, Expr* init = nullptr)
+  :
+    name(n),
+    type(t),
+    initValue(init)
+  {
+  }
+};
+
+struct OStmtAssign : public OStmt
+{
+public:
+  string varName;
+  Expr* value;
+  AssignStmt(string n, Expr* v)
+  :
+    varName(n),
+    value(v)
+  {
+  }
+};
+#endif
 
 class OStmtBlock
 {

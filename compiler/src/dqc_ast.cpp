@@ -24,7 +24,7 @@ ODqCompAst::~ODqCompAst()
 {
 }
 
-ODecl * ODqCompAst::AddVarDecl(OScPosition & scpos, string aid, OType * atype)
+ODecl * ODqCompAst::AddDeclVar(OScPosition & scpos, string aid, OType * atype)
 {
   OValSym * pvalsym = new OValSym(aid, atype, VSK_VARIABLE);
 
@@ -37,4 +37,15 @@ ODecl * ODqCompAst::AddVarDecl(OScPosition & scpos, string aid, OType * atype)
   print("\n");
 
   return result;
+}
+
+ODecl * ODqCompAst::AddDeclFunc(OScPosition & scpos, OValSymFunc * avsfunc)
+{
+  ODecl * result = g_module->DeclareValSym(section_public, avsfunc);
+
+  print("{}: ", scpos.Format());
+  print("AddDeclFunc(): {}", avsfunc->name);
+  print("\n");
+
+  return nullptr;
 }

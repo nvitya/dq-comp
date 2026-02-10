@@ -36,6 +36,7 @@ public:
   ODqCompAst();
   virtual ~ODqCompAst();
 
-  ODecl * AddVarDecl(OScPosition & scpos, string aid, OType * atype);
+  ODecl * AddDeclVar(OScPosition & scpos, string aid, OType * atype);
+  ODecl * AddDeclFunc(OScPosition & scpos, OValSymFunc * avsfunc);
 
 };
