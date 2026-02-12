@@ -22,10 +22,9 @@ using namespace std;
 // EXPRESSIONS
 //=============================================================================
 
-enum class BinOp { Add, Sub, Mul };
-
 class OExpr
 {
+public:
   virtual ~OExpr() {};
 };
 
@@ -42,16 +41,36 @@ public:
 
 class OVarRef : public OExpr
 {
-  string name;
-  VarRef(string n) : name(n) {}
+public:
+  OValSym *  pvalsym;
+  OVarRef(OValSym * avalsym)
+  :
+    pvalsym(avalsym)
+  {
+  }
 };
 
-struct BinExpr : Expr
+enum EBinOp
 {
-    BinOp op;
-    Expr* left;
-    Expr* right;
-    BinExpr(BinOp o, Expr* l, Expr* r) : op(o), left(l), right(r) {}
+  BINOP_ADD,
+  BINOP_SUB,
+  BINOP_MUL
+};
+
+class OBinExpr : public OExpr
+{
+public:
+  EBinOp       op;
+  OExpr *      left;
+  OExpr *      right;
+
+  OBinExpr(EBinOp aop, OExpr * aleft, OExpr * aright)
+  :
+    op(aop),
+    left(aleft),
+    right(aright)
+  {
+  }
 };
 
 
@@ -69,43 +88,13 @@ public:
 struct OStmtReturn : public OStmt
 {
 public:
-  Expr *     value;
-  OStmtReturn(Expr * v)
+  OExpr *     value;
+  OStmtReturn(OExpr * v)
   :
     value(v)
   {
   }
 };
-
-#if 0
-struct OStmtVarDecl : public OStmt
-{
-public:
-  string   name;
-  string   type;
-  Expr *   initValue; // nullptr if no initialization
-  OStmtVarDecl(string n, string t, Expr* init = nullptr)
-  :
-    name(n),
-    type(t),
-    initValue(init)
-  {
-  }
-};
-
-struct OStmtAssign : public OStmt
-{
-public:
-  string varName;
-  Expr* value;
-  AssignStmt(string n, Expr* v)
-  :
-    varName(n),
-    value(v)
-  {
-  }
-};
-#endif
 
 class OStmtBlock
 {
@@ -127,25 +116,37 @@ public:
     }
     stlist.clear();
   }
+
+  OStmt * AddStatement(OStmt * astmt)
+  {
+    stlist.push_back(astmt);
+    return astmt;
+  }
 };
 
 class OStmtAssign : public OStmt
 {
 public:
-  OStmtAssign()
+  OValSym *   variable;
+  OExpr *     value;
+  OStmtAssign(OValSym * avariable, OExpr * avalue)
+  :
+    variable(avariable),
+    value(avalue)
   {
-
   }
 };
 
 class OStmtVarDecl : public OStmt
 {
-  OScope *   scope;
-  OValSym *  vsvar;
+  OValSym *  variable;
+  OExpr *    initvalue;
 
 public:
-  OStmtVarDecl(const string avarname, OType * atype, OValSym * ainitvalue)
+  OStmtVarDecl(OValSym * avariable, OExpr * ainitvalue)
+  :
+    variable(avariable),
+    initvalue(ainitvalue)
   {
-
   }
 };

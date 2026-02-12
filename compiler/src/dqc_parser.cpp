@@ -17,6 +17,7 @@
 #include "dq_module.h"
 #include "dqc_parser.h"
 #include "otype_func.h"
+#include "statements.h"
 
 ODqCompParser::ODqCompParser()
 {
@@ -61,6 +62,8 @@ void ODqCompParser::ParseModule()
     else if ("function" == sid)
     {
       ParseFunction();
+      curscope = cur_mod_scope;
+      curblock = nullptr;
     }
     else  // unknown
     {
@@ -259,12 +262,15 @@ void ODqCompParser::ParseFunction()
 
   AddDeclFunc(scpos_statement_start, vsfunc);
 
+  curscope = vsfunc->scope;
+  curblock = vsfunc->body;
+
   // go on with the function body
 
-  ReadStatementBlock(vsfunc->body, "endfunc");
+  ReadStatementBlock("endfunc");
 }
 
-void ODqCompParser::ReadStatementBlock(OStmtBlock * block, const string blockend)
+void ODqCompParser::ReadStatementBlock(const string blockend)
 {
   string block_closer;
   string sid;
@@ -299,6 +305,8 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * block, const string blockend
       return;
     }
 
+    scf->SaveCurPos(scpos_statement_start);
+
     // there should be a normal statement
     if (!scf->ReadIdentifier(sid))
     {
@@ -316,7 +324,8 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * block, const string blockend
       }
       else if ("return" == sid)
       {
-        StatementError("return statement parsing is not implemented");
+        ParseStmtReturn();
+        //StatementError("return statement parsing is not implemented");
         //ParseStatementVaxr(block->scope);
         continue;
       }
@@ -343,6 +352,77 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * block, const string blockend
 
     }
   }
+}
+
+void ODqCompParser::ParseStmtReturn()
+{
+  // "return" is already consumed.
+
+  scf->SkipWhite();
+  OExpr * expr = ParseExpression();
+  scf->SkipWhite();
+  if (!scf->CheckSymbol(";"))
+  {
+    Error("\";\" is missing after the return expression");
+  }
+  if (expr)
+  {
+    curblock->AddStatement(new OStmtReturn(expr));
+  }
+}
+
+OExpr * ODqCompParser::ParseExpression()
+{
+  return ParseExprAdd();
+}
+
+OExpr * ODqCompParser::ParseExprAdd()
+{
+  OExpr * left  = ParseExprMul();
+  OExpr * right = nullptr;
+
+  scf->SkipWhite();
+  if (scf->CheckSymbol("+"))
+  {
+    right = ParseExprMul();
+    if (right)
+    {
+      return new OBinExpr(BINOP_ADD, left, right);
+    }
+  }
+  else if (scf->CheckSymbol("-"))
+  {
+    right = ParseExprMul();
+    if (right)
+    {
+      return new OBinExpr(BINOP_SUB, left, right);
+    }
+  }
+
+  return left;
+}
+
+OExpr * ODqCompParser::ParseExprMul()
+{
+  OExpr * left  = ParseExprPrimary();
+  OExpr * right = nullptr;
+
+  scf->SkipWhite();
+  if (scf->CheckSymbol("*"))
+  {
+    right = ParseExprPrimary();
+    if (right)
+    {
+      return new OBinExpr(BINOP_MUL, left, right);
+    }
+  }
+
+  return left;
+}
+
+OExpr * ODqCompParser::ParseExprPrimary()
+{
+  return nullptr;
 }
 
 void ODqCompParser::StatementError(const string amsg, OScPosition * scpos, bool atryrecover)

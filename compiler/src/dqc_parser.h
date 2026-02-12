@@ -40,12 +40,24 @@ public:
   void ParseFunction();
   bool CheckStatementClose();
 
+  void ParseStmtReturn();
+
   void StatementError(const string amsg, OScPosition * scpos = nullptr, bool atryrecover = true);
 
-  void ReadStatementBlock(OStmtBlock * block, const string blockend);
+  void ReadStatementBlock(const string blockend);
 
   void Error(const string amsg, OScPosition * ascpos = nullptr);
   void Warning(const string amsg, OScPosition * ascpos = nullptr);
   void Hint(const string amsg, OScPosition * ascpos = nullptr);
+
+public: // expressions
+  OStmtBlock *  curblock = nullptr;
+  OScope *      curscope = nullptr;
+
+  OExpr * ParseExpression();
+  OExpr * ParseExprAdd();
+  OExpr * ParseExprMul();
+  OExpr * ParseExprPrimary();
+
 
 };
