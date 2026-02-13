@@ -33,16 +33,16 @@ public:
     bytesize = ((abitlength + 7) >> 3);
   }
 
-  OConstValSym * CreateConst(const string aname, const int64_t avalue)
+  OValSymConst * CreateConst(const string aname, const int64_t avalue)
   {
-    OConstValSym * result = new OConstValSym(aname, this);
+    OValSymConst * result = new OValSymConst(aname, this);
     result->SetInlineData((void *)&avalue, bytesize);
     return result;
   }
 
-  OConstValSym * CreateConstU(const string aname, const uint64_t avalue)
+  OValSymConst * CreateConstU(const string aname, const uint64_t avalue)
   {
-    OConstValSym * result = new OConstValSym(aname, this);
+    OValSymConst * result = new OValSymConst(aname, this);
     result->SetInlineData((void *)&avalue, bytesize);
     return result;
   }

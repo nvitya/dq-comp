@@ -28,9 +28,9 @@ public:
     bytesize = 1;
   }
 
-  OConstValSym * CreateConst(const string aname, bool avalue)
+  OValSymConst * CreateConst(const string aname, bool avalue)
   {
-    OConstValSym * result = new OConstValSym(aname, this);
+    OValSymConst * result = new OValSymConst(aname, this);
     result->SetInlineData(nullptr, 1);
     result->inlinedata[0] = (avalue ? 1 : 0);
     return result;

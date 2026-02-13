@@ -94,7 +94,7 @@ OValSym * OType::CreateValSym(const string aname)
   return result;
 }
 
-void OConstValSym::SetInlineData(void * asrcdata, uint32_t alen)
+void OValSymConst::SetInlineData(void * asrcdata, uint32_t alen)
 {
   if (alen > sizeof(inlinedata))
   {

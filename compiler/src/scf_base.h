@@ -93,6 +93,7 @@ public: // parsing functions
   void SkipSpaces(bool askiplineend = true);  // jumps to the first non-space character
 
   bool IsIntLiteral();  // is an integer literal at the current position?
+  bool IsNumChar();     // is a number [0-9] at the current position?
 
   bool ReadLine();                 // sets prevptr, prevlen
   bool ReadTo(const char * checkchars);  // sets prevptr, prevlen
@@ -102,6 +103,7 @@ public: // parsing functions
 
   bool ReadIdentifier(string & rvalue);  // returns "" when invalid
   bool ReadInt64Value(int64_t & rvalue);
+  bool ReadHex64Value(uint64_t & rvalue);
   bool ReadQuotedString(string & rvalue);
 
   bool ReadDecimalNumbers();       // sets prevptr, prevlen

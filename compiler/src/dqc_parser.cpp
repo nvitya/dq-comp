@@ -410,6 +410,7 @@ OExpr * ODqCompParser::ParseExprMul()
   scf->SkipWhite();
   if (scf->CheckSymbol("*"))
   {
+
     right = ParseExprPrimary();
     if (right)
     {
@@ -422,7 +423,103 @@ OExpr * ODqCompParser::ParseExprMul()
 
 OExpr * ODqCompParser::ParseExprPrimary()
 {
-  return nullptr;
+  OExpr * result = nullptr;
+
+  scf->SkipWhite();
+  if (scf->CheckSymbol("("))
+  {
+    result = ParseExpression();
+    scf->SkipWhite();
+    if (!scf->CheckSymbol(")"))
+    {
+      Error("\")\" expected");
+    }
+    return result;
+  }
+
+  if (scf->CheckSymbol("0x"))  // hex number ?
+  {
+    uint64_t  hexval;
+    if (scf->ReadHex64Value(hexval))
+    {
+      result = new OIntLit(int64_t(hexval));
+    }
+    else
+    {
+      Error("hexadecimal numbers expected after \"0x\"");
+    }
+    return result;
+  }
+
+  if (scf->IsNumChar())  // '0' .. '9' ?
+  {
+    //TODO: support floating point: 0.123, 2.1e-5, 1.234E6
+
+    // int64 only so far (without sign)
+    int64_t  intval;
+    if (scf->ReadInt64Value(intval))
+    {
+      result = new OIntLit(intval);
+    }
+    else  // impossible case
+    {
+      Error("Integer literal parsing error.");
+    }
+    return result;
+  }
+
+  // identifier
+
+  string  sid;
+  if (!scf->ReadIdentifier(sid))
+  {
+    if (!scf->Eof())
+    {
+      Error(format("Unexpected expression char \"{}\"", *scf->curp));
+    }
+    else
+    {
+      Error("Expression expected.");
+    }
+    return result;
+  }
+
+  OValSym * vs = curscope->FindValSym(sid);
+  if (!vs)
+  {
+    Error(format("Unknown identifier \"{}\"", sid));
+    return result;
+  }
+
+  // types
+  //  - variable reference
+  //  - constant
+  //  - compbound variable
+  //  - function
+
+  //OType * ptype = vs->ptype;
+  ETypeKind tk = vs->ptype->kind;
+
+  if (TK_FUNCTION == tk)
+  {
+    Error(format("Function call \"{}\" not implemented", sid));
+    return result;
+  }
+
+  if (TK_COMPOUND == tk)
+  {
+    Error(format("Object/Struct reference \"{}\" not implemented", sid));
+    return result;
+  }
+
+  if (TK_INT != tk)
+  {
+    Error("Only int type is supported so far.");
+    return result;
+  }
+
+  result = new OVarRef(vs);
+  return result;
 }
 
 void ODqCompParser::StatementError(const string amsg, OScPosition * scpos, bool atryrecover)

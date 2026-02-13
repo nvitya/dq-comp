@@ -170,7 +170,7 @@ public:
   }
 };
 
-class OConstValSym : public OValSym
+class OValSymConst : public OValSym
 {
 private:
   using        super = OValSym;
@@ -181,7 +181,7 @@ public:
 
   uint8_t      inlinedata[16] = {0};  // for primitive data (Float80 is the biggest)
 
-  OConstValSym(const string aname, OType * atype)
+  OValSymConst(const string aname, OType * atype)
   :
     super(aname, atype, VSK_CONST)
   {

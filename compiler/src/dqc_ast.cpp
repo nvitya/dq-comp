@@ -45,6 +45,16 @@ ODecl * ODqCompAst::AddDeclFunc(OScPosition & scpos, OValSymFunc * avsfunc)
 
   print("{}: ", scpos.Format());
   print("AddDeclFunc(): {}", avsfunc->name);
+
+  OTypeFunc * tfunc = (OTypeFunc *)(avsfunc->ptype);
+
+  // push the parameters into the scope
+  for (OFuncParam * fp : tfunc->params)
+  {
+    OValSym * vspar = new OValSym(fp->name, fp->ptype, VSK_PARAMETER);
+    avsfunc->scope->DefineValSym(vspar);
+  }
+
   print("\n");
 
   return nullptr;

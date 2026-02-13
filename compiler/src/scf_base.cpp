@@ -515,6 +515,13 @@ bool OScFeederBase::IsIntLiteral()
   return false;
 }
 
+bool OScFeederBase::IsNumChar()
+{
+  if (curp >= bufend)  return false;
+  if ((*curp >= '0') and (*curp <= '9'))   return true;
+  return false;
+}
+
 bool OScFeederBase::ReadInt64Value(int64_t & rvalue)
 {
   char *   p = curp;
@@ -556,6 +563,49 @@ bool OScFeederBase::ReadInt64Value(int64_t & rvalue)
   }
 
   return bok;
+}
+
+bool OScFeederBase::ReadHex64Value(uint64_t & rvalue)
+{
+  char *    p = curp;
+  uint64_t  result = 0;
+
+  SaveCurPos(prevpos);  // for precise error position tracking
+  prevp = curp;
+  while (p < bufend)
+  {
+    char c = *p;
+    if ((c >= '0') and (c <= '9'))
+    {
+      result = (result << 4) + (c - '0');
+    }
+    else if ((c >= 'a') and (c <= 'f'))
+    {
+      result = (result << 4) + (c - 'a' + 10);
+    }
+    else if ((c >= 'A') and (c <= 'F'))
+    {
+      result = (result << 4) + (c - 'A' + 10);
+    }
+    else
+    {
+      break;  // invalid char for the integer literal
+    }
+
+    ++p;
+  }
+
+  prevlen = p - curp;
+  if (prevlen > 0)
+  {
+    curp = p; // consume
+    rvalue = result;
+    return true;
+  }
+  else
+  {
+    return false;
+  }
 }
 
 bool OScFeederBase::ReadQuotedString(string & rvalue)
@@ -726,3 +776,4 @@ bool OScFeederBase::ReadFloatNum()
 
   return result;
 }
+
