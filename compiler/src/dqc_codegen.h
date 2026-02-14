@@ -37,7 +37,9 @@ protected:
   Module *             ll_mod;
   IRBuilder<>          ll_builder;
 
-  map<string, Function *> ll_functions;
+  map<string, Function *>  ll_functions;
+  map<string, Value *>     ll_locals;
+  map<string, Value *>     ll_globals;
 
 public:
   ODqCompCodegen()
@@ -52,6 +54,8 @@ public:
 
   void GenerateIr();
   void GenerateFunction(OValSymFunc * vsfunc);
+  void GenerateStatement(OStmt * stmt);
+  Value * GenerateExpr(OExpr * expr);
 
   void PrintIr();
 

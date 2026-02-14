@@ -39,6 +39,17 @@ public:
   }
 };
 
+class OBoolLit : public OExpr
+{
+public:
+  bool  value;
+  OBoolLit(bool v)
+  :
+    value(v)
+  {
+  }
+};
+
 class OVarRef : public OExpr
 {
 public:
@@ -52,7 +63,7 @@ public:
 
 enum EBinOp
 {
-  BINOP_ADD,
+  BINOP_ADD = 0,
   BINOP_SUB,
   BINOP_MUL
 };
@@ -139,10 +150,10 @@ public:
 
 class OStmtVarDecl : public OStmt
 {
+public:
   OValSym *  variable;
   OExpr *    initvalue;
 
-public:
   OStmtVarDecl(OValSym * avariable, OExpr * ainitvalue)
   :
     variable(avariable),
