@@ -15,19 +15,46 @@
 
 #include "stdint.h"
 #include <string>
-#include "comp_options.h"
 
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Verifier.h>
+
+#include "comp_options.h"
 #include "dqc_parser.h"
 
 using namespace std;
+using namespace llvm;
 
 class ODqCompCodegen : public ODqCompParser
 {
 private:
   using                super = ODqCompParser;
 
+protected:
+  LLVMContext          ll_ctx;
+  Module *             ll_mod;
+  IRBuilder<>          ll_builder;
+
+  map<string, Function *> ll_functions;
+
 public:
-  ODqCompCodegen();
-  virtual ~ODqCompCodegen();
+  ODqCompCodegen()
+  :
+    ll_mod(new Module("dq", ll_ctx)),
+    ll_builder(ll_ctx)
+  {
+
+  }
+
+  virtual ~ODqCompCodegen() {}
+
+  void GenerateIr();
+  void GenerateFunction(OValSymFunc * vsfunc);
+
+  void PrintIr();
+
+  Type * LlType(OType * atype);
 
 };

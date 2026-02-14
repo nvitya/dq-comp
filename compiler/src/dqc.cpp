@@ -47,6 +47,18 @@ int ODqCompiler::Run(int argc, char ** argv)
   }
 
   ParseModule();
+  if (error)
+  {
+    return error;
+  }
+
+  GenerateIr();
+  if (error)
+  {
+    return error;
+  }
+
+  PrintIr();
 
   return error;
 }
