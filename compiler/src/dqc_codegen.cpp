@@ -11,6 +11,15 @@
  * brief:
  */
 
+// these include also provide llvm::format() so the std::format() must be fully specified
+#include <llvm/Target/TargetMachine.h>
+#include <llvm/Target/TargetOptions.h>
+#include <llvm/MC/TargetRegistry.h>
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/Support/FileSystem.h>
+#include <llvm/IR/LegacyPassManager.h>
+#include <llvm/TargetParser/Host.h>
+
 #include <print>
 #include <format>
 
@@ -200,10 +209,10 @@ void ODqCompCodegen::GenerateStatement(OStmt * stmt)
       return;
     }
 
-    throw logic_error(format("Variable \"{}\" was not found in the LLVM", vs->name));
+    throw logic_error(std::format("Variable \"{}\" was not found in the LLVM", vs->name));
   }
 
-  throw logic_error(format("Unhandled statement type: \"{}\"", typeid(*stmt).name()));
+  throw logic_error(std::format("Unhandled statement type: \"{}\"", typeid(*stmt).name()));
 }
 
 Value * ODqCompCodegen::GenerateExpr(OExpr * expr)
@@ -247,7 +256,7 @@ Value * ODqCompCodegen::GenerateExpr(OExpr * expr)
       return ll_builder.CreateLoad(ll_val->getType(), ll_val, vs->name);
     }
 
-    throw logic_error(format("Codegen: unknown variable \"{}\"", vs->name));
+    throw logic_error(std::format("Codegen: unknown variable \"{}\"", vs->name));
   }
 
   OBinExpr * expr_binop = dynamic_cast<OBinExpr *>(expr);
@@ -271,7 +280,7 @@ Value * ODqCompCodegen::GenerateExpr(OExpr * expr)
       return ll_builder.CreateMul(ll_left, ll_right);
     }
 
-    throw logic_error(format("GenerateExpr(): Unhandled binop = {} ", int(expr_binop->op)));
+    throw logic_error(std::format("GenerateExpr(): Unhandled binop = {} ", int(expr_binop->op)));
   }
 
 
@@ -311,9 +320,40 @@ Value * ODqCompCodegen::GenerateExpr(OExpr * expr)
 
 #endif
 
-  throw logic_error(format("GenerateExpr(): Unhandled expression type: \"{}\"", typeid(*expr).name()));
+  throw logic_error(std::format("GenerateExpr(): Unhandled expression type: \"{}\"", typeid(*expr).name()));
 
   return nullptr;
+}
+
+void ODqCompCodegen::EmitObject(const string afilename)
+{
+  print("Writing object file \"{}\"...\n", afilename);
+
+  // Only initialize native target (not all targets)
+  InitializeNativeTarget();
+  InitializeNativeTargetAsmParser();
+  InitializeNativeTargetAsmPrinter();
+
+  auto triple = sys::getDefaultTargetTriple();
+  ll_mod->setTargetTriple(triple);
+
+  string err;
+  auto* target = TargetRegistry::lookupTarget(triple, err);
+  if (!target) throw runtime_error(err);
+
+  auto* machine = target->createTargetMachine(
+      triple, "generic", "", TargetOptions(), Reloc::PIC_);
+
+  ll_mod->setDataLayout(machine->createDataLayout());
+
+  error_code ec;
+  raw_fd_ostream out(afilename, ec, sys::fs::OF_None);
+  if (ec) throw runtime_error(ec.message());
+
+  legacy::PassManager pm;
+  machine->addPassesToEmitFile(pm, out, nullptr, CodeGenFileType::ObjectFile);
+  pm.run(*ll_mod);
+  out.flush();
 }
 
 void ODqCompCodegen::PrintIr()
@@ -348,5 +388,5 @@ Type * ODqCompCodegen::LlType(OType * atype)
     return Type::getIntNTy(ll_ctx, ptint->bitlength);
   }
 
-  throw logic_error(format("Unhandled DQ Type \"{}\" at LlType() conversion", typeid(*atype).name()));
+  throw logic_error(std::format("Unhandled DQ Type \"{}\" at LlType() conversion", typeid(*atype).name()));
 }

@@ -60,6 +60,8 @@ int ODqCompiler::Run(int argc, char ** argv)
 
   PrintIr();
 
+  EmitObject(filename+".o");
+
   return error;
 }
 

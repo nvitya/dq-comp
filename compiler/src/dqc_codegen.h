@@ -59,6 +59,8 @@ public:
 
   void PrintIr();
 
+  void EmitObject(const string afilename);
+
   Type * LlType(OType * atype);
 
 };
