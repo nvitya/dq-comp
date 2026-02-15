@@ -182,9 +182,9 @@ public:
   OScope *         scope; // owned
   vector<OStmt *>  stlist;
 
-  OStmtBlock(OScope * aparentscope)
+  OStmtBlock(OScope * aparentscope, const string adebugname)
   {
-    scope = new OScope(aparentscope, aparentscope->debugname);
+    scope = new OScope(aparentscope, adebugname);
   }
 
   virtual ~OStmtBlock()
@@ -253,7 +253,7 @@ public:
   :
     condition(acondition)
   {
-    body = new OStmtBlock(ascope);
+    body = new OStmtBlock(ascope, "while");
   }
 
   ~OStmtWhile()
@@ -271,7 +271,7 @@ public:
   :
     condition(acondition)
   {
-    body = new OStmtBlock(aparentscope);
+    body = new OStmtBlock(aparentscope, "ifbranch");
   }
 
   ~OIfBranch()
@@ -280,18 +280,18 @@ public:
   }
 };
 
-class OIfStmt : public OStmt
+class OStmtIf : public OStmt
 {
 public:
   OScope *             parentscope;
   vector<OIfBranch *>  branches; // if, elif..., else
-  OIfStmt(OScope * aparentscope)
+  OStmtIf(OScope * aparentscope)
   :
     parentscope(aparentscope)
   {
   }
 
-  ~OIfStmt()
+  ~OStmtIf()
   {
     for (OIfBranch * b : branches)
     {

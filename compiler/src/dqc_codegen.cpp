@@ -351,7 +351,7 @@ bool ODqCompCodegen::GenWhileStatement(OStmt * astmt)
 
 bool ODqCompCodegen::GenIfStatement(OStmt *astmt)
 {
-  OIfStmt * st = dynamic_cast<OIfStmt *>(astmt);
+  OStmtIf * st = dynamic_cast<OStmtIf *>(astmt);
   if (!st)
   {
     return false;

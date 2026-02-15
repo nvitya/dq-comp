@@ -13,6 +13,7 @@
 
 #include <print>
 #include <format>
+#include <ranges>
 
 #include "dq_module.h"
 #include "dqc_parser.h"
@@ -262,16 +263,20 @@ void ODqCompParser::ParseFunction()
 
   AddDeclFunc(scpos_statement_start, vsfunc);
 
-  curscope = vsfunc->scope;
-  curblock = vsfunc->body;
-
   // go on with the function body
 
-  ReadStatementBlock("endfunc");
+  ReadStatementBlock(vsfunc->body, "endfunc");
 }
 
-void ODqCompParser::ReadStatementBlock(const string blockend)
+void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blockend, string * rendstr)
 {
+
+  OStmtBlock * prev_block = curblock;
+  OScope *     prev_scope = curscope;
+
+  curblock = stblock;
+  curscope = stblock->scope;
+
   string block_closer;
   string sid;
   OValSym * pvalsym;
@@ -291,18 +296,33 @@ void ODqCompParser::ReadStatementBlock(const string blockend)
     block_closer = blockend;
   }
 
+  bool endfound = false;
   while (not scf->Eof())
   {
     scf->SkipWhite();
-    if (scf->CheckSymbol(block_closer.c_str()))
+
+    auto split_view = block_closer | views::split('|');
+    for (auto chunk : split_view)
     {
-      return;  // block closer was found
+      string chunkstr = string(string_view(chunk));
+      if (scf->CheckSymbol(chunkstr.c_str()))
+      {
+        endfound = true;
+        if (rendstr)  *rendstr = chunkstr;
+        break;
+      }
+    }
+
+    if (endfound)
+    {
+      break;  // block closer was found
     }
 
     if (scf->Eof())
     {
+      if (rendstr)  *rendstr = "";
       StatementError(format("Statement block closer \"{}\" is missing", block_closer));
-      return;
+      break;
     }
 
     scf->SaveCurPos(scpos_statement_start);
@@ -334,6 +354,11 @@ void ODqCompParser::ReadStatementBlock(const string blockend)
         ParseStmtWhile();
         continue;
       }
+      else if ("if" == sid)
+      {
+        ParseStmtIf();
+        continue;
+      }
       else
       {
         StatementError(format("Statement \"{}\" not implemented yet", sid));
@@ -356,6 +381,9 @@ void ODqCompParser::ReadStatementBlock(const string blockend)
       }
     }
   }
+
+  curscope = prev_scope;
+  curblock = prev_block;
 }
 
 void ODqCompParser::ParseStmtReturn()
@@ -375,21 +403,11 @@ void ODqCompParser::ParseStmtReturn()
   }
 }
 
-OScope * ODqCompParser::PushScope(OScope *ascope)
-{
-  return nullptr;
-}
-
-OScope *ODqCompParser::PopScope()
-{
-  return nullptr;
-}
-
 void ODqCompParser::ParseStmtWhile()
 {
   // note: "while" is already consumed
   // syntax form: "while <condition>: <statement_block> endwhile"
-  string   sid;
+
   scf->SkipWhite();
 
   OExpr * cond = ParseExpression();
@@ -399,43 +417,213 @@ void ODqCompParser::ParseStmtWhile()
     return;
   }
 
-  OScope * prev_scope = curscope;
   OStmtWhile * st = new OStmtWhile(cond, curscope);
-  curscope = st->body->scope;
+  curblock->AddStatement(st);
 
-
-  curscope = prev_scope;
+  ReadStatementBlock(st->body, "endwhile");
 }
 
 void ODqCompParser::ParseStmtIf()
 {
+  // note: "if" is already consumed
+  // syntax form: "if <condition>: <stblock> elif <condition>: <stblock> else: <stblock> endif"
+  scf->SkipWhite();
+
+  OExpr * cond = ParseExpression();
+  if (!cond)
+  {
+    StatementError("if condition is missing");
+    return;
+  }
+
+  OStmtIf * st = new OStmtIf(curscope);
+  OIfBranch * branch = st->AddBranch(cond);
+  curblock->AddStatement(st);
+
+  bool else_already = false;
+
+  while (not scf->Eof())
+  {
+    string endstr = "";
+    ReadStatementBlock(branch->body, "endif|elif|else", &endstr);
+
+    if ("endif" == endstr)
+    {
+      break;  // if closed
+    }
+
+    if ("elif" == endstr)
+    {
+      cond = ParseExpression();
+      if (!cond)
+      {
+        StatementError("elif condition is missing");
+        break;
+      }
+      branch = st->AddBranch(cond);
+      continue;
+    }
+
+    if ("else" == endstr)
+    {
+      if (else_already)
+      {
+        StatementError("if: else branch was already presented.");
+        break;
+      }
+      else_already = true;
+      branch = st->AddBranch(nullptr);
+      continue;
+    }
+
+    if ("}" == endstr) // for braces mode
+    {
+      scf->SkipWhite();
+      if (scf->CheckSymbol("endif"))
+      {
+        endstr = "endif";
+        continue;
+      }
+      if (scf->CheckSymbol("elif"))
+      {
+        endstr = "elif";
+        continue;
+      }
+      if (scf->CheckSymbol("else"))
+      {
+        endstr = "else";
+        continue;
+      }
+    }
+
+    break;
+  }
 }
 
 OExpr * ODqCompParser::ParseExpression()
 {
-  return ParseExprAdd();
+  return ParseExprOr();
+}
+
+OExpr * ODqCompParser::ParseExprOr()
+{
+  OExpr * left = ParseExprAnd();
+  while (not scf->Eof())
+  {
+    scf->SkipWhite();
+    if (scf->CheckSymbol("or"))
+    {
+      left = new OLogicalExpr(LOGIOP_OR, left, ParseExprAnd());
+      continue;
+    }
+
+    break;
+  }
+  return left;
+}
+
+OExpr * ODqCompParser::ParseExprAnd()
+{
+  OExpr * left = ParseExprNot();
+  while (not scf->Eof())
+  {
+    scf->SkipWhite();
+    if (scf->CheckSymbol("and"))
+    {
+      left = new OLogicalExpr(LOGIOP_AND, left, ParseExprAnd());
+      continue;
+    }
+
+    break;
+  }
+  return left;
+}
+
+OExpr * ODqCompParser::ParseExprNot()
+{
+  if (scf->CheckSymbol("not"))
+  {
+    return new ONotExpr(ParseExprNot());
+  }
+
+  return ParseComparison();
+}
+
+OExpr * ODqCompParser::ParseComparison()
+{
+  OExpr * left = ParseExprAdd();
+  OExpr * right = nullptr;
+
+  scf->SkipWhite();
+
+  if (scf->CheckSymbol("=="))
+  {
+    right = ParseExprAdd();
+    return new OCompareExpr(COMPOP_EQ, left, right);
+  }
+
+  if (scf->CheckSymbol("!=") or scf->CheckSymbol("<>"))
+  {
+    right = ParseExprAdd();
+    return new OCompareExpr(COMPOP_NE, left, right);
+  }
+
+  if (scf->CheckSymbol("<"))
+  {
+    right = ParseExprAdd();
+    return new OCompareExpr(COMPOP_LT, left, right);
+  }
+
+  if (scf->CheckSymbol("<="))
+  {
+    right = ParseExprAdd();
+    return new OCompareExpr(COMPOP_LE, left, right);
+  }
+
+  if (scf->CheckSymbol(">"))
+  {
+    right = ParseExprAdd();
+    return new OCompareExpr(COMPOP_GT, left, right);
+  }
+
+  if (scf->CheckSymbol(">="))
+  {
+    right = ParseExprAdd();
+    return new OCompareExpr(COMPOP_GE, left, right);
+  }
+
+  return left;
 }
 
 OExpr * ODqCompParser::ParseExprAdd()
 {
+  scf->SkipWhite();
+
   OExpr * left  = ParseExprMul();
   OExpr * right = nullptr;
 
-  scf->SkipWhite();
-  if (scf->CheckSymbol("+"))
+  while (not scf->Eof())
   {
-    right = ParseExprMul();
-    if (right)
+    scf->SkipWhite();
+    if (scf->CheckSymbol("+"))
     {
-      return new OBinExpr(BINOP_ADD, left, right);
+      right = ParseExprMul();
+      if (right)
+      {
+        return new OBinExpr(BINOP_ADD, left, right);
+      }
     }
-  }
-  else if (scf->CheckSymbol("-"))
-  {
-    right = ParseExprMul();
-    if (right)
+    else if (scf->CheckSymbol("-"))
     {
-      return new OBinExpr(BINOP_SUB, left, right);
+      right = ParseExprMul();
+      if (right)
+      {
+        return new OBinExpr(BINOP_SUB, left, right);
+      }
+    }
+    else
+    {
+      break;
     }
   }
 
@@ -444,17 +632,25 @@ OExpr * ODqCompParser::ParseExprAdd()
 
 OExpr * ODqCompParser::ParseExprMul()
 {
+  scf->SkipWhite();
+
   OExpr * left  = ParseExprPrimary();
   OExpr * right = nullptr;
 
-  scf->SkipWhite();
-  if (scf->CheckSymbol("*"))
+  while (not scf->Eof())
   {
-
-    right = ParseExprPrimary();
-    if (right)
+    scf->SkipWhite();
+    if (scf->CheckSymbol("*"))
     {
-      return new OBinExpr(BINOP_MUL, left, right);
+      right = ParseExprPrimary();
+      if (right)
+      {
+        return new OBinExpr(BINOP_MUL, left, right);
+      }
+    }
+    else
+    {
+      break;
     }
   }
 

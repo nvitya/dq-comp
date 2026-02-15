@@ -24,13 +24,11 @@ using namespace std;
 class ODqCompParser : public ODqCompAst
 {
 private:
-  using            super = ODqCompAst;
+  using             super = ODqCompAst;
 
 public:
-  OScPosition      scpos_statement_start;
-  OScPosition *    errorpos = nullptr;  // if nullptr then uses the scpos_statement_start
-
-  vector<OScope *>  scope_stack;
+  OScPosition       scpos_statement_start;
+  OScPosition *     errorpos = nullptr;  // if nullptr then uses the scpos_statement_start
 
 public:
   ODqCompParser();
@@ -46,14 +44,11 @@ public:
 
   void StatementError(const string amsg, OScPosition * scpos = nullptr, bool atryrecover = true);
 
-  void ReadStatementBlock(const string blockend);
+  void ReadStatementBlock(OStmtBlock * stblock, const string blockend, string * rendstr = nullptr);
 
   void Error(const string amsg, OScPosition * ascpos = nullptr);
   void Warning(const string amsg, OScPosition * ascpos = nullptr);
   void Hint(const string amsg, OScPosition * ascpos = nullptr);
-
-  OScope * PushScope(OScope * ascope); // sets the current scope
-  OScope * PopScope();
 
 public:
   void ParseStmtWhile();
@@ -64,9 +59,14 @@ public: // expressions
   OScope *      curscope = nullptr;
 
   OExpr * ParseExpression();
+
+  OExpr * ParseExprOr();
+  OExpr * ParseExprAnd();
+  OExpr * ParseExprNot();
+  OExpr * ParseComparison();
+
   OExpr * ParseExprAdd();
   OExpr * ParseExprMul();
   OExpr * ParseExprPrimary();
-
 
 };

@@ -94,20 +94,18 @@ private:
 public:
   //vector<OValSym *>  params;
   OValSym *          vsresult = nullptr;
-  OScope *           scope;
   OStmtBlock *       body;
 
   OValSymFunc(const string aname, OTypeFunc * atype, OScope * aparentscope = nullptr)
   :
     super(aname, atype, VSK_FUNCTION)
   {
-    scope = new OScope(aparentscope, "function_"+aname);
-    body  = new OStmtBlock(scope);
+    body  = new OStmtBlock(aparentscope, "function_"+aname);
 
     if (atype->rettype)
     {
       vsresult = atype->CreateValSym("result");
-      scope->DefineValSym(vsresult);
+      body->scope->DefineValSym(vsresult);
     }
   }
 
@@ -115,7 +113,6 @@ public:
   {
     if (vsresult)  delete vsresult;
     delete body;
-    delete scope;
   }
 
 };
