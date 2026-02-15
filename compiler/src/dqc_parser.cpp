@@ -657,11 +657,28 @@ OExpr * ODqCompParser::ParseExprMul()
   return left;
 }
 
+OExpr * ODqCompParser::ParseExprNeg()
+{
+  if (scf->CheckSymbol("-"))
+  {
+    return new ONegExpr(ParseExprNeg());
+  }
+
+  return ParseExprPrimary();
+}
+
 OExpr * ODqCompParser::ParseExprPrimary()
 {
   OExpr * result = nullptr;
 
   scf->SkipWhite();
+
+  if (scf->CheckSymbol("-"))
+  {
+    result = ParseExprPrimary();
+    return new ONegExpr(result);
+  }
+
   if (scf->CheckSymbol("("))
   {
     result = ParseExpression();

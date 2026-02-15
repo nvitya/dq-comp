@@ -136,6 +136,16 @@ public:
   {}
 };
 
+class ONegExpr : public OExpr
+{
+public:
+  OExpr *  operand;
+  ONegExpr(OExpr * expr)
+  :
+    operand(expr)
+  {}
+};
+
 class OValSymFunc;  // forward declaration for otype_func.h
 
 class OCallExpr : public OExpr

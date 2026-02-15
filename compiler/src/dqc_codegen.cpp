@@ -513,6 +513,14 @@ Value * ODqCompCodegen::GenerateExpr(OExpr * aexpr)
     }
   }
   {
+    ONegExpr * ex = dynamic_cast<ONegExpr *>(aexpr);
+    if (ex)
+    {
+      Value * ll_val = GenerateExpr(ex->operand);
+      return ll_builder.CreateNeg(ll_val);
+    }
+  }
+  {
     OLogicalExpr * ex = dynamic_cast<OLogicalExpr *>(aexpr);
     if (ex)
     {
