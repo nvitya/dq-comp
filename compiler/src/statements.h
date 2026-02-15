@@ -311,6 +311,6 @@ class OBreakStmt : public OStmt
 {
 };
 
-class ContinueStmt : public OStmt
+class OContinueStmt : public OStmt
 {
 };

@@ -56,15 +56,17 @@ public:
     ll_mod(new Module("dq", ll_ctx)),
     ll_builder(ll_ctx)
   {
-
   }
 
   virtual ~ODqCompCodegen() {}
 
   void GenerateIr();
   void GenerateFunction(OValSymFunc * vsfunc);
-  void GenerateStatement(OStmt * stmt);
+  void GenerateStatement(OStmt * astmt);
   Value * GenerateExpr(OExpr * aexpr);
+
+  bool GenWhileStatement(OStmt * astmt);
+  bool GenIfStatement(OStmt * astmt);
 
   void PrintIr();
 

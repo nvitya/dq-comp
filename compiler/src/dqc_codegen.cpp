@@ -162,57 +162,266 @@ void ODqCompCodegen::GenerateFunction(OValSymFunc * vsfunc)
   verifyFunction(*ll_func);
 }
 
-void ODqCompCodegen::GenerateStatement(OStmt * stmt)
+void ODqCompCodegen::GenerateStatement(OStmt * astmt)
 {
-  OStmtReturn * stret = dynamic_cast<OStmtReturn *>(stmt);
-  if (stret)
   {
-    ll_builder.CreateRet(GenerateExpr(stret->value));
+    OStmtReturn * st = dynamic_cast<OStmtReturn *>(astmt);
+    if (st)
+    {
+      ll_builder.CreateRet(GenerateExpr(st->value));
+      return;
+    }
+  }
+  {
+    OStmtVarDecl * st = dynamic_cast<OStmtVarDecl *>(astmt);
+    if (st)
+    {
+      OValSym * vs = st->variable;
+      // Local variable declaration
+      Type * ll_type = LlType(vs->ptype);
+      auto * alloca_var = ll_builder.CreateAlloca(ll_type, nullptr, vs->name);
+      ll_locals[vs->name] = alloca_var;
+      //localTypes[varDecl->name] = varType;
+      if (st->initvalue)
+      {
+        Value * ll_initval = GenerateExpr(st->initvalue);
+        ll_builder.CreateStore(ll_initval, alloca_var);
+      }
+      return;
+    }
+  }
+  {
+    OStmtAssign * st = dynamic_cast<OStmtAssign *>(astmt);
+    if (st)
+    {
+      OValSym * vs = st->variable;
+      Value * ll_init_value = GenerateExpr(st->value);
+
+      Value * ll_var = nullptr;
+      auto found = ll_locals.find(vs->name);
+      if (found != ll_locals.end())
+      {
+        ll_var = found->second;
+      }
+      else
+      {
+        found = ll_globals.find(vs->name);
+        if (found != ll_globals.end())
+        {
+          ll_var = found->second;
+        }
+      }
+
+      if (!ll_var)
+      {
+        throw logic_error(std::format("Variable \"{}\" was not found in the LLVM", vs->name));
+      }
+
+      if (ll_init_value->getType() != ll_var->getType())
+      {
+        throw logic_error(std::format("Type mismatch at assignment"));
+      }
+
+      ll_builder.CreateStore(ll_init_value, ll_var);
+      return;
+    }
+  }
+  {
+    OStmtModifyAssign * st = dynamic_cast<OStmtModifyAssign *>(astmt);
+    if (st)
+    {
+      OValSym *  vs = st->variable;
+      Value *    ll_mod_value = GenerateExpr(st->value);
+
+      Value *    ll_var = nullptr;
+      // Check if it's a local variable
+      auto found = ll_locals.find(vs->name);
+      if (found != ll_locals.end())
+      {
+        ll_var = found->second;
+      }
+      else
+      {
+        found = ll_globals.find(vs->name);
+        if (found != ll_globals.end())
+        {
+          ll_var = found->second;
+        }
+        else
+        {
+          throw logic_error(std::format("Variable \"{}\" was not found in the LLVM", vs->name));
+        }
+      }
+
+      // Load current value
+      Value * ll_curval = ll_builder.CreateLoad(ll_var->getType(), ll_var, vs->name);
+      if (ll_mod_value->getType() != ll_var->getType())
+      {
+        throw logic_error(std::format("Type mismatch at modify assignment"));
+      }
+      Value * ll_newval = nullptr;
+      if      (BINOP_ADD == st->op)  ll_newval = ll_builder.CreateAdd(ll_curval, ll_mod_value);
+      else if (BINOP_SUB == st->op)  ll_newval = ll_builder.CreateSub(ll_curval, ll_mod_value);
+      else if (BINOP_MUL == st->op)  ll_newval = ll_builder.CreateMul(ll_curval, ll_mod_value);
+
+      ll_builder.CreateStore(ll_newval, ll_var);
+      return;
+    }
+  }
+
+  if (GenWhileStatement(astmt))
+  {
     return;
   }
 
-  OStmtVarDecl * stvar = dynamic_cast<OStmtVarDecl *>(stmt);
-  if (stvar)
   {
-    OValSym * vs = stvar->variable;
-    // Local variable declaration
-    Type * ll_type = LlType(vs->ptype);
-    auto * alloca_var = ll_builder.CreateAlloca(ll_type, nullptr, vs->name);
-    ll_locals[vs->name] = alloca_var;
-    //localTypes[varDecl->name] = varType;
-    if (stvar->initvalue)
+    OBreakStmt * st = dynamic_cast<OBreakStmt *>(astmt);
+    if (st)
     {
-      Value * ll_initval = GenerateExpr(stvar->initvalue);
-      ll_builder.CreateStore(ll_initval, alloca_var);
+      ll_builder.CreateBr(ll_loop_stack.back().end_bb);
+      return;
     }
+  }
+  {
+    OContinueStmt * st = dynamic_cast<OContinueStmt *>(astmt);
+    if (st)
+    {
+      ll_builder.CreateBr(ll_loop_stack.back().cond_bb);
+      return;
+    }
+  }
+
+  if (GenIfStatement(astmt))
+  {
     return;
   }
 
-  OStmtAssign * stassign = dynamic_cast<OStmtAssign *>(stmt);
-  if (stassign)
+  throw logic_error(std::format("Unhandled statement type: \"{}\"", typeid(*astmt).name()));
+}
+
+bool ODqCompCodegen::GenWhileStatement(OStmt * astmt)
+{
+  OStmtWhile * st = dynamic_cast<OStmtWhile *>(astmt);
+  if (!st)
   {
-    OValSym * vs = stassign->variable;
-    Value * ll_val = GenerateExpr(stassign->value);
-    // Check if it's a local variable
-    auto found = ll_locals.find(vs->name);
-    if (found != ll_locals.end())
-    {
-      ll_builder.CreateStore(ll_val, found->second);
-      return;
-    }
-
-    // Check if it's a global variable
-    found = ll_globals.find(vs->name);
-    if (found != ll_globals.end())
-    {
-      ll_builder.CreateStore(ll_val, found->second);
-      return;
-    }
-
-    throw logic_error(std::format("Variable \"{}\" was not found in the LLVM", vs->name));
+    return false;
   }
 
-  throw logic_error(std::format("Unhandled statement type: \"{}\"", typeid(*stmt).name()));
+  Function * ll_func = ll_builder.GetInsertBlock()->getParent();
+  BasicBlock * ll_cond_bb = BasicBlock::Create(ll_ctx, "while.cond", ll_func);
+  BasicBlock * ll_body_bb = BasicBlock::Create(ll_ctx, "while.body", ll_func);
+  BasicBlock * ll_end_bb  = BasicBlock::Create(ll_ctx, "while.end", ll_func);
+
+  // Push loop context for break/continue
+  ll_loop_stack.push_back({ll_cond_bb, ll_end_bb});
+
+  // Jump to condition check
+  ll_builder.CreateBr(ll_cond_bb);
+
+  // Generate condition
+  ll_builder.SetInsertPoint(ll_cond_bb);
+  Value * ll_cond = GenerateExpr(st->condition);
+  if (ll_cond->getType() != LlType(g_builtins->type_bool))
+  {
+    throw logic_error("Type mismatch: while condition must be bool");
+  }
+
+  ll_builder.CreateCondBr(ll_cond, ll_body_bb, ll_end_bb);
+
+  // Generate body
+  ll_builder.SetInsertPoint(ll_body_bb);
+  for (auto * bstmt : st->body->stlist)
+  {
+    GenerateStatement(bstmt);
+    if (ll_builder.GetInsertBlock()->getTerminator()) break;
+  }
+
+  // Jump back to condition
+  if (!ll_builder.GetInsertBlock()->getTerminator())
+  {
+    ll_builder.CreateBr(ll_cond_bb);
+  }
+
+  ll_loop_stack.pop_back();
+
+  // Continue after loop
+  ll_builder.SetInsertPoint(ll_end_bb);
+  return true;
+}
+
+bool ODqCompCodegen::GenIfStatement(OStmt *astmt)
+{
+  OIfStmt * st = dynamic_cast<OIfStmt *>(astmt);
+  if (!st)
+  {
+    return false;
+  }
+
+  Function *   ll_func   = ll_builder.GetInsertBlock()->getParent();
+  BasicBlock * bb_merge  = BasicBlock::Create(ll_ctx, "if.end", ll_func);
+
+  for (size_t i = 0; i < st->branches.size(); i++)
+  {
+    OIfBranch * branch = st->branches[i];
+    if (branch->condition == nullptr)
+    {
+      // else branch - just emit the body
+      for (auto * bstmt : branch->body->stlist)
+      {
+        GenerateStatement(bstmt);
+        if (ll_builder.GetInsertBlock()->getTerminator()) break;
+      }
+      if (!ll_builder.GetInsertBlock()->getTerminator())
+      {
+        ll_builder.CreateBr(bb_merge);
+      }
+    }
+    else // if or elif branch
+    {
+      Value * ll_cond = GenerateExpr(branch->condition);
+      if (ll_cond->getType() != LlType(g_builtins->type_bool))
+      {
+        throw runtime_error("Type mismatch: if condition must be bool");
+      }
+
+      BasicBlock * bb_then = BasicBlock::Create(ll_ctx, "if.then", ll_func);
+      BasicBlock * bb_else;
+
+      // If there's a next branch, the else goes to it; otherwise to merge
+      if (i + 1 < st->branches.size())
+      {
+        bb_else = BasicBlock::Create(ll_ctx, "if.else", ll_func);
+      }
+      else
+      {
+        bb_else = bb_merge;
+      }
+
+      ll_builder.CreateCondBr(ll_cond, bb_then, bb_else);
+
+      // Generate then body
+      ll_builder.SetInsertPoint(bb_then);
+      for (auto * bstmt : branch->body->stlist)
+      {
+        GenerateStatement(bstmt);
+        if (ll_builder.GetInsertBlock()->getTerminator()) break;
+      }
+
+      if (!ll_builder.GetInsertBlock()->getTerminator())
+      {
+        ll_builder.CreateBr(bb_merge);
+      }
+
+      // Set insert point to else block for next branch
+      if (bb_else != bb_merge)
+      {
+        ll_builder.SetInsertPoint(bb_else);
+      }
+    }
+  }
+
+  ll_builder.SetInsertPoint(bb_merge);
+  return true;
 }
 
 Value * ODqCompCodegen::GenerateExpr(OExpr * aexpr)
