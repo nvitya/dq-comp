@@ -215,113 +215,130 @@ void ODqCompCodegen::GenerateStatement(OStmt * stmt)
   throw logic_error(std::format("Unhandled statement type: \"{}\"", typeid(*stmt).name()));
 }
 
-Value * ODqCompCodegen::GenerateExpr(OExpr * expr)
+Value * ODqCompCodegen::GenerateExpr(OExpr * aexpr)
 {
-  OIntLit * expr_intlit = dynamic_cast<OIntLit *>(expr);
-  if (expr_intlit)
   {
-    return ConstantInt::get(LlType(g_builtins->type_int), expr_intlit->value);
-  }
-
-  OBoolLit * expr_boollit = dynamic_cast<OBoolLit *>(expr);
-  if (expr_boollit)
-  {
-    return ConstantInt::get(LlType(g_builtins->type_bool), (expr_boollit->value ? 1 : 0));
-  }
-
-  OVarRef * expr_varref = dynamic_cast<OVarRef *>(expr);
-  if (expr_varref)
-  {
-    OValSym * vs = expr_varref->pvalsym;
-
-    // Check if it's a local variable
-    auto found = ll_locals.find(vs->name);
-    if (found != ll_locals.end())
+    OIntLit * ex = dynamic_cast<OIntLit *>(aexpr);
+    if (ex)
     {
-      Value * ll_val = found->second;
-      if (VSK_VARIABLE == vs->kind)
+      return ConstantInt::get(LlType(g_builtins->type_int), ex->value);
+    }
+  }
+  {
+    OBoolLit * ex = dynamic_cast<OBoolLit *>(aexpr);
+    if (ex)
+    {
+      return ConstantInt::get(LlType(g_builtins->type_bool), (ex->value ? 1 : 0));
+    }
+  }
+  {
+    OVarRef * ex = dynamic_cast<OVarRef *>(aexpr);
+    if (ex)
+    {
+      OValSym * vs = ex->pvalsym;
+
+      // Check if it's a local variable
+      auto found = ll_locals.find(vs->name);
+      if (found != ll_locals.end())
       {
+        Value * ll_val = found->second;
+        if (VSK_VARIABLE == vs->kind)
+        {
+          return ll_builder.CreateLoad(ll_val->getType(), ll_val, vs->name);
+        }
+
+        // direct value for function parameters
+        return ll_val;
+      }
+
+      // Check if it's a global variable
+      found = ll_globals.find(vs->name);
+      if (found != ll_globals.end())
+      {
+        Value * ll_val = found->second;
         return ll_builder.CreateLoad(ll_val->getType(), ll_val, vs->name);
       }
 
-      // direct value for function parameters
-      return ll_val;
+      throw logic_error(std::format("Codegen: unknown variable \"{}\"", vs->name));
     }
-
-    // Check if it's a global variable
-    found = ll_globals.find(vs->name);
-    if (found != ll_globals.end())
-    {
-      Value * ll_val = found->second;
-      return ll_builder.CreateLoad(ll_val->getType(), ll_val, vs->name);
-    }
-
-    throw logic_error(std::format("Codegen: unknown variable \"{}\"", vs->name));
   }
-
-  OBinExpr * expr_binop = dynamic_cast<OBinExpr *>(expr);
-  if (expr_binop)
   {
-    Value * ll_left  = GenerateExpr(expr_binop->left);
-    Value * ll_right = GenerateExpr(expr_binop->right);
-
-    if (BINOP_ADD == expr_binop->op)
+    OBinExpr * ex = dynamic_cast<OBinExpr *>(aexpr);
+    if (ex)
     {
-      return ll_builder.CreateAdd(ll_left, ll_right);
-    }
+      Value * ll_left  = GenerateExpr(ex->left);
+      Value * ll_right = GenerateExpr(ex->right);
 
-    if (BINOP_SUB == expr_binop->op)
+      if      (BINOP_ADD == ex->op)  return ll_builder.CreateAdd(ll_left, ll_right);
+      else if (BINOP_SUB == ex->op)  return ll_builder.CreateSub(ll_left, ll_right);
+      else if (BINOP_MUL == ex->op)  return ll_builder.CreateMul(ll_left, ll_right);
+
+      throw logic_error(std::format("GenerateExpr(): Unhandled binop = {} ", int(ex->op)));
+    }
+  }
+  {
+    OCompareExpr * ex = dynamic_cast<OCompareExpr *>(aexpr);
+    if (ex)
     {
-      return ll_builder.CreateSub(ll_left, ll_right);
-    }
+      Value * ll_left  = GenerateExpr(ex->left);
+      Value * ll_right = GenerateExpr(ex->right);
 
-    if (BINOP_MUL == expr_binop->op)
+      // TODO: handle unsigned !!!
+
+      if      (COMPOP_EQ == ex->op)   return ll_builder.CreateICmpEQ(ll_left, ll_right);
+      else if (COMPOP_NE == ex->op)   return ll_builder.CreateICmpNE(ll_left, ll_right);
+      else if (COMPOP_LT == ex->op)   return ll_builder.CreateICmpSLT(ll_left, ll_right);
+      else if (COMPOP_GT == ex->op)   return ll_builder.CreateICmpSGT(ll_left, ll_right);
+      else if (COMPOP_LE == ex->op)   return ll_builder.CreateICmpSLE(ll_left, ll_right);
+      else if (COMPOP_GE == ex->op)   return ll_builder.CreateICmpSGE(ll_left, ll_right);
+
+      throw logic_error(std::format("GenerateExpr(): Unhandled compare operation= {} ", int(ex->op)));
+    }
+  }
+  {
+    ONotExpr * ex = dynamic_cast<ONotExpr *>(aexpr);
+    if (ex)
     {
-      return ll_builder.CreateMul(ll_left, ll_right);
+      Value * ll_val = GenerateExpr(ex->operand);
+      return ll_builder.CreateXor(ll_val, ConstantInt::get(LlType(g_builtins->type_bool), 1));
     }
+  }
+  {
+    OLogicalExpr * ex = dynamic_cast<OLogicalExpr *>(aexpr);
+    if (ex)
+    {
+      Value * ll_left  = GenerateExpr(ex->left);
+      Value * ll_right = GenerateExpr(ex->right);
 
-    throw logic_error(std::format("GenerateExpr(): Unhandled binop = {} ", int(expr_binop->op)));
+      if      (LOGIOP_AND == ex->op)  return ll_builder.CreateAnd(ll_left, ll_right);
+      else if (LOGIOP_OR  == ex->op)  return ll_builder.CreateOr(ll_left, ll_right);
+      else if (LOGIOP_XOR == ex->op)  return ll_builder.CreateXor(ll_left, ll_right);
+
+      throw logic_error(std::format("GenerateExpr(): Unhandled logical operation= {} ", int(ex->op)));
+    }
+  }
+  {
+    OCallExpr * ex = dynamic_cast<OCallExpr *>(aexpr);
+    if (ex)
+    {
+      auto found = ll_functions.find(ex->vsfunc->name);
+      if (found == ll_functions.end())
+      {
+        throw runtime_error("GenerateExpr(): Unknown function: " + ex->vsfunc->name);
+      }
+
+      Function * ll_func = found->second;
+
+      vector<Value *>   ll_args;
+      for (OExpr * arg : ex->args)
+      {
+        ll_args.push_back(GenerateExpr(arg));
+      }
+      return ll_builder.CreateCall(ll_func, ll_args);
+    }
   }
 
-
-#if 0
-
-  if (auto* cmp = dynamic_cast<CompareExpr*>(e)) {
-      Value* l = genExpr(cmp->left);
-      Value* r = genExpr(cmp->right);
-      switch (cmp->op) {
-          case CompareOp::LE: return builder.CreateICmpSLE(l, r);
-          case CompareOp::LT: return builder.CreateICmpSLT(l, r);
-          case CompareOp::GE: return builder.CreateICmpSGE(l, r);
-          case CompareOp::GT: return builder.CreateICmpSGT(l, r);
-          case CompareOp::EQ: return builder.CreateICmpEQ(l, r);
-          case CompareOp::NE: return builder.CreateICmpNE(l, r);
-      }
-  }
-  if (auto* logic = dynamic_cast<LogicalExpr*>(e)) {
-      Value* l = genExpr(logic->left);
-      Value* r = genExpr(logic->right);
-      switch (logic->op) {
-          case LogicalOp::And: return builder.CreateAnd(l, r);
-          case LogicalOp::Or: return builder.CreateOr(l, r);
-      }
-  }
-  if (auto* call = dynamic_cast<CallExpr*>(e)) {
-      if (functions.find(call->funcName) == functions.end()) {
-          throw runtime_error("Unknown function: " + call->funcName);
-      }
-      Function* func = functions[call->funcName];
-      vector<Value*> args;
-      for (auto* arg : call->args) {
-          args.push_back(genExpr(arg));
-      }
-      return builder.CreateCall(func, args);
-  }
-
-#endif
-
-  throw logic_error(std::format("GenerateExpr(): Unhandled expression type: \"{}\"", typeid(*expr).name()));
-
+  throw logic_error(std::format("GenerateExpr(): Unhandled expression type: \"{}\"", typeid(*aexpr).name()));
   return nullptr;
 }
 

@@ -35,8 +35,7 @@ public:
   OIntLit(int64_t v)
   :
     value(v)
-  {
-  }
+  {}
 };
 
 class OBoolLit : public OExpr
@@ -46,8 +45,7 @@ public:
   OBoolLit(bool v)
   :
     value(v)
-  {
-  }
+  {}
 };
 
 class OVarRef : public OExpr
@@ -57,8 +55,7 @@ public:
   OVarRef(OValSym * avalsym)
   :
     pvalsym(avalsym)
-  {
-  }
+  {}
 };
 
 enum EBinOp
@@ -80,7 +77,80 @@ public:
     op(aop),
     left(aleft),
     right(aright)
+  {}
+};
+
+enum ECompareOp
+{
+  COMPOP_EQ,
+  COMPOP_NE,
+  COMPOP_LT,
+  COMPOP_LE,
+  COMPOP_GT,
+  COMPOP_GE
+};
+
+class OCompareExpr : public OExpr
+{
+public:
+  ECompareOp   op;
+  OExpr *      left;
+  OExpr *      right;
+  OCompareExpr(ECompareOp aop, OExpr * aleft, OExpr * aright)
+  :
+    op(aop),
+    left(aleft),
+    right(aright)
+  {}
+};
+
+enum ELogicalOp
+{
+  LOGIOP_OR,
+  LOGIOP_AND,
+  LOGIOP_XOR
+};
+// "not" implemented as an individual expression
+
+class OLogicalExpr : public OExpr
+{
+public:
+  ELogicalOp   op;
+  OExpr *      left;
+  OExpr *      right;
+  OLogicalExpr(ELogicalOp aop, OExpr * aleft, OExpr * aright)
+  :
+    op(aop),
+    left(aleft),
+    right(aright)
+  {}
+};
+
+class ONotExpr : public OExpr
+{
+public:
+  OExpr *  operand;
+  ONotExpr(OExpr * expr)
+  :
+    operand(expr)
+  {}
+};
+
+class OValSymFunc;  // forward declaration for otype_func.h
+
+class OCallExpr : public OExpr
+{
+public:
+  OValSymFunc *     vsfunc;
+  vector<OExpr *>   args;
+  OCallExpr(OValSymFunc * avsfunc)
+  :
+    vsfunc(avsfunc)
+  {}
+
+  void AddArgument(OExpr * aarg)
   {
+    args.push_back(aarg);
   }
 };
 
@@ -103,20 +173,18 @@ public:
   OStmtReturn(OExpr * v)
   :
     value(v)
-  {
-  }
+  {}
 };
 
 class OStmtBlock
 {
 public:
-  OScope *         scope;
+  OScope *         scope; // owned
   vector<OStmt *>  stlist;
 
-  OStmtBlock(OScope * ascope)
-  :
-    scope(ascope)
+  OStmtBlock(OScope * aparentscope)
   {
+    scope = new OScope(aparentscope, aparentscope->debugname);
   }
 
   virtual ~OStmtBlock()
@@ -126,25 +194,14 @@ public:
       delete st;
     }
     stlist.clear();
+
+    delete scope;
   }
 
   OStmt * AddStatement(OStmt * astmt)
   {
     stlist.push_back(astmt);
     return astmt;
-  }
-};
-
-class OStmtAssign : public OStmt
-{
-public:
-  OValSym *   variable;
-  OExpr *     value;
-  OStmtAssign(OValSym * avariable, OExpr * avalue)
-  :
-    variable(avariable),
-    value(avalue)
-  {
   }
 };
 
@@ -158,6 +215,102 @@ public:
   :
     variable(avariable),
     initvalue(ainitvalue)
+  {}
+};
+
+class OStmtAssign : public OStmt
+{
+public:
+  OValSym *   variable;
+  OExpr *     value;
+  OStmtAssign(OValSym * avariable, OExpr * avalue)
+  :
+    variable(avariable),
+    value(avalue)
+  {}
+};
+
+class OStmtModifyAssign : public OStmt
+{
+public:
+  OValSym *   variable;
+  EBinOp      op;
+  OExpr *     value;
+  OStmtModifyAssign(OValSym * avariable, EBinOp aop, OExpr * avalue)
+  :
+    variable(avariable),
+    op(aop),
+    value(avalue)
+  {}
+};
+
+class OStmtWhile : public OStmt
+{
+public:
+  OExpr *       condition;
+  OStmtBlock *  body;
+  OStmtWhile(OExpr * acondition, OScope * ascope)
+  :
+    condition(acondition)
+  {
+    body = new OStmtBlock(ascope);
+  }
+
+  ~OStmtWhile()
+  {
+    delete body;
+  }
+};
+
+class OIfBranch
+{
+public:
+  OExpr *       condition; // nullptr for else branch
+  OStmtBlock *  body;
+  OIfBranch(OExpr * acondition, OScope * aparentscope)
+  :
+    condition(acondition)
+  {
+    body = new OStmtBlock(aparentscope);
+  }
+
+  ~OIfBranch()
+  {
+    delete body;
+  }
+};
+
+class OIfStmt : public OStmt
+{
+public:
+  OScope *             parentscope;
+  vector<OIfBranch *>  branches; // if, elif..., else
+  OIfStmt(OScope * aparentscope)
+  :
+    parentscope(aparentscope)
   {
   }
+
+  ~OIfStmt()
+  {
+    for (OIfBranch * b : branches)
+    {
+      delete b;
+    }
+  }
+
+  OIfBranch * AddBranch(OExpr * acondition)
+  {
+    OIfBranch * result = new OIfBranch(acondition, parentscope);
+    branches.push_back(result);
+    return result;
+  }
+};
+
+class OBreakStmt : public OStmt
+{
+};
+
+class ContinueStmt : public OStmt
+{
 };

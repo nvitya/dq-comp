@@ -41,6 +41,15 @@ protected:
   map<string, Value *>     ll_locals;
   map<string, Value *>     ll_globals;
 
+  // Loop context for break/continue
+  struct SLoopContext
+  {
+    BasicBlock * cond_bb;  // continue target
+    BasicBlock * end_bb;   // break target
+  };
+  vector<SLoopContext>  ll_loop_stack;
+
+
 public:
   ODqCompCodegen()
   :
@@ -55,7 +64,7 @@ public:
   void GenerateIr();
   void GenerateFunction(OValSymFunc * vsfunc);
   void GenerateStatement(OStmt * stmt);
-  Value * GenerateExpr(OExpr * expr);
+  Value * GenerateExpr(OExpr * aexpr);
 
   void PrintIr();
 
