@@ -30,6 +30,8 @@ public:
   OScPosition      scpos_statement_start;
   OScPosition *    errorpos = nullptr;  // if nullptr then uses the scpos_statement_start
 
+  vector<OScope *>  scope_stack;
+
 public:
   ODqCompParser();
   virtual ~ODqCompParser();
@@ -49,6 +51,13 @@ public:
   void Error(const string amsg, OScPosition * ascpos = nullptr);
   void Warning(const string amsg, OScPosition * ascpos = nullptr);
   void Hint(const string amsg, OScPosition * ascpos = nullptr);
+
+  OScope * PushScope(OScope * ascope); // sets the current scope
+  OScope * PopScope();
+
+public:
+  void ParseStmtWhile();
+  void ParseStmtIf();
 
 public: // expressions
   OStmtBlock *  curblock = nullptr;

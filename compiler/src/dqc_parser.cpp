@@ -329,6 +329,11 @@ void ODqCompParser::ReadStatementBlock(const string blockend)
         //ParseStatementVaxr(block->scope);
         continue;
       }
+      else if ("while" == sid)
+      {
+        ParseStmtWhile();
+        continue;
+      }
       else
       {
         StatementError(format("Statement \"{}\" not implemented yet", sid));
@@ -349,7 +354,6 @@ void ODqCompParser::ReadStatementBlock(const string blockend)
         StatementError("Assignment operator \"=\" is expected.");
         continue;
       }
-
     }
   }
 }
@@ -369,6 +373,42 @@ void ODqCompParser::ParseStmtReturn()
   {
     curblock->AddStatement(new OStmtReturn(expr));
   }
+}
+
+OScope * ODqCompParser::PushScope(OScope *ascope)
+{
+  return nullptr;
+}
+
+OScope *ODqCompParser::PopScope()
+{
+  return nullptr;
+}
+
+void ODqCompParser::ParseStmtWhile()
+{
+  // note: "while" is already consumed
+  // syntax form: "while <condition>: <statement_block> endwhile"
+  string   sid;
+  scf->SkipWhite();
+
+  OExpr * cond = ParseExpression();
+  if (!cond)
+  {
+    StatementError("While condition is missing");
+    return;
+  }
+
+  OScope * prev_scope = curscope;
+  OStmtWhile * st = new OStmtWhile(cond, curscope);
+  curscope = st->body->scope;
+
+
+  curscope = prev_scope;
+}
+
+void ODqCompParser::ParseStmtIf()
+{
 }
 
 OExpr * ODqCompParser::ParseExpression()
