@@ -19,19 +19,20 @@
 #include <llvm/IR/Verifier.h>
 
 // Short Aliases
-using LlContext = llvm::LLVMContext;
-using LlModule  = llvm::Module;
-using LlBuilder = llvm::IRBuilder<>;
+using LlContext      = llvm::LLVMContext;
+using LlModule       = llvm::Module;
+using LlBuilder      = llvm::IRBuilder<>;
 
-using LlValue      = llvm::Value;
-using LlType       = llvm::Type;
-using LlFunction   = llvm::Function;
-using LlBasicBlock = llvm::BasicBlock;
+using LlValue        = llvm::Value;
+using LlType         = llvm::Type;
+using LlFunction     = llvm::Function;
+using LlFuncType     = llvm::FunctionType;
+using LlBasicBlock   = llvm::BasicBlock;
 
 // global variables
 
-extern LlContext            ll_ctx;
-extern LlBuilder            ll_builder;
-extern LlModule *           ll_module;
+extern LlContext     ll_ctx;
+extern LlBuilder     ll_builder;
+extern LlModule *    ll_module;
 
 void ll_defs_init();

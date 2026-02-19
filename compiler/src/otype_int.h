@@ -26,11 +26,16 @@ public:
 
   OTypeInt(const string name, uint8_t abitlength, bool asigned)
   :
-    super(name, TK_INT),
     bitlength(abitlength),
-    issigned(asigned)
+    issigned(asigned),
+    super(name, TK_INT)
   {
     bytesize = ((abitlength + 7) >> 3);
+  }
+
+  LlType * CreateLlType() override
+  {
+    return LlType::getIntNTy(ll_ctx, bitlength);
   }
 
   OValSymConst * CreateConst(const string aname, const int64_t avalue)

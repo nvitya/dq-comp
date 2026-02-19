@@ -79,6 +79,8 @@ public:
 
   OFuncParam *  AddParam(const string aname, OType * atype, EParamMode amode = FPM_VALUE);
   bool          ParNameValid(const string aname);
+
+  LlType * CreateLlType() override;
 };
 
 
@@ -92,7 +94,7 @@ private:
   using              super = OValSym;
 
 public:
-  //vector<OValSym *>  params;
+  vector<OValSym *>  args;  // will be filled in GenerateFuncBody()
   OValSym *          vsresult = nullptr;
   OStmtBlock *       body;
 
@@ -113,8 +115,15 @@ public:
 
   virtual ~OValSymFunc()
   {
+    for (OValSym * a : args)
+    {
+      delete a;
+    }
     if (vsresult)  delete vsresult;
     delete body;
   }
 
+  void GenDeclaration(bool apublic) override;
+
+  void GenerateFuncBody();
 };

@@ -42,6 +42,8 @@ void ODqCompCodegen::GenerateIr()
     if (DK_VALSYM == decl->kind)
     {
       OValSym * vs = decl->pvalsym;
+      vs->GenDeclaration(decl->ispublic);
+#if 0
       if (VSK_VARIABLE == vs->kind)
       {
         Type * ll_type = GetLlType(vs->ptype);
@@ -67,8 +69,8 @@ void ODqCompCodegen::GenerateIr()
           auto *  ll_func     = Function::Create(ll_functype, linktype, ptfunc->name, ll_module);
           ll_functions[ptfunc->name] = ll_func;
         }
-
       }
+#endif
     }
     else if (DK_TYPE == decl->kind)
     {
@@ -81,17 +83,14 @@ void ODqCompCodegen::GenerateIr()
 
   for (ODecl * decl : g_module->declarations)
   {
-    GlobalValue::LinkageTypes  linktype =
-      (decl->ispublic ? GlobalValue::LinkageTypes::ExternalLinkage
-                      : GlobalValue::LinkageTypes::InternalLinkage);
-
     if (DK_VALSYM == decl->kind)
     {
       OValSym * vs = decl->pvalsym;
       OValSymFunc * vsfunc = dynamic_cast<OValSymFunc *>(vs);
       if (vsfunc)
       {
-        GenerateFunction(vsfunc);
+        vsfunc->GenerateFuncBody();
+        //GenerateFunction(vsfunc);
       }
     }
   }

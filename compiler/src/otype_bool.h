@@ -36,4 +36,9 @@ public:
     return result;
   }
 
+  LlType * CreateLlType() override
+  {
+    return LlType::getInt1Ty(ll_ctx);
+  }
+
 };

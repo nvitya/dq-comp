@@ -51,11 +51,19 @@ ODecl * ODqCompAst::AddDeclFunc(OScPosition & scpos, OValSymFunc * avsfunc)
   // push the parameters into the scope
   for (OFuncParam * fp : tfunc->params)
   {
-    OValSym * vspar = new OValSym(fp->name, fp->ptype, VSK_PARAMETER);
-    avsfunc->body->scope->DefineValSym(vspar);
+    OValSym * vsarg = new OValSym(fp->name, fp->ptype, VSK_PARAMETER);
+    avsfunc->args.push_back(vsarg);
+    avsfunc->body->scope->DefineValSym(vsarg);
+  }
+
+  // add the implicit result variable
+  if (tfunc->rettype)
+  {
+    avsfunc->vsresult = new OValSym("result", tfunc->rettype, VSK_VARIABLE);
+    avsfunc->body->scope->DefineValSym(avsfunc->vsresult);
   }
 
   print("\n");
 
-  return nullptr;
+  return result;
 }

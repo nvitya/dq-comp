@@ -76,7 +76,7 @@ public:
 
 enum ETypeKind
 {
-  TK_ALIAS = 0,
+  TK_VOID = 0,
   TK_INT,
   TK_FLOAT,
   TK_BOOL,
@@ -84,6 +84,7 @@ enum ETypeKind
   TK_ARRAY,
   TK_STRING,    // ODynString, OCString
 
+  TK_ALIAS,
   TK_ENUM,
   TK_COMPOUND,  // object, struct
   TK_FUNCTION
@@ -108,9 +109,39 @@ public:
   {
   }
 
+  virtual LlType * CreateLlType() { return nullptr; }
+
+  virtual LlType * GetLlType()
+  {
+    if (!ll_type)
+    {
+      ll_type = CreateLlType();
+    }
+    return ll_type;
+  }
+
   inline bool IsCompound()   { return (kind == TK_COMPOUND);  }
 
   virtual OValSym * CreateValSym(const string aname);
+};
+
+class OTypeVoid : public OType
+{
+private:
+  using        super = OType;
+
+public:
+  OTypeVoid()
+  :
+    super("void", TK_VOID)
+  {
+    bytesize = 1;
+  }
+
+  LlType * CreateLlType() override
+  {
+    return LlType::getVoidTy(ll_ctx);
+  }
 };
 
 class OTypeAlias : public OType
@@ -126,6 +157,11 @@ public:
     super(aname, TK_ALIAS),
     ptype(aptype)
   {
+  }
+
+  LlType * GetLlType() override
+  {
+    return ptype->GetLlType();
   }
 };
 
@@ -173,6 +209,8 @@ public:
     kind(akind)
   {
   }
+
+  virtual void GenDeclaration(bool apublic);
 };
 
 class OValSymConst : public OValSym

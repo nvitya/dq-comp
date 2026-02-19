@@ -108,3 +108,19 @@ void OValSymConst::SetInlineData(void * asrcdata, uint32_t alen)
     memcpy(&inlinedata[0], asrcdata, datalen);
   }
 }
+
+void OValSym::GenDeclaration(bool apublic)
+{
+  if (VSK_VARIABLE == kind)
+  {
+    GlobalValue::LinkageTypes  linktype =
+      (apublic ? GlobalValue::LinkageTypes::ExternalLinkage
+               : GlobalValue::LinkageTypes::InternalLinkage);
+
+    LlType * ll_type = ptype->GetLlType();
+    llvm::Constant * init_val = llvm::ConstantInt::get(ll_type, 0);
+
+    auto * gv = new llvm::GlobalVariable(*ll_module, ll_type, false, linktype, init_val, name);
+    //ll_globals[vs->name] = gv;
+  }
+}
