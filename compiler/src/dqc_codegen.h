@@ -24,6 +24,8 @@
 #include "comp_options.h"
 #include "dqc_parser.h"
 
+#include "ll_defs.h"
+
 using namespace std;
 using namespace llvm;
 
@@ -33,9 +35,6 @@ private:
   using                super = ODqCompParser;
 
 protected:
-  LLVMContext          ll_ctx;
-  Module *             ll_mod;
-  IRBuilder<>          ll_builder;
 
   map<string, Function *>  ll_functions;
   map<string, Value *>     ll_locals;
@@ -52,9 +51,6 @@ protected:
 
 public:
   ODqCompCodegen()
-  :
-    ll_mod(new Module("dq", ll_ctx)),
-    ll_builder(ll_ctx)
   {
   }
 
@@ -72,6 +68,6 @@ public:
 
   void EmitObject(const string afilename);
 
-  Type * LlType(OType * atype);
+  Type * GetLlType(OType * atype);
 
 };

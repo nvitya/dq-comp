@@ -15,6 +15,7 @@
 
 #include <vector>
 #include "comp_symbols.h"
+#include "ll_defs.h"
 
 using namespace std;
 

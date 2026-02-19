@@ -11,8 +11,9 @@
  * brief:   DQ Compiler Object global instance
  */
 
- #include <print>
+#include <print>
 
+#include "ll_defs.h"
 #include "scope_builtins.h"
 #include "scope_defines.h"
 
@@ -67,6 +68,7 @@ int ODqCompiler::Run(int argc, char ** argv)
 
 void dqc_init()
 {
+  ll_defs_init();
   init_scope_builtins();
   init_scope_defines();
 

@@ -44,10 +44,10 @@ void ODqCompCodegen::GenerateIr()
       OValSym * vs = decl->pvalsym;
       if (VSK_VARIABLE == vs->kind)
       {
-        Type * ll_type = LlType(vs->ptype);
+        Type * ll_type = GetLlType(vs->ptype);
         Constant * init_val = ConstantInt::get(ll_type, 0);
 
-        auto * gv = new GlobalVariable(*ll_mod, ll_type, false, linktype, init_val, vs->name);
+        auto * gv = new GlobalVariable(*ll_module, ll_type, false, linktype, init_val, vs->name);
         ll_globals[vs->name] = gv;
       }
       else if (VSK_FUNCTION == vs->kind)
@@ -60,11 +60,11 @@ void ODqCompCodegen::GenerateIr()
           vector<Type *> ll_partypes;
           for (OFuncParam * fpar : ptfunc->params)
           {
-            ll_partypes.push_back(LlType(fpar->ptype));
+            ll_partypes.push_back(GetLlType(fpar->ptype));
           }
-          Type *  ll_rettype  = LlType(ptfunc->rettype);
+          Type *  ll_rettype  = GetLlType(ptfunc->rettype);
           auto *  ll_functype = FunctionType::get(ll_rettype, ll_partypes, false);
-          auto *  ll_func     = Function::Create(ll_functype, linktype, ptfunc->name, ll_mod);
+          auto *  ll_func     = Function::Create(ll_functype, linktype, ptfunc->name, ll_module);
           ll_functions[ptfunc->name] = ll_func;
         }
 
@@ -123,7 +123,7 @@ void ODqCompCodegen::GenerateFunction(OValSymFunc * vsfunc)
   Type * ll_rettype = nullptr;
   if (rettype)
   {
-    ll_rettype = LlType(tfunc->rettype);
+    ll_rettype = GetLlType(tfunc->rettype);
 
     auto * alloca_result = ll_builder.CreateAlloca(ll_rettype, nullptr, "result");
     ll_locals["result"] = alloca_result;
@@ -178,7 +178,7 @@ void ODqCompCodegen::GenerateStatement(OStmt * astmt)
     {
       OValSym * vs = st->variable;
       // Local variable declaration
-      Type * ll_type = LlType(vs->ptype);
+      Type * ll_type = GetLlType(vs->ptype);
       auto * alloca_var = ll_builder.CreateAlloca(ll_type, nullptr, vs->name);
       ll_locals[vs->name] = alloca_var;
       //localTypes[varDecl->name] = varType;
@@ -321,7 +321,7 @@ bool ODqCompCodegen::GenWhileStatement(OStmt * astmt)
   // Generate condition
   ll_builder.SetInsertPoint(ll_cond_bb);
   Value * ll_cond = GenerateExpr(st->condition);
-  if (ll_cond->getType() != LlType(g_builtins->type_bool))
+  if (ll_cond->getType() != GetLlType(g_builtins->type_bool))
   {
     throw logic_error("Type mismatch: while condition must be bool");
   }
@@ -379,7 +379,7 @@ bool ODqCompCodegen::GenIfStatement(OStmt *astmt)
     else // if or elif branch
     {
       Value * ll_cond = GenerateExpr(branch->condition);
-      if (ll_cond->getType() != LlType(g_builtins->type_bool))
+      if (ll_cond->getType() != GetLlType(g_builtins->type_bool))
       {
         throw runtime_error("Type mismatch: if condition must be bool");
       }
@@ -430,14 +430,14 @@ Value * ODqCompCodegen::GenerateExpr(OExpr * aexpr)
     OIntLit * ex = dynamic_cast<OIntLit *>(aexpr);
     if (ex)
     {
-      return ConstantInt::get(LlType(g_builtins->type_int), ex->value);
+      return ConstantInt::get(GetLlType(g_builtins->type_int), ex->value);
     }
   }
   {
     OBoolLit * ex = dynamic_cast<OBoolLit *>(aexpr);
     if (ex)
     {
-      return ConstantInt::get(LlType(g_builtins->type_bool), (ex->value ? 1 : 0));
+      return ConstantInt::get(GetLlType(g_builtins->type_bool), (ex->value ? 1 : 0));
     }
   }
   {
@@ -509,7 +509,7 @@ Value * ODqCompCodegen::GenerateExpr(OExpr * aexpr)
     if (ex)
     {
       Value * ll_val = GenerateExpr(ex->operand);
-      return ll_builder.CreateXor(ll_val, ConstantInt::get(LlType(g_builtins->type_bool), 1));
+      return ll_builder.CreateXor(ll_val, ConstantInt::get(GetLlType(g_builtins->type_bool), 1));
     }
   }
   {
@@ -569,7 +569,7 @@ void ODqCompCodegen::EmitObject(const string afilename)
   InitializeNativeTargetAsmPrinter();
 
   auto triple = sys::getDefaultTargetTriple();
-  ll_mod->setTargetTriple(triple);
+  ll_module->setTargetTriple(triple);
 
   string err;
   auto* target = TargetRegistry::lookupTarget(triple, err);
@@ -578,7 +578,7 @@ void ODqCompCodegen::EmitObject(const string afilename)
   auto* machine = target->createTargetMachine(
       triple, "generic", "", TargetOptions(), Reloc::PIC_);
 
-  ll_mod->setDataLayout(machine->createDataLayout());
+  ll_module->setDataLayout(machine->createDataLayout());
 
   error_code ec;
   raw_fd_ostream out(afilename, ec, sys::fs::OF_None);
@@ -586,18 +586,18 @@ void ODqCompCodegen::EmitObject(const string afilename)
 
   legacy::PassManager pm;
   machine->addPassesToEmitFile(pm, out, nullptr, CodeGenFileType::ObjectFile);
-  pm.run(*ll_mod);
+  pm.run(*ll_module);
   out.flush();
 }
 
 void ODqCompCodegen::PrintIr()
 {
   print("=== LLVM IR ===\n");
-  ll_mod->print(outs(), nullptr);
+  ll_module->print(outs(), nullptr);
   print("===============\n\n");
 }
 
-Type * ODqCompCodegen::LlType(OType * atype)
+Type * ODqCompCodegen::GetLlType(OType * atype)
 {
   if (!atype)
   {

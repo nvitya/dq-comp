@@ -19,6 +19,8 @@
 #include <vector>
 #include <map>
 
+#include "ll_defs.h"
+
 #include "comp_config.h"
 
 using namespace std;
@@ -97,6 +99,8 @@ public:
   bool         incomplete = false;
   uint32_t     bytesize = 0;  // 0 = size is not fixed (string, dyn. array)
 
+  LlType *     ll_type = nullptr;
+
   OType(const string aname, ETypeKind akind)
   :
     super(aname, nullptr),  // Types usually don't have a "type" themselves, or are meta-types
@@ -161,6 +165,7 @@ private:
 
 public:
   EValSymKind  kind;
+  LlValue *    ll_value = nullptr;
 
   OValSym(const string aname, OType * atype, EValSymKind akind = VSK_VARIABLE)
   :

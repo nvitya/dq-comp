@@ -96,6 +96,8 @@ public:
   OValSym *          vsresult = nullptr;
   OStmtBlock *       body;
 
+  LlFunction *       ll_func = nullptr;
+
   OValSymFunc(const string aname, OTypeFunc * atype, OScope * aparentscope = nullptr)
   :
     super(aname, atype, VSK_FUNCTION)
