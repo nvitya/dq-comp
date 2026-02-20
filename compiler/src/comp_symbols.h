@@ -22,6 +22,7 @@
 #include "ll_defs.h"
 
 #include "comp_config.h"
+#include "scf_base.h"
 
 using namespace std;
 
@@ -34,8 +35,10 @@ class OScope;
 class OSymbol
 {
 public:
-  string      name;
-  OType *     ptype;
+  string       name;
+  OType *      ptype;
+
+  OScPosition  scpos;
 
   OSymbol(const string aname, OType * atype = nullptr)
   :
@@ -101,6 +104,7 @@ public:
   uint32_t     bytesize = 0;  // 0 = size is not fixed (string, dyn. array)
 
   LlType *     ll_type = nullptr;
+  LlDiType *   di_type = nullptr;
 
   OType(const string aname, ETypeKind akind)
   :
@@ -118,6 +122,16 @@ public:
       ll_type = CreateLlType();
     }
     return ll_type;
+  }
+
+  virtual LlDiType * CreateDiType() { return nullptr; }
+  virtual LlDiType * GetDiType()
+  {
+    if (!di_type)
+    {
+      di_type = CreateDiType();
+    }
+    return di_type;
   }
 
   inline bool IsCompound()   { return (kind == TK_COMPOUND);  }
@@ -142,6 +156,11 @@ public:
   {
     return LlType::getVoidTy(ll_ctx);
   }
+
+  LlDiType * GetDiType() override
+  {
+    return nullptr;
+  }
 };
 
 class OTypeAlias : public OType
@@ -162,6 +181,11 @@ public:
   LlType * GetLlType() override
   {
     return ptype->GetLlType();
+  }
+
+  LlDiType * CreateDiType() override
+  {
+    return ptype->GetDiType();
   }
 };
 

@@ -162,6 +162,43 @@ unsigned PCharHexToInt(char * ReadPtr, int len)
 
 //-------------------------------------------------------------------------
 
+int OScPosition::GetLineNo()  // this might be slow
+{
+  if (!scfile or (pos < scfile->pstart) or (pos > scfile->pend))
+  {
+    return 0;
+  }
+
+  char *  p       = pos;
+  char *  pstart  = scfile->pstart;
+
+  int     linenum = 1;
+  int     colnum  = 0;
+
+  // colum counting
+  while (p > pstart)
+  {
+    if ((*p == '\n') or (*p == '\r'))
+    {
+      break;
+    }
+    --p;
+    ++colnum;
+  }
+
+  // line counting
+  while (p > pstart)
+  {
+    if (*p == '\n')
+    {
+      ++linenum;
+    }
+    --p;
+  }
+
+  return linenum;
+}
+
 string OScPosition::Format()
 {
   string result = "";
@@ -184,7 +221,6 @@ string OScPosition::Format()
     {
       break;
     }
-
     --p;
     ++colnum;
   }
@@ -196,7 +232,6 @@ string OScPosition::Format()
     {
       ++linenum;
     }
-
     --p;
   }
 
@@ -204,6 +239,7 @@ string OScPosition::Format()
 
   return result;
 }
+
 
 OScFile::OScFile()
 {
@@ -239,7 +275,22 @@ bool OScFile::Load(const string aname, const string afullpath)
     pstart = body.data();
     pend = pstart + length;
   }
+
+  di_file = di_builder->createFile(name, ExtractFilePath(afullpath));
+
   return true;
+}
+
+string ExtractFilePath(const string & full_path)
+{
+  filesystem::path path_obj(full_path);
+  return path_obj.parent_path().string();
+}
+
+string ExtractFileName(const string & full_path)
+{
+  filesystem::path path_obj(full_path);
+  return path_obj.filename().string();
 }
 
 //---------------------------------------------------------

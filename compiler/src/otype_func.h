@@ -81,6 +81,7 @@ public:
   bool          ParNameValid(const string aname);
 
   LlType * CreateLlType() override;
+  LlDiType * CreateDiType() override;
 };
 
 

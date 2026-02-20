@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 #include "stdint.h"
+#include "ll_defs.h"
 
 #include "comp_config.h"
 
@@ -24,6 +25,7 @@ using namespace std;
 class OScFile
 {
 public:
+  int       index = 0;
   string    name = "";
   string    fullpath = "";
   string    body = "";
@@ -32,6 +34,8 @@ public:
   char *    pend   = nullptr;
 
   int       usagecount = 1;
+
+  LlDiFile *  di_file = nullptr;
 
   OScFile();
   ~OScFile();
@@ -62,6 +66,8 @@ public:
     scfile = ascpos.scfile;
     pos = ascpos.pos;
   }
+
+  int GetLineNo();
 
   string Format();
 };
@@ -113,3 +119,6 @@ public: // parsing functions
   string PrevStr();
 
 };
+
+string ExtractFilePath(const string & full_path);
+string ExtractFileName(const string & full_path);

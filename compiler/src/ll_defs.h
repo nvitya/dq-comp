@@ -19,6 +19,7 @@
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Verifier.h>
+#include <llvm/IR/DIBuilder.h>
 
 using namespace std;
 
@@ -35,11 +36,21 @@ using LlBasicBlock   = llvm::BasicBlock;
 
 using LlLinkType     = llvm::GlobalValue::LinkageTypes;
 
+using LlDiBuilder    = llvm::DIBuilder;
+using LlDiUnit       = llvm::DICompileUnit;
+using LlDiFile       = llvm::DIFile;
+using LlDiScope      = llvm::DIScope;
+using LlDiSubPrg     = llvm::DISubprogram;
+using LlDiType       = llvm::DIType;
+
 // global variables
 
 extern LlContext     ll_ctx;
 extern LlBuilder     ll_builder;
 extern LlModule *    ll_module;
+
+extern LlDiBuilder * di_builder;
+extern LlDiUnit *    di_unit;
 
 // Loop context for break/continue
 struct SLoopContext
@@ -50,4 +61,7 @@ struct SLoopContext
 
 extern vector<SLoopContext>  ll_loop_stack;
 
+extern vector<LlDiScope *>   di_scope_stack;
+
 void ll_defs_init();
+void ll_init_debug_info();

@@ -38,6 +38,11 @@ public:
     return LlType::getIntNTy(ll_ctx, bitlength);
   }
 
+  LlDiType * CreateDiType() override
+  {
+    return di_builder->createBasicType("int", 64, llvm::dwarf::DW_ATE_signed);
+  }
+
   OValSymConst * CreateConst(const string aname, const int64_t avalue)
   {
     OValSymConst * result = new OValSymConst(aname, this);

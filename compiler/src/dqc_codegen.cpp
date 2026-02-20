@@ -61,6 +61,8 @@ void ODqCompCodegen::GenerateIr()
       }
     }
   }
+
+  di_builder->finalize();
 }
 
 void ODqCompCodegen::EmitObject(const string afilename)

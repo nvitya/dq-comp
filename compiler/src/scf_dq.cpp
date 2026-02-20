@@ -105,6 +105,7 @@ OScFile * OScFeederDq::LoadFile(const string afilename)
   print("File \"{}\" loaded: {} bytes\n", fullname, f->length);
 
   scfiles.push_back(f);
+  f->index = scfiles.size() - 1;
   return f;
 }
 

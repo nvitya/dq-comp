@@ -197,7 +197,14 @@ public:
 class OStmt
 {
 public:
-  OStmt() { }
+  OScPosition   scpos;
+
+  OStmt(OScPosition & ascpos)
+  :
+    scpos(ascpos)
+  {
+  }
+
   virtual ~OStmt()  { }
 
   virtual void Generate(OScope * scope)
@@ -208,10 +215,13 @@ public:
 
 struct OStmtReturn : public OStmt
 {
+private:
+  using        super = OStmt;
 public:
   OExpr *     value;
-  OStmtReturn(OExpr * v)
+  OStmtReturn(OScPosition & ascpos, OExpr * v)
   :
+    super(ascpos),
     value(v)
   {}
 
@@ -220,6 +230,8 @@ public:
 
 class OStmtBlock
 {
+private:
+  using        super = OStmt;
 public:
   OScope *         scope; // owned
   vector<OStmt *>  stlist;
@@ -249,12 +261,15 @@ public:
 
 class OStmtVarDecl : public OStmt
 {
+private:
+  using        super = OStmt;
 public:
   OValSym *  variable;
   OExpr *    initvalue;
 
-  OStmtVarDecl(OValSym * avariable, OExpr * ainitvalue)
+  OStmtVarDecl(OScPosition & ascpos, OValSym * avariable, OExpr * ainitvalue)
   :
+    super(ascpos),
     variable(avariable),
     initvalue(ainitvalue)
   {}
@@ -264,11 +279,14 @@ public:
 
 class OStmtAssign : public OStmt
 {
+private:
+  using        super = OStmt;
 public:
   OValSym *   variable;
   OExpr *     value;
-  OStmtAssign(OValSym * avariable, OExpr * avalue)
+  OStmtAssign(OScPosition & ascpos, OValSym * avariable, OExpr * avalue)
   :
+    super(ascpos),
     variable(avariable),
     value(avalue)
   {}
@@ -278,12 +296,15 @@ public:
 
 class OStmtModifyAssign : public OStmt
 {
+private:
+  using        super = OStmt;
 public:
   OValSym *   variable;
   EBinOp      op;
   OExpr *     value;
-  OStmtModifyAssign(OValSym * avariable, EBinOp aop, OExpr * avalue)
+  OStmtModifyAssign(OScPosition & ascpos, OValSym * avariable, EBinOp aop, OExpr * avalue)
   :
+    super(ascpos),
     variable(avariable),
     op(aop),
     value(avalue)
@@ -294,11 +315,14 @@ public:
 
 class OStmtWhile : public OStmt
 {
+private:
+  using        super = OStmt;
 public:
   OExpr *       condition;
   OStmtBlock *  body;
-  OStmtWhile(OExpr * acondition, OScope * ascope)
+  OStmtWhile(OScPosition & ascpos, OExpr * acondition, OScope * ascope)
   :
+    super(ascpos),
     condition(acondition)
   {
     body = new OStmtBlock(ascope, "while");
@@ -332,11 +356,14 @@ public:
 
 class OStmtIf : public OStmt
 {
+private:
+  using        super = OStmt;
 public:
   OScope *             parentscope;
   vector<OIfBranch *>  branches; // if, elif..., else
-  OStmtIf(OScope * aparentscope)
+  OStmtIf(OScPosition & ascpos, OScope * aparentscope)
   :
+    super(ascpos),
     parentscope(aparentscope)
   {
   }

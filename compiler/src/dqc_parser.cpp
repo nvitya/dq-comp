@@ -399,7 +399,7 @@ void ODqCompParser::ParseStmtReturn()
   }
   if (expr)
   {
-    curblock->AddStatement(new OStmtReturn(expr));
+    curblock->AddStatement(new OStmtReturn(scpos_statement_start, expr));
   }
 }
 
@@ -417,7 +417,7 @@ void ODqCompParser::ParseStmtWhile()
     return;
   }
 
-  OStmtWhile * st = new OStmtWhile(cond, curscope);
+  OStmtWhile * st = new OStmtWhile(scpos_statement_start, cond, curscope);
   curblock->AddStatement(st);
 
   ReadStatementBlock(st->body, "endwhile");
@@ -436,7 +436,7 @@ void ODqCompParser::ParseStmtIf()
     return;
   }
 
-  OStmtIf * st = new OStmtIf(curscope);
+  OStmtIf * st = new OStmtIf(scpos_statement_start, curscope);
   OIfBranch * branch = st->AddBranch(cond);
   curblock->AddStatement(st);
 

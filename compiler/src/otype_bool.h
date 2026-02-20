@@ -41,4 +41,8 @@ public:
     return LlType::getInt1Ty(ll_ctx);
   }
 
+  LlDiType * CreateDiType() override
+  {
+    return di_builder->createBasicType("bool", 1, llvm::dwarf::DW_ATE_boolean);
+  }
 };

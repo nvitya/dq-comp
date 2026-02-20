@@ -42,16 +42,43 @@ bool OTypeFunc::ParNameValid(const string aname)
 
 LlType * OTypeFunc::CreateLlType()  // do not call GetLlType() until the function arguments fully prepared
 {
-  // collect parameter list
   vector<LlType *> ll_partypes;
   for (OFuncParam * fpar : params)
   {
     ll_partypes.push_back(fpar->ptype->GetLlType());
   }
-  // return type
   LlType *  ll_rettype  = rettype->GetLlType();
-  // the final function type:
   return LlFuncType::get(ll_rettype, ll_partypes, false);
+}
+
+LlDiType * OTypeFunc::CreateDiType()
+{
+  OTypeFunc * tfunc = (OTypeFunc *)ptype;
+
+  vector<llvm::Metadata *> di_param_types;
+
+  if (rettype)
+  {
+    di_param_types.push_back(rettype->GetDiType());
+  }
+  else
+  {
+    di_param_types.push_back(nullptr);
+  }
+
+#if 0
+  // 'this' parameter for methods
+  if (hasThis)
+      paramTypes.push_back(getDebugType("ptr"));
+#endif
+
+  // Regular parameters
+  for (OFuncParam * fpar : tfunc->params)
+  {
+    di_param_types.push_back(fpar->ptype->GetDiType());
+  }
+
+  return di_builder->createSubroutineType(di_builder->getOrCreateTypeArray(di_param_types));
 }
 
 void OValSymFunc::GenDeclaration(bool apublic)
@@ -83,6 +110,16 @@ void OValSymFunc::GenerateFuncBody()
   auto * entry = LlBasicBlock::Create(ll_ctx, "entry", ll_func);
   ll_builder.SetInsertPoint(entry);
 
+  // Create implicit 'result' variable for functions with return type
+  LlType * ll_rettype = nullptr;
+  if (vsresult)
+  {
+    ll_rettype = vsresult->ptype->GetLlType();
+    vsresult->ll_value = ll_builder.CreateAlloca(ll_rettype, nullptr, "result");
+    // TODO: support other types
+    ll_builder.CreateStore(llvm::ConstantInt::get(ll_rettype, 0), vsresult->ll_value);
+  }
+
   // Create allocas for parameters
   int i = 0;
   for (auto & arg : ll_func->args())
@@ -96,15 +133,32 @@ void OValSymFunc::GenerateFuncBody()
     ++i;
   }
 
-  // Create implicit 'result' variable for functions with return type
-  LlType * ll_rettype = nullptr;
-  if (vsresult)
+
+  // DEBUG INFO
+
+  llvm::DISubroutineType *  di_func_type = (llvm::DISubroutineType *)ptype->GetDiType();
+  LlDiScope * di_scope = di_unit;
+  if (!di_scope_stack.empty())
   {
-    ll_rettype = vsresult->ptype->GetLlType();
-    vsresult->ll_value = ll_builder.CreateAlloca(ll_rettype, nullptr, "result");
-    // TODO: support other types
-    ll_builder.CreateStore(llvm::ConstantInt::get(ll_rettype, 0), vsresult->ll_value);
+    di_scope = di_scope_stack.back();
   }
+
+  int line_no = scpos.GetLineNo();
+
+  llvm::DISubprogram * debug_func = di_builder->createFunction(
+      di_scope,
+      name,
+      llvm::StringRef(),
+      scpos.scfile->di_file,
+      line_no,
+      di_func_type,
+      line_no,
+      llvm::DINode::FlagPrototyped,
+      llvm::DISubprogram::SPFlagDefinition
+  );
+  ll_func->setSubprogram(debug_func);
+
+  // STATEMENTS
 
   for (OStmt * stmt : body->stlist)
   {

@@ -47,6 +47,8 @@ int ODqCompiler::Run(int argc, char ** argv)
     return SetError(1, "Error opening file");
   }
 
+  ll_init_debug_info();
+
   ParseModule();
   if (error)
   {
