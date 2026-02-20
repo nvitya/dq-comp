@@ -13,10 +13,14 @@
 
 #pragma once
 
+#include <vector>
+
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Verifier.h>
+
+using namespace std;
 
 // Short Aliases
 using LlContext      = llvm::LLVMContext;
@@ -29,10 +33,21 @@ using LlFunction     = llvm::Function;
 using LlFuncType     = llvm::FunctionType;
 using LlBasicBlock   = llvm::BasicBlock;
 
+using LlLinkType     = llvm::GlobalValue::LinkageTypes;
+
 // global variables
 
 extern LlContext     ll_ctx;
 extern LlBuilder     ll_builder;
 extern LlModule *    ll_module;
+
+// Loop context for break/continue
+struct SLoopContext
+{
+  LlBasicBlock *  cond_bb;  // continue target
+  LlBasicBlock *  end_bb;   // break target
+};
+
+extern vector<SLoopContext>  ll_loop_stack;
 
 void ll_defs_init();

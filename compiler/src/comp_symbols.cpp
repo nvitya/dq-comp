@@ -113,9 +113,9 @@ void OValSym::GenDeclaration(bool apublic)
 {
   if (VSK_VARIABLE == kind)
   {
-    GlobalValue::LinkageTypes  linktype =
-      (apublic ? GlobalValue::LinkageTypes::ExternalLinkage
-               : GlobalValue::LinkageTypes::InternalLinkage);
+    LlLinkType  linktype =
+      (apublic ? LlLinkType::ExternalLinkage
+               : LlLinkType::InternalLinkage);
 
     LlType * ll_type = ptype->GetLlType();
     llvm::Constant * init_val = llvm::ConstantInt::get(ll_type, 0);

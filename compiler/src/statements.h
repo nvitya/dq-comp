@@ -13,6 +13,7 @@
 
 #pragma once
 
+#include <format>
 #include <vector>
 #include "comp_symbols.h"
 #include "ll_defs.h"
@@ -27,6 +28,11 @@ class OExpr
 {
 public:
   virtual ~OExpr() {};
+
+  virtual LlValue * Generate(OScope * scope)
+  {
+    throw logic_error(std::format("Unhandled OExpr::Generate for \"{}\"", typeid(this).name()));
+  }
 };
 
 class OIntLit : public OExpr
@@ -37,6 +43,8 @@ public:
   :
     value(v)
   {}
+
+  LlValue * Generate(OScope * scope) override;
 };
 
 class OBoolLit : public OExpr
@@ -47,6 +55,8 @@ public:
   :
     value(v)
   {}
+
+  LlValue * Generate(OScope * scope) override;
 };
 
 class OVarRef : public OExpr
@@ -57,6 +67,8 @@ public:
   :
     pvalsym(avalsym)
   {}
+
+  LlValue * Generate(OScope * scope) override;
 };
 
 enum EBinOp
@@ -79,6 +91,8 @@ public:
     left(aleft),
     right(aright)
   {}
+
+  LlValue * Generate(OScope * scope) override;
 };
 
 enum ECompareOp
@@ -103,6 +117,8 @@ public:
     left(aleft),
     right(aright)
   {}
+
+  LlValue * Generate(OScope * scope) override;
 };
 
 enum ELogicalOp
@@ -125,6 +141,8 @@ public:
     left(aleft),
     right(aright)
   {}
+
+  LlValue * Generate(OScope * scope) override;
 };
 
 class ONotExpr : public OExpr
@@ -135,6 +153,8 @@ public:
   :
     operand(expr)
   {}
+
+  LlValue * Generate(OScope * scope) override;
 };
 
 class ONegExpr : public OExpr
@@ -145,6 +165,8 @@ public:
   :
     operand(expr)
   {}
+
+  LlValue * Generate(OScope * scope) override;
 };
 
 class OValSymFunc;  // forward declaration for otype_func.h
@@ -163,6 +185,8 @@ public:
   {
     args.push_back(aarg);
   }
+
+  LlValue * Generate(OScope * scope) override;
 };
 
 
@@ -175,6 +199,11 @@ class OStmt
 public:
   OStmt() { }
   virtual ~OStmt()  { }
+
+  virtual void Generate(OScope * scope)
+  {
+    throw logic_error(std::format("Unhandled OStmt::Generate for \"{}\"", typeid(this).name()));
+  }
 };
 
 struct OStmtReturn : public OStmt
@@ -185,6 +214,8 @@ public:
   :
     value(v)
   {}
+
+  void Generate(OScope * scope) override;
 };
 
 class OStmtBlock
@@ -227,6 +258,8 @@ public:
     variable(avariable),
     initvalue(ainitvalue)
   {}
+
+  void Generate(OScope * scope) override;
 };
 
 class OStmtAssign : public OStmt
@@ -239,6 +272,8 @@ public:
     variable(avariable),
     value(avalue)
   {}
+
+  void Generate(OScope * scope) override;
 };
 
 class OStmtModifyAssign : public OStmt
@@ -253,6 +288,8 @@ public:
     op(aop),
     value(avalue)
   {}
+
+  void Generate(OScope * scope) override;
 };
 
 class OStmtWhile : public OStmt
@@ -271,6 +308,8 @@ public:
   {
     delete body;
   }
+
+  void Generate(OScope * scope) override;
 };
 
 class OIfBranch
@@ -316,12 +355,18 @@ public:
     branches.push_back(result);
     return result;
   }
+
+  void Generate(OScope * scope) override;
 };
 
 class OBreakStmt : public OStmt
 {
+public:
+  void Generate(OScope * scope) override;
 };
 
 class OContinueStmt : public OStmt
 {
+public:
+  void Generate(OScope * scope) override;
 };

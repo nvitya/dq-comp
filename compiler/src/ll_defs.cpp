@@ -17,6 +17,7 @@ LlContext    ll_ctx;
 LlBuilder    ll_builder(ll_ctx);
 LlModule *   ll_module;
 
+vector<SLoopContext>  ll_loop_stack;
 
 void ll_defs_init()
 {

@@ -13,6 +13,7 @@
 
 #include "otype_func.h"
 #include "dqc.h"
+#include "ll_defs.h"
 
 OFuncParam * OTypeFunc::AddParam(const string aname, OType * atype, EParamMode amode)
 {
@@ -57,9 +58,9 @@ void OValSymFunc::GenDeclaration(bool apublic)
 {
   //print("Found function declaration \"{}\"\n", ptfunc->name);
 
-  GlobalValue::LinkageTypes  linktype =
-    (apublic ? GlobalValue::LinkageTypes::ExternalLinkage
-              : GlobalValue::LinkageTypes::InternalLinkage);
+  llvm::GlobalValue::LinkageTypes  linktype =
+    (apublic ? llvm::GlobalValue::LinkageTypes::ExternalLinkage
+              : llvm::GlobalValue::LinkageTypes::InternalLinkage);
 
   LlFuncType *  ll_functype = (LlFuncType *)(ptype->GetLlType());  // calls CreateLlType()
 
@@ -78,21 +79,22 @@ void OValSymFunc::GenerateFuncBody()
 
   OTypeFunc * tfunc = (OTypeFunc *)ptype;
 
-  // Map params to names
-
-  //ll_locals.clear();
-  int i = 0;
-  for (auto & arg : ll_func->args())
-  {
-    OFuncParam * fpar = tfunc->params[i];
-    OValSym * vsarg = args[i];
-    arg.setName(fpar->name);
-    ++i;
-  }
-
   // Create entry block and generate body
   auto * entry = LlBasicBlock::Create(ll_ctx, "entry", ll_func);
   ll_builder.SetInsertPoint(entry);
+
+  // Create allocas for parameters
+  int i = 0;
+  for (auto & arg : ll_func->args())
+  {
+    OFuncParam *  fpar  = tfunc->params[i];
+    OValSym *     vsarg = args[i];
+
+    arg.setName(fpar->name);
+    vsarg->ll_value = ll_builder.CreateAlloca(fpar->ptype->GetLlType(), nullptr, fpar->name);
+    ll_builder.CreateStore(&arg, vsarg->ll_value);
+    ++i;
+  }
 
   // Create implicit 'result' variable for functions with return type
   LlType * ll_rettype = nullptr;
@@ -101,12 +103,12 @@ void OValSymFunc::GenerateFuncBody()
     ll_rettype = vsresult->ptype->GetLlType();
     vsresult->ll_value = ll_builder.CreateAlloca(ll_rettype, nullptr, "result");
     // TODO: support other types
-    ll_builder.CreateStore(ConstantInt::get(ll_rettype, 0), vsresult->ll_value);
+    ll_builder.CreateStore(llvm::ConstantInt::get(ll_rettype, 0), vsresult->ll_value);
   }
 
-  for (auto * stmt : body->stlist)
+  for (OStmt * stmt : body->stlist)
   {
-    //GenerateStatement(stmt);
+    stmt->Generate(body->scope);
   }
 
   // Add implicit return
@@ -125,5 +127,4 @@ void OValSymFunc::GenerateFuncBody()
   }
 
   verifyFunction(*ll_func);
-
 }

@@ -27,27 +27,11 @@
 #include "ll_defs.h"
 
 using namespace std;
-using namespace llvm;
 
 class ODqCompCodegen : public ODqCompParser
 {
 private:
   using                super = ODqCompParser;
-
-protected:
-
-  map<string, Function *>  ll_functions;
-  map<string, Value *>     ll_locals;
-  map<string, Value *>     ll_globals;
-
-  // Loop context for break/continue
-  struct SLoopContext
-  {
-    BasicBlock * cond_bb;  // continue target
-    BasicBlock * end_bb;   // break target
-  };
-  vector<SLoopContext>  ll_loop_stack;
-
 
 public:
   ODqCompCodegen()
@@ -57,17 +41,8 @@ public:
   virtual ~ODqCompCodegen() {}
 
   void GenerateIr();
-  void GenerateFunction(OValSymFunc * vsfunc);
-  void GenerateStatement(OStmt * astmt);
-  Value * GenerateExpr(OExpr * aexpr);
-
-  bool GenWhileStatement(OStmt * astmt);
-  bool GenIfStatement(OStmt * astmt);
-
   void PrintIr();
 
   void EmitObject(const string afilename);
-
-  Type * GetLlType(OType * atype);
 
 };
