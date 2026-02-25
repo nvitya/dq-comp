@@ -162,11 +162,13 @@ unsigned PCharHexToInt(char * ReadPtr, int len)
 
 //-------------------------------------------------------------------------
 
-int OScPosition::GetLineNo()  // this might be slow
+void OScPosition::RecalcLineCol()  // this is slow
 {
   if (!scfile or (pos < scfile->pstart) or (pos > scfile->pend))
   {
-    return 0;
+    line = 0;
+    col = 0;
+    return;
   }
 
   char *  p       = pos;
@@ -196,47 +198,20 @@ int OScPosition::GetLineNo()  // this might be slow
     --p;
   }
 
-  return linenum;
+  line = linenum;
+  col  = colnum;
 }
 
 string OScPosition::Format()
 {
   string result = "";
 
-  if (!scfile or (pos < scfile->pstart) or (pos > scfile->pend))
+  if (!scfile)
   {
     return result;
   }
 
-  char *  p       = pos;
-  char *  pstart  = scfile->pstart;
-
-  int     linenum = 1;
-  int     colnum  = 0;
-
-  // colum counting
-  while (p > pstart)
-  {
-    if ((*p == '\n') or (*p == '\r'))
-    {
-      break;
-    }
-    --p;
-    ++colnum;
-  }
-
-  // line counting
-  while (p > pstart)
-  {
-    if (*p == '\n')
-    {
-      ++linenum;
-    }
-    --p;
-  }
-
-  result = format("{}({},{})", scfile->name, linenum, colnum);
-
+  result = format("{}({},{})", scfile->name, line, col);
   return result;
 }
 
@@ -315,6 +290,9 @@ void OScFeederBase::Reset()
   curfile = nullptr;
   curp = nullptr;
   bufend = nullptr;
+  clstart = nullptr;
+  curline = 1;
+  curcol  = 1;
 }
 
 string OScFeederBase::PrevStr()
@@ -323,13 +301,25 @@ string OScFeederBase::PrevStr()
   return result;
 }
 
+void OScFeederBase::SaveCurPos(OScPosition & rpos)
+{
+  rpos.scfile = curfile;
+  rpos.pos    = curp;
+  rpos.line   = curline;
+  rpos.col    = curcol;
+}
+
 void OScFeederBase::SetCurPos(OScPosition & rpos)
 {
   curfile = rpos.scfile;
-  bufend = curfile->pend;
-  curp = rpos.pos;
-  prevp = curp;
+  curp    = rpos.pos;
+  curline = rpos.line;
+  curcol  = rpos.col;
+
+  bufend  = curfile->pend;
+  prevp   = curp;
   prevlen = 0;
+  SearchClStart();
 }
 
 void OScFeederBase::SetCurPos(OScFile * afile, char * apos)
@@ -341,14 +331,53 @@ void OScFeederBase::SetCurPos(OScFile * afile, char * apos)
     curp = apos;
     prevp = curp;
     prevlen = 0;
+
+    RecalcCurLineCol();
   }
   else
   {
     bufend = nullptr;
     curp = nullptr;
     prevp = nullptr;
+    clstart = nullptr;
     prevlen = 0;
+    curline = 0;
+    curcol  = 0;
   }
+}
+
+void OScFeederBase::SearchClStart()
+{
+  if (!curfile)
+  {
+    clstart = nullptr;
+    return;
+  }
+
+  char * pstart = curfile->pstart;
+  char * p = curp;
+  if (curp > curfile->pstart)
+  {
+    while (p > pstart)
+    {
+      if ((*p == '\n') or (*p == '\r'))
+      {
+        clstart = p + 1;
+        return;
+      }
+      --p;
+    }
+    // no previous linefeed was found, so point to the file start
+    clstart = pstart;
+  }
+}
+
+void OScFeederBase::RecalcCurLineCol()
+{
+  OScPosition scpos(curfile, curp); // calculates the line, col internally, this is slow
+  curline = scpos.line;
+  curcol  = scpos.col;
+  SearchClStart();
 }
 
 void OScFeederBase::SkipSpaces(bool askiplineend)
@@ -356,9 +385,15 @@ void OScFeederBase::SkipSpaces(bool askiplineend)
   char * cp = curp;
   while ( (cp < bufend) && ( (*cp == 32) || (*cp == 9) || (askiplineend && ((*cp == 13) || (*cp == 10))) ) )
   {
+    if (*cp == line_end_char)
+    {
+      ++curline;
+      clstart = cp + 1;
+    }
     ++cp;
   }
   curp = cp;
+  curcol = (curp - clstart) + 1;
 }
 
 /*
@@ -382,11 +417,27 @@ bool OScFeederBase::ReadLine()
   prevlen = p - curp;
 
   // skip the line end, but only one!
-  if ((p < bufend) and (*p == 13))  ++p;
-  if ((p < bufend) and (*p == 10))  ++p;
+  if ((p < bufend) and (*p == 13))
+  {
+    if (*p == line_end_char)
+    {
+      ++curline;
+    }
+    ++p;
+    clstart = p;
+  }
+  if ((p < bufend) and (*p == 10))
+  {
+    if (*p == line_end_char)
+    {
+      ++curline;
+    }
+    ++p;
+    clstart = p;
+  }
 
   curp = p;
-
+  curcol = (curp - clstart) + 1;
   return (prevp < bufend);
 }
 
@@ -407,9 +458,16 @@ bool OScFeederBase::ReadTo(const char * checkchars)
       {
         prevlen = p - curp;
         curp = p;
+        curcol = (curp - clstart) + 1;
         return true;
       }
       ++ccptr;
+    }
+
+    if (*p == line_end_char)
+    {
+      ++curline;
+      clstart = p + 1;
     }
 
     ++p;
@@ -418,6 +476,7 @@ bool OScFeederBase::ReadTo(const char * checkchars)
   // end of buffer, store the remaining length:
   prevlen = p - curp;
   curp = p;
+  curcol = (curp - clstart) + 1;
   return false;
 }
 
@@ -432,35 +491,44 @@ bool OScFeederBase::ReadToChar(char achar)
   {
     if (*p == achar)
     {
+      curcol = (curp - clstart) + 1;
       result = true;
       break;
+    }
+
+    if (*p == line_end_char)
+    {
+      ++curline;
+      clstart = p + 1;
     }
     ++p;
   }
 
   prevlen = p - curp;
   curp = p;
-
+  curcol = (curp - clstart) + 1;
   return result;
 }
 
-bool OScFeederBase::SearchPattern(const char * checkchars, bool aconsume)  // reads until the checkstring is found, readptr points to matching start
+bool OScFeederBase::SearchPattern(const char * checkstr, bool aconsume)  // reads until the checkstring is found, readptr points to matching start
 {
   char *    p;
   char *    cps = curp;
-  char *    ccstart = (char *)checkchars;
-  unsigned  ccslen  = strlen(checkchars);
-  char *    ccend   = ccstart + ccslen;
+  char *    csstart = (char *)checkstr;
+  unsigned  csslen  = strlen(checkstr);
+  char *    csend   = csstart + csslen;
   char *    ccptr;
+  int       newcurline = curline;
+  char *    newclstart = clstart;
 
   // check start pos cycle
-  while (cps < bufend - ccslen)
+  while (cps < bufend - csslen)
   {
     // check chars cycle
     p = cps;
-    ccptr = ccstart;
+    ccptr = csstart;
     char match = 1;
-    while (ccptr < ccend)
+    while (ccptr < csend)
     {
       if (*p != *ccptr)
       {
@@ -474,6 +542,7 @@ bool OScFeederBase::SearchPattern(const char * checkchars, bool aconsume)  // re
     if (match)
     {
       // does not skip the matching pattern, readptr points to the matching pattern
+
       prevlen = cps - curp;
       if (aconsume)
       {
@@ -483,9 +552,17 @@ bool OScFeederBase::SearchPattern(const char * checkchars, bool aconsume)  // re
       {
         curp = cps;
       }
+      curline = newcurline;
+      clstart = newclstart;
+      curcol = (curp - clstart) + 1;
       return true;
     }
 
+    if (*cps == line_end_char)
+    {
+      ++newcurline;
+      newclstart = cps + 1;
+    }
     ++cps;
   }
 
@@ -494,6 +571,8 @@ bool OScFeederBase::SearchPattern(const char * checkchars, bool aconsume)  // re
 
 bool OScFeederBase::CheckSymbol(const char * checkstring, bool aconsume)
 {
+  // the checkstring should not contain the line_end_char
+
   char *  p = curp;
   char *  csptr = (char *)checkstring;
   char *  csend = csptr + strlen(checkstring);
@@ -514,6 +593,7 @@ bool OScFeederBase::CheckSymbol(const char * checkstring, bool aconsume)
   if (aconsume)
   {
     curp = p;
+    curcol = (curp - clstart) + 1;
   }
 
   return true;
@@ -546,6 +626,7 @@ bool OScFeederBase::ReadIdentifier(string & rvalue)
   if (prevlen > 0)
   {
     curp = p;
+    curcol = (curp - clstart) + 1;
     rvalue.assign(prevp, prevlen);
     return true;
   }
@@ -610,6 +691,7 @@ bool OScFeederBase::ReadInt64Value(int64_t & rvalue)
   {
     prevlen = p - curp;
     curp = p; // consume
+    curcol = (curp - clstart) + 1;
     rvalue = result;
   }
 
@@ -650,6 +732,7 @@ bool OScFeederBase::ReadHex64Value(uint64_t & rvalue)
   if (prevlen > 0)
   {
     curp = p; // consume
+    curcol = (curp - clstart) + 1;
     rvalue = result;
     return true;
   }
@@ -734,6 +817,7 @@ bool OScFeederBase::ReadQuotedString(string & rvalue)
   }
 
   rvalue = result;
+  curcol = (curp - clstart) + 1;
   return true;
 }
 
@@ -763,6 +847,7 @@ bool OScFeederBase::ReadDecimalNumbers()
 
   prevlen = cp - curp;
   curp = cp;
+  curcol = (curp - clstart) + 1;
 
   return result;
 }
@@ -793,6 +878,7 @@ bool OScFeederBase::ReadHexNumbers()
 
   prevlen = cp - curp;
   curp = cp;
+  curcol = (curp - clstart) + 1;
 
   return result;
 }
@@ -824,6 +910,7 @@ bool OScFeederBase::ReadFloatNum()
 
   prevlen = cp - curp;
   curp = cp;
+  curcol = (curp - clstart) + 1;
 
   return result;
 }

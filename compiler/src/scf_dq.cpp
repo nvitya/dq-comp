@@ -144,6 +144,7 @@ repeat_skip:  // jumped here when returning from an include
       {
         // the closing was not found in this file, jump to the end
         curp = curfile->pend;
+        RecalcCurLineCol();
       }
     }
     else if (CheckSymbol("#{"))  // compiler directive
@@ -159,6 +160,7 @@ repeat_skip:  // jumped here when returning from an include
       else
       {
         SkipInactiveCode();  // might return early to let the SkipWhite() to process some parts
+        RecalcCurCol();
       }
     }
   } // while

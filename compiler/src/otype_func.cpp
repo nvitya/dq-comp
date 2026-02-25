@@ -143,16 +143,14 @@ void OValSymFunc::GenerateFuncBody()
     di_scope = di_scope_stack.back();
   }
 
-  int line_no = scpos.GetLineNo();
-
   llvm::DISubprogram * debug_func = di_builder->createFunction(
       di_scope,
       name,
       llvm::StringRef(),
       scpos.scfile->di_file,
-      line_no,
+      scpos.line,
       di_func_type,
-      line_no,
+      scpos.line,
       llvm::DINode::FlagPrototyped,
       llvm::DISubprogram::SPFlagDefinition
   );

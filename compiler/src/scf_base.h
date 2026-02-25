@@ -48,26 +48,33 @@ class OScPosition
 public:
   OScFile *  scfile;
   char *     pos;
+  int        line;
+  int        col;
 
   OScPosition()
   {
     scfile = nullptr;
-    pos = nullptr;
+    pos    = nullptr;
+    line   = 0;
+    col    = 0;
   }
 
   OScPosition(OScFile * ascfile, char * apos)
   {
     scfile = ascfile;
-    pos = apos;
+    pos    = apos;
+    RecalcLineCol(); // this is slow
   }
 
   void Assign(OScPosition & ascpos)
   {
     scfile = ascpos.scfile;
-    pos = ascpos.pos;
+    pos    = ascpos.pos;
+    line   = ascpos.line;
+    col    = ascpos.col;
   }
 
-  int GetLineNo();
+  void RecalcLineCol(); // this is slow, searches lineends backwards
 
   string Format();
 };
@@ -82,6 +89,12 @@ public:
   char *               prevp;             // previous token start position
   int                  prevlen;           // usually signs token length
 
+  int                  curline = 0;       // for debug info generation the current line and column must be tracked continuously
+  int                  curcol  = 0;
+  char *               clstart = nullptr;  // current line start pointer (for fast column position calculation)
+
+  char                 line_end_char = '\n';  // this handles only DOS and UNIX, but not MAC
+
   OScPosition          prevpos;
 
   OScFeederBase();
@@ -92,7 +105,7 @@ public:
 
 public: // parsing functions
 
-  void SaveCurPos(OScPosition & rpos) { rpos.scfile = curfile; rpos.pos = curp; }
+  void SaveCurPos(OScPosition & rpos);
   void SetCurPos(OScPosition & rpos);
   void SetCurPos(OScFile * afile, char * apos = nullptr);
 
@@ -117,6 +130,10 @@ public: // parsing functions
   bool ReadFloatNum();             // sets prevptr, prevlen
 
   string PrevStr();
+
+  void SearchClStart();
+  inline void RecalcCurCol()  { curcol = (curp - clstart) + 1; }
+  void RecalcCurLineCol();
 
 };
 
