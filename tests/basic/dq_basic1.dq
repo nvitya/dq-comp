@@ -1,9 +1,12 @@
 // single line comment: this is a dq test program
 
-const GVINIT : int = 99;
+const GVINT  : int = 99;
+const GVBOOL1 : bool = false;
+const GVBOOL2 : bool = true;
 
-var globvar1 : int = 1;
+var globvar1 : int = 1 + GVINT;
 var globvar2 : int = 2;
+var g_bool : bool = GVBOOL1 and GVBOOL2;
 
 function dq_add(a : int, b : int) -> int:
     return a + b;

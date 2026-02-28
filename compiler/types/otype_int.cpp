@@ -13,6 +13,7 @@
 
 #include "otype_int.h"
 #include "expressions.h"
+#include "dqc.h"
 
 LlConst * OValueInt::CreateLlConst()
 {
@@ -41,7 +42,30 @@ bool OValueInt::CalculateConstant(OExpr * expr)
       {
         return false;
       }
-      value = v.value;
+      value = -v.value;
+      return true;
+    }
+  }
+
+  {
+    auto * ex = dynamic_cast<OVarRef *>(expr);
+    if (ex)
+    {
+      OValSymConst * vsconst = dynamic_cast<OValSymConst *>(ex->pvalsym);
+      if (not vsconst)
+      {
+        g_compiler->ExpressionError("Non-constant symbol in int constant expression");
+        return false;
+      }
+
+      OValueInt * vint = dynamic_cast<OValueInt *>(vsconst->pvalue);
+      if (not vint)
+      {
+        g_compiler->ExpressionError("Int constant expression type error");
+        return false;
+      }
+
+      value = vint->value;
       return true;
     }
   }
@@ -67,5 +91,6 @@ bool OValueInt::CalculateConstant(OExpr * expr)
     }
   }
 
+  g_compiler->ExpressionError("Int constant expression error");
   return false;
 }

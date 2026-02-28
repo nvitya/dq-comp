@@ -805,6 +805,18 @@ OExpr * ODqCompParser::ParseExprPrimary()
     return result;
   }
 
+  if (scf->CheckSymbol("true"))
+  {
+    result = new OBoolLit(true);
+    return result;
+  }
+
+  if (scf->CheckSymbol("false"))
+  {
+    result = new OBoolLit(false);
+    return result;
+  }
+
   // identifier
 
   string  sid;
@@ -849,12 +861,6 @@ OExpr * ODqCompParser::ParseExprPrimary()
     return result;
   }
 
-  if (TK_INT != tk)
-  {
-    Error("Only int type is supported so far.");
-    return result;
-  }
-
   result = new OVarRef(vs);
   return result;
 }
@@ -881,6 +887,18 @@ void ODqCompParser::StatementError(const string amsg, OScPosition * scpos, bool 
   }
 
   scf->SkipWhite();
+}
+
+void ODqCompParser::ExpressionError(const string amsg, OScPosition * scpos)
+{
+  OScPosition log_scpos(scpos_statement_start);
+
+  if (scpos and scpos->scfile) // use the position provided
+  {
+    log_scpos.Assign(*scpos);
+  }
+
+  Error(amsg, &log_scpos);
 }
 
 bool ODqCompParser::CheckStatementClose()

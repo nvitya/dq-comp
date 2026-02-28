@@ -45,6 +45,7 @@ public:
   void ParseStmtReturn();
 
   void StatementError(const string amsg, OScPosition * scpos = nullptr, bool atryrecover = true);
+  void ExpressionError(const string amsg, OScPosition * scpos = nullptr);
 
   void ReadStatementBlock(OStmtBlock * stblock, const string blockend, string * rendstr = nullptr);
 
