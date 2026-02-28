@@ -122,35 +122,23 @@ void ODqCompParser::ParseVarDecl()
     return;
   }
 
-#if 0
-  int64_t    initvalue = 0;
-  bool       initialized = false;
+  ODecl * vdecl = AddDeclVar(scpos_statement_start, sid, ptype);
+
+  OExpr * initexpr = nullptr;
   scf->SkipWhite();
   if (scf->CheckSymbol("="))  // variable initializer specified
   {
-    initialized = true;
-
     scf->SkipWhite();
-    // later this comes here:
-    // OExpression * expr = ParseExpression();
-
-    if (not scf->ReadInt64Value(initvalue))
-    {
-      StatementError("Integer literal expected (so far only this supported)");
-      return;
-    }
+    OExpr * initexpr = ParseExpression();
+    //TODO: check expression type, it should be constant !
+    vdecl->initvalue = initexpr;
   }
-#endif
 
   if (not CheckStatementClose())
   {
     // error message already generated.
     return;
   }
-
-  AddDeclVar(scpos_statement_start, sid, ptype);
-
-  // TODO: add the initialization
 }
 
 void ODqCompParser::ParseFunction()

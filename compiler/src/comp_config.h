@@ -13,6 +13,8 @@
 
 #pragma once
 
+#define CONF_DEBUG_INFO  0
+
 #if defined(_WIN32) || defined(_WIN64)
 
   #define HOST_WIN

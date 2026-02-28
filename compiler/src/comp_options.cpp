@@ -8,10 +8,12 @@
  * file:    comp_options.cpp
  * authors: nvitya
  * created: 2026-01-31
- * brief:   
+ * brief:
  */
 
 #include "comp_options.h"
+
+OCompOptions  g_opt;
 
 OCompOptions::OCompOptions()
 {

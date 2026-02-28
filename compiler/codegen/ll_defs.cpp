@@ -14,6 +14,7 @@
 #include "ll_defs.h"
 #include "dqc.h"
 #include "scf_dq.h"
+#include "comp_options.h"
 
 LlContext      ll_ctx;
 LlBuilder      ll_builder(ll_ctx);
@@ -35,6 +36,11 @@ void ll_defs_init()
 
 void ll_init_debug_info()
 {
+  if (not g_opt.dbg_info)
+  {
+    return;
+  }
+
   OScFile * pfile = g_compiler->scf->curfile;
 
   di_unit = di_builder->createCompileUnit(

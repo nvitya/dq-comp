@@ -31,6 +31,8 @@ class ODecl  // module top level declaration
 public:
   EDeclKind   kind;
   bool        ispublic;
+  OExpr *     initvalue = nullptr;  // valid for the variable declarations only
+
   union
   {
     OType *      ptype;

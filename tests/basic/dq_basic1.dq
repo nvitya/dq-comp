@@ -1,6 +1,6 @@
 // single line comment: this is a dq test program
 
-var globvar1 : int;  // TODO: add initialization " = 1;"
+var globvar1 : int = 1;  // TODO: add initialization " = 1;"
 var globvar2 : int;  // TODO: add initialization " = 1;"
 
 function dq_add(a : int, b : int) -> int:

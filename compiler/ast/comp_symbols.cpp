@@ -109,7 +109,7 @@ void OValSymConst::SetInlineData(void * asrcdata, uint32_t alen)
   }
 }
 
-void OValSym::GenDeclaration(bool apublic)
+void OValSym::GenDeclaration(bool apublic, OExpr * ainitval)
 {
   if (VSK_VARIABLE == kind)
   {
@@ -117,10 +117,33 @@ void OValSym::GenDeclaration(bool apublic)
       (apublic ? LlLinkType::ExternalLinkage
                : LlLinkType::InternalLinkage);
 
-    LlType * ll_type = ptype->GetLlType();
-    llvm::Constant * init_val = llvm::ConstantInt::get(ll_type, 0);
+#if 0
 
-    auto * gv = new llvm::GlobalVariable(*ll_module, ll_type, false, linktype, init_val, name);
+    // Scalar type → constant initialization
+    Constant* initVal = Constant::getNullValue(varType);
+    if (gvar->initValue)
+    {
+        if (auto* lit = dynamic_cast<IntLit*>(gvar->initValue))
+            initVal = ConstantInt::get(varType, lit->value);
+        else if (auto* blit = dynamic_cast<BoolLit*>(gvar->initValue))
+            initVal = ConstantInt::get(varType, blit->value ? 1 : 0);
+    }
+    auto* gv = new GlobalVariable(*mod, varType, false,
+                                  GlobalValue::InternalLinkage,
+                                  initVal, gvar->name);
+#endif
+
+    LlType *          ll_type  = ptype->GetLlType();
+    LlConstant *      ll_init_val = llvm::Constant::getNullValue(ll_type);
+
+    if (ainitval)
+    {
+      // the ainitval should be a constant expression !
+
+      // ll_init_val = ainitval->Generate();  // the Generate() returns LlValue instead of Constant !
+    }
+
+    auto * gv = new llvm::GlobalVariable(*ll_module, ll_type, false, linktype, ll_init_val, name);
     //ll_globals[vs->name] = gv;
   }
 }

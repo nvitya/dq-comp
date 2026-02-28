@@ -15,6 +15,7 @@
 
 #include "stdint.h"
 
+#include <format>
 #include <string>
 #include <vector>
 #include <map>
@@ -208,6 +209,19 @@ public:
   inline OScope * Members() { return &member_scope; }
 };
 
+// Expression Base
+
+class OExpr
+{
+public:
+  virtual ~OExpr() {};
+
+  virtual LlValue * Generate(OScope * scope)
+  {
+    throw logic_error(std::format("Unhandled OExpr::Generate for \"{}\"", typeid(this).name()));
+  }
+};
+
 // Value Symbols
 
 enum EValSymKind
@@ -234,7 +248,7 @@ public:
   {
   }
 
-  virtual void GenDeclaration(bool apublic);
+  virtual void GenDeclaration(bool apublic, OExpr * ainitval = nullptr);
 };
 
 class OValSymConst : public OValSym

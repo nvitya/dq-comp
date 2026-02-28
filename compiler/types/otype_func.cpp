@@ -81,7 +81,7 @@ LlDiType * OTypeFunc::CreateDiType()
   return di_builder->createSubroutineType(di_builder->getOrCreateTypeArray(di_param_types));
 }
 
-void OValSymFunc::GenDeclaration(bool apublic)
+void OValSymFunc::GenDeclaration(bool apublic, OExpr * ainitval)
 {
   //print("Found function declaration \"{}\"\n", ptfunc->name);
 
@@ -133,28 +133,28 @@ void OValSymFunc::GenerateFuncBody()
     ++i;
   }
 
-
-  // DEBUG INFO
-
-  llvm::DISubroutineType *  di_func_type = (llvm::DISubroutineType *)ptype->GetDiType();
-  LlDiScope * di_scope = di_unit;
-  if (!di_scope_stack.empty())
+  if (g_opt.dbg_info)
   {
-    di_scope = di_scope_stack.back();
-  }
+    llvm::DISubroutineType *  di_func_type = (llvm::DISubroutineType *)ptype->GetDiType();
+    LlDiScope * di_scope = di_unit;
+    if (!di_scope_stack.empty())
+    {
+      di_scope = di_scope_stack.back();
+    }
 
-  llvm::DISubprogram * debug_func = di_builder->createFunction(
-      di_scope,
-      name,
-      llvm::StringRef(),
-      scpos.scfile->di_file,
-      scpos.line,
-      di_func_type,
-      scpos.line,
-      llvm::DINode::FlagPrototyped,
-      llvm::DISubprogram::SPFlagDefinition
-  );
-  ll_func->setSubprogram(debug_func);
+    llvm::DISubprogram * debug_func = di_builder->createFunction(
+        di_scope,
+        name,
+        llvm::StringRef(),
+        scpos.scfile->di_file,
+        scpos.line,
+        di_func_type,
+        scpos.line,
+        llvm::DINode::FlagPrototyped,
+        llvm::DISubprogram::SPFlagDefinition
+    );
+    ll_func->setSubprogram(debug_func);
+  }
 
   // STATEMENTS
 

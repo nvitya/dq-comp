@@ -24,17 +24,6 @@ using namespace std;
 // EXPRESSIONS
 //=============================================================================
 
-class OExpr
-{
-public:
-  virtual ~OExpr() {};
-
-  virtual LlValue * Generate(OScope * scope)
-  {
-    throw logic_error(std::format("Unhandled OExpr::Generate for \"{}\"", typeid(this).name()));
-  }
-};
-
 class OIntLit : public OExpr
 {
 public:

@@ -7,8 +7,8 @@
  * ---------------------------------------------------------------------------------
  * file:    comp_options.h
  * authors: nvitya
- * created: 2026-01-31
- * brief:   
+ * created: 2026-02-27
+ * brief:   compiler options
  */
 
 #pragma once
@@ -21,10 +21,13 @@ using namespace std;
 class OCompOptions
 {
 public:
-  bool blockmode_braces = false;
+  bool     blockmode_braces = false;
+  bool     dbg_info = false;
 
   // include dirs
   // module dirs
 
   OCompOptions();
 };
+
+extern OCompOptions  g_opt;
