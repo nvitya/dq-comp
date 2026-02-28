@@ -12,10 +12,8 @@ function dq_testfunc(a : int, b : int) -> int:
   var i : int = 0;
   var x : int = 0;
   while i < b:
-    x = x + i;
-    //x += i;
-    i = i + 1;
-    //i += 1;
+    x += i;
+    i += 1;
   endwhile
   return a + x;
 endfunc
