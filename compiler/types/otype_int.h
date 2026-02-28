@@ -15,6 +15,25 @@
 
 #include "symbols.h"
 
+class OValueInt : public OValue
+{
+private:
+  using        super = OValue;
+
+public:
+  int64_t      value;
+
+  OValueInt(OType * atype, int64_t avalue)
+  :
+    super(atype)
+  {
+    value = avalue;
+  }
+
+  LlConst *  CreateLlConst() override;
+  bool       CalculateConstant(OExpr * expr) override;
+};
+
 class OTypeInt : public OType
 {
 private:
@@ -33,6 +52,11 @@ public:
     bytesize = ((abitlength + 7) >> 3);
   }
 
+  OValue * CreateValue() override
+  {
+    return new OValueInt(this, 0);
+  }
+
   LlType * CreateLlType() override
   {
     return LlType::getIntNTy(ll_ctx, bitlength);
@@ -45,16 +69,10 @@ public:
 
   OValSymConst * CreateConst(const string aname, const int64_t avalue)
   {
-    OValSymConst * result = new OValSymConst(aname, this);
-    result->SetInlineData((void *)&avalue, bytesize);
-    return result;
+    OValueInt * v = new OValueInt(this, avalue);
+    return new OValSymConst(aname, this, v);  // takes over the ownership of v
   }
-
-  OValSymConst * CreateConstU(const string aname, const uint64_t avalue)
-  {
-    OValSymConst * result = new OValSymConst(aname, this);
-    result->SetInlineData((void *)&avalue, bytesize);
-    return result;
-  }
-
 };
+
+// later OTypeUint will be created for unsigned
+

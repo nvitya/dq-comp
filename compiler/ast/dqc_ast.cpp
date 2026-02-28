@@ -40,6 +40,20 @@ ODecl * ODqCompAst::AddDeclVar(OScPosition & scpos, string aid, OType * atype)
   return result;
 }
 
+ODecl * ODqCompAst::AddDeclConst(OScPosition & scpos, string aid, OType * atype, OValue * avalue)
+{
+  OValSym * pvalsym = new OValSymConst(aid, atype, avalue);
+  pvalsym->scpos.Assign(scpos);
+
+  ODecl * result = g_module->DeclareValSym(section_public, pvalsym);
+
+  print("{}: ", scpos.Format());
+  print("AddConstDecl(): var {} : {}", aid, atype->name);
+  print("\n");
+
+  return result;
+}
+
 ODecl * ODqCompAst::AddDeclFunc(OScPosition & scpos, OValSymFunc * avsfunc)
 {
   ODecl * result = g_module->DeclareValSym(section_public, avsfunc);

@@ -30,7 +30,7 @@ using LlBuilder      = llvm::IRBuilder<>;
 
 using LlValue        = llvm::Value;
 using LlType         = llvm::Type;
-using LlConstant     = llvm::Constant;
+using LlConst        = llvm::Constant;
 using LlFunction     = llvm::Function;
 using LlFuncType     = llvm::FunctionType;
 using LlBasicBlock   = llvm::BasicBlock;

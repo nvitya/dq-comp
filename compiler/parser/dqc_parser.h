@@ -38,6 +38,7 @@ public:
   void ParseModule();
 
   void ParseVarDecl();
+  void ParseConstDecl();
   void ParseFunction();
   bool CheckStatementClose();
 

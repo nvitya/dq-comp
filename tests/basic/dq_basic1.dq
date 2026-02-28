@@ -1,7 +1,9 @@
 // single line comment: this is a dq test program
 
-var globvar1 : int = 1;  // TODO: add initialization " = 1;"
-var globvar2 : int;  // TODO: add initialization " = 1;"
+const GVINIT : int = 99;
+
+var globvar1 : int = 1;
+var globvar2 : int = 2;
 
 function dq_add(a : int, b : int) -> int:
     return a + b;

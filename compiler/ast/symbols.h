@@ -28,6 +28,7 @@
 using namespace std;
 
 class OType;
+class OValue;
 class OValSym;
 class OScope;
 
@@ -138,6 +139,8 @@ public:
   inline bool IsCompound()   { return (kind == TK_COMPOUND);  }
 
   virtual OValSym * CreateValSym(const string aname);
+
+  virtual OValue * CreateValue() { return nullptr; }
 };
 
 class OTypeVoid : public OType
@@ -209,6 +212,37 @@ public:
   inline OScope * Members() { return &member_scope; }
 };
 
+// Values
+
+class OExpr;
+
+class OValue
+{
+public:
+  OType *       ptype = nullptr;
+  LlConst *     ll_const = nullptr;
+
+  virtual ~OValue() {};
+  OValue(OType * atype)
+  :
+    ptype(atype)
+  {
+  }
+
+  virtual LlConst * CreateLlConst() { return nullptr; }
+
+  virtual LlConst * GetLlConst()
+  {
+    if (!ll_const)
+    {
+      ll_const = CreateLlConst();
+    }
+    return ll_const;
+  }
+
+  virtual bool CalculateConstant(OExpr * expr) { return false; }
+};
+
 // Expression Base
 
 class OExpr
@@ -221,6 +255,7 @@ public:
     throw logic_error(std::format("Unhandled OExpr::Generate for \"{}\"", typeid(this).name()));
   }
 };
+
 
 // Value Symbols
 
@@ -248,7 +283,7 @@ public:
   {
   }
 
-  virtual void GenDeclaration(bool apublic, OExpr * ainitval = nullptr);
+  virtual void GenDeclaration(bool apublic, OValue * ainitval = nullptr);
 };
 
 class OValSymConst : public OValSym
@@ -257,16 +292,24 @@ private:
   using        super = OValSym;
 
 public:
-  uint8_t *    dataptr = nullptr;
-  uint32_t     datalen = 0;
+  OValue *     pvalue;
 
-  uint8_t      inlinedata[16] = {0};  // for primitive data (Float80 is the biggest)
-
-  OValSymConst(const string aname, OType * atype)
+  OValSymConst(const string aname, OType * atype, OValue * avalue = nullptr)
   :
     super(aname, atype, VSK_CONST)
   {
+    if (avalue)
+    {
+      pvalue = avalue;
+    }
+    else
+    {
+      pvalue = atype->CreateValue();
+    }
   }
 
-  void SetInlineData(void * asrcdata, uint32_t alen);
+  ~OValSymConst()
+  {
+    delete pvalue;
+  }
 };

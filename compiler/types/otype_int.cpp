@@ -12,3 +12,60 @@
  */
 
 #include "otype_int.h"
+#include "expressions.h"
+
+LlConst * OValueInt::CreateLlConst()
+{
+  return llvm::ConstantInt::get(ptype->GetLlType(), value);
+}
+
+bool OValueInt::CalculateConstant(OExpr * expr)
+{
+  value = 0;
+
+  {
+    auto * ex = dynamic_cast<OIntLit *>(expr);
+    if (ex)
+    {
+      value = ex->value;
+      return true;
+    }
+  }
+
+  {
+    auto * ex = dynamic_cast<ONegExpr *>(expr);
+    if (ex)
+    {
+      OValueInt v(this->ptype, 0);
+      if (not v.CalculateConstant(ex->operand))
+      {
+        return false;
+      }
+      value = v.value;
+      return true;
+    }
+  }
+
+  {
+    auto * ex = dynamic_cast<OBinExpr *>(expr);
+    if (ex)
+    {
+      OValueInt vleft(this->ptype, 0);
+      OValueInt vright(this->ptype, 0);
+
+      if (not vleft.CalculateConstant(ex->left)
+          or not vright.CalculateConstant(ex->right))
+      {
+        return false;
+      }
+
+      if      (BINOP_ADD == ex->op)  value = vleft.value + vright.value;
+      else if (BINOP_SUB == ex->op)  value = vleft.value - vright.value;
+      else if (BINOP_MUL == ex->op)  value = vleft.value * vright.value;
+      else                           return false;
+      return true;
+    }
+  }
+
+  return false;
+}

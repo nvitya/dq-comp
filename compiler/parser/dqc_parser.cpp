@@ -36,6 +36,7 @@ void ODqCompParser::ParseModule()
 
   section_public = true;
   cur_mod_scope = g_module->scope_pub;
+  curscope = cur_mod_scope;
 
   while (not scf->Eof())
   {
@@ -60,6 +61,10 @@ void ODqCompParser::ParseModule()
     if ("var" == sid) // global variable definition
     {
       ParseVarDecl();
+    }
+    else if ("const" == sid) // global constant definition
+    {
+      ParseConstDecl();
     }
     else if ("function" == sid)
     {
@@ -131,9 +136,99 @@ void ODqCompParser::ParseVarDecl()
   {
     scf->SkipWhite();
     OExpr * initexpr = ParseExpression();
-    //TODO: check expression type, it should be constant !
-    vdecl->initvalue = initexpr;
+    if (initexpr)
+    {
+      if (not vdecl->initvalue->CalculateConstant(initexpr))
+      {
+        StatementError("Error in the initial value expression", &scf->prevpos);
+      }
+    }
+    delete initexpr;
   }
+
+  if (not CheckStatementClose())
+  {
+    // error message already generated.
+    return;
+  }
+}
+
+void ODqCompParser::ParseConstDecl()
+{
+  // syntax form: "const identifier : type [ = initial value];"
+  // note: "const" is already consumed
+
+  string       sid;
+  string       stype;
+  OValSym *    pvalsym;
+  OType *      ptype;
+  OScPosition  expos;
+
+  scf->SkipWhite();
+  if (not scf->ReadIdentifier(sid))
+  {
+    StatementError("Identifier is expected after \"var\". Syntax: \"const identifier : type = value;\"");
+    return;
+  }
+
+  if (g_module->ValSymDeclared(sid, &pvalsym))
+  {
+    StatementError(format("Constant/Variable \"{}\" is already declared with the type \"{}\"", sid, pvalsym->ptype->name), &scf->prevpos);
+    return;
+  }
+
+  scf->SkipWhite();
+  if (not scf->CheckSymbol(":"))
+  {
+    StatementError("Type specifier \":\" is expected after \"const\". Syntax: \"const identifier : type = value;\"");
+    return;
+  }
+
+  scf->SkipWhite();
+  if (not scf->ReadIdentifier(stype))
+  {
+    StatementError("Type identifier is expected after \"const\". Syntax: \"const identifier : type = value;\"");
+    return;
+  }
+
+  // check the type here for proper source code position (scf->prevpos)
+  ptype = g_module->scope_priv->FindType(stype);
+  if (not ptype)
+  {
+    StatementError(format("Unknown type \"{}\"", stype), &scf->prevpos);
+    return;
+  }
+
+  scf->SkipWhite();
+  if (not scf->CheckSymbol("="))  // variable initializer specified
+  {
+    StatementError("Assignment \"=\" is expected after \"const\". Syntax: \"const identifier : type = value;\"");
+    return;
+  }
+
+  scf->SkipWhite();
+  scf->SaveCurPos(expos);
+  OExpr * valueexpr = ParseExpression();
+  if (not valueexpr)
+  {
+    delete valueexpr;
+    StatementError("Wrong value expression", &expos);
+    return;
+  }
+
+  OValue * pvalue = ptype->CreateValue();
+  if (not pvalue->CalculateConstant(valueexpr))
+  {
+    StatementError("Error evaluating value expression", &expos);
+
+    delete valueexpr;
+    delete pvalue;
+    return;
+  }
+
+  delete valueexpr;
+
+  ODecl * vdecl = AddDeclConst(scpos_statement_start, sid, ptype, pvalue);
 
   if (not CheckStatementClose())
   {

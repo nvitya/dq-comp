@@ -12,3 +12,13 @@
  */
 
 #include "otype_bool.h"
+
+LlConst * OValueBool::CreateLlConst()
+{
+  return llvm::ConstantInt::get(ptype->GetLlType(), (value ? 1 : 0));
+}
+
+bool OValueBool::CalculateConstant(OExpr * expr)
+{
+  return false;
+}

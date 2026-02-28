@@ -81,7 +81,7 @@ LlDiType * OTypeFunc::CreateDiType()
   return di_builder->createSubroutineType(di_builder->getOrCreateTypeArray(di_param_types));
 }
 
-void OValSymFunc::GenDeclaration(bool apublic, OExpr * ainitval)
+void OValSymFunc::GenDeclaration(bool apublic, OValue * ainitval)
 {
   //print("Found function declaration \"{}\"\n", ptfunc->name);
 

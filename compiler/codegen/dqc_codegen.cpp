@@ -38,7 +38,7 @@ void ODqCompCodegen::GenerateIr()
     if (DK_VALSYM == decl->kind)
     {
       OValSym * vs = decl->pvalsym;
-      vs->GenDeclaration(decl->ispublic);
+      vs->GenDeclaration(decl->ispublic, decl->initvalue);
     }
     else if (DK_TYPE == decl->kind)
     {

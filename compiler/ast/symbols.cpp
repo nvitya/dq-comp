@@ -94,22 +94,7 @@ OValSym * OType::CreateValSym(const string aname)
   return result;
 }
 
-void OValSymConst::SetInlineData(void * asrcdata, uint32_t alen)
-{
-  if (alen > sizeof(inlinedata))
-  {
-    throw length_error("OConstValSym: data too big for inline storage");
-  }
-  datalen = alen;
-  dataptr = &inlinedata[0];
-
-  if (asrcdata)
-  {
-    memcpy(&inlinedata[0], asrcdata, datalen);
-  }
-}
-
-void OValSym::GenDeclaration(bool apublic, OExpr * ainitval)
+void OValSym::GenDeclaration(bool apublic, OValue * ainitval)
 {
   if (VSK_VARIABLE == kind)
   {
@@ -117,31 +102,8 @@ void OValSym::GenDeclaration(bool apublic, OExpr * ainitval)
       (apublic ? LlLinkType::ExternalLinkage
                : LlLinkType::InternalLinkage);
 
-#if 0
-
-    // Scalar type → constant initialization
-    Constant* initVal = Constant::getNullValue(varType);
-    if (gvar->initValue)
-    {
-        if (auto* lit = dynamic_cast<IntLit*>(gvar->initValue))
-            initVal = ConstantInt::get(varType, lit->value);
-        else if (auto* blit = dynamic_cast<BoolLit*>(gvar->initValue))
-            initVal = ConstantInt::get(varType, blit->value ? 1 : 0);
-    }
-    auto* gv = new GlobalVariable(*mod, varType, false,
-                                  GlobalValue::InternalLinkage,
-                                  initVal, gvar->name);
-#endif
-
     LlType *          ll_type  = ptype->GetLlType();
-    LlConstant *      ll_init_val = llvm::Constant::getNullValue(ll_type);
-
-    if (ainitval)
-    {
-      // the ainitval should be a constant expression !
-
-      // ll_init_val = ainitval->Generate();  // the Generate() returns LlValue instead of Constant !
-    }
+    LlConst *         ll_init_val = ainitval->GetLlConst();
 
     auto * gv = new llvm::GlobalVariable(*ll_module, ll_type, false, linktype, ll_init_val, name);
     //ll_globals[vs->name] = gv;

@@ -15,6 +15,25 @@
 
 #include "symbols.h"
 
+class OValueBool : public OValue
+{
+private:
+  using        super = OValue;
+
+public:
+  bool         value;
+
+  OValueBool(OType * atype, bool avalue)
+  :
+    super(atype)
+  {
+    value = avalue;
+  }
+
+  LlConst *  CreateLlConst() override;
+  bool       CalculateConstant(OExpr * expr) override;
+};
+
 class OTypeBool : public OType
 {
 private:
@@ -28,12 +47,15 @@ public:
     bytesize = 1;
   }
 
+  OValue * CreateValue() override
+  {
+    return new OValueBool(this, false);
+  }
+
   OValSymConst * CreateConst(const string aname, bool avalue)
   {
-    OValSymConst * result = new OValSymConst(aname, this);
-    result->SetInlineData(nullptr, 1);
-    result->inlinedata[0] = (avalue ? 1 : 0);
-    return result;
+    OValueBool * v = new OValueBool(this, avalue);
+    return new OValSymConst(aname, this, v);  // takes over the ownership of v
   }
 
   LlType * CreateLlType() override
@@ -46,3 +68,5 @@ public:
     return di_builder->createBasicType("bool", 1, llvm::dwarf::DW_ATE_boolean);
   }
 };
+
+
