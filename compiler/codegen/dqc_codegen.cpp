@@ -20,6 +20,11 @@
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/TargetParser/Host.h>
 
+#include <llvm/Analysis/TargetLibraryInfo.h>
+
+#include <llvm/Passes/PassBuilder.h>
+#include <llvm/IR/PassManager.h>
+
 #include <print>
 #include <format>
 
@@ -30,6 +35,8 @@ using namespace std;
 void ODqCompCodegen::GenerateIr()
 {
   print("Generating IR...\n");
+
+  PrepareTarget();
 
   // generate declarations
 
@@ -63,12 +70,13 @@ void ODqCompCodegen::GenerateIr()
   }
 
   di_builder->finalize();
+
+  OptimizeIr(0);
+  //OptimizeIr(1);
 }
 
-void ODqCompCodegen::EmitObject(const string afilename)
+void ODqCompCodegen::PrepareTarget()
 {
-  print("Writing object file \"{}\"...\n", afilename);
-
   // Only initialize native target (not all targets)
   llvm::InitializeNativeTarget();
   llvm::InitializeNativeTargetAsmParser();
@@ -81,17 +89,61 @@ void ODqCompCodegen::EmitObject(const string afilename)
   auto * target = llvm::TargetRegistry::lookupTarget(triple, err);
   if (!target) throw runtime_error(err);
 
-  auto * machine = target->createTargetMachine(
-      triple, "generic", "", llvm::TargetOptions(), llvm::Reloc::PIC_);
+  ll_machine = target->createTargetMachine(triple, "generic", "", llvm::TargetOptions(), llvm::Reloc::PIC_);
 
-  ll_module->setDataLayout(machine->createDataLayout());
+  ll_module->setDataLayout(ll_machine->createDataLayout());
+
+}
+
+void ODqCompCodegen::OptimizeIr(int aoptlevel)
+{
+  if (0 == aoptlevel)
+  {
+    return;
+  }
+
+  llvm::PassBuilder PB;
+
+  llvm::LoopAnalysisManager     LAM;
+  llvm::FunctionAnalysisManager FAM;
+  llvm::CGSCCAnalysisManager    CGAM;
+  llvm::ModuleAnalysisManager   MAM;
+
+  PB.registerModuleAnalyses(MAM);
+  PB.registerCGSCCAnalyses(CGAM);
+  PB.registerFunctionAnalyses(FAM);
+  PB.registerLoopAnalyses(LAM);
+  PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+  llvm::OptimizationLevel ll_optlevel;
+
+  if (2 == aoptlevel)
+  {
+    ll_optlevel = llvm::OptimizationLevel::O2;
+  }
+  else if (3 == aoptlevel)
+  {
+    ll_optlevel = llvm::OptimizationLevel::O3;
+  }
+  else
+  {
+    ll_optlevel = llvm::OptimizationLevel::O1;
+  }
+
+  llvm::ModulePassManager MPM = PB.buildPerModuleDefaultPipeline(ll_optlevel);
+  MPM.run(*ll_module, MAM);
+}
+
+void ODqCompCodegen::EmitObject(const string afilename)
+{
+  print("Writing object file \"{}\"...\n", afilename);
 
   error_code ec;
   llvm::raw_fd_ostream out(afilename, ec, llvm::sys::fs::OF_None);
   if (ec) throw runtime_error(ec.message());
 
   llvm::legacy::PassManager pm;
-  machine->addPassesToEmitFile(pm, out, nullptr, llvm::CodeGenFileType::ObjectFile);
+  ll_machine->addPassesToEmitFile(pm, out, nullptr, llvm::CodeGenFileType::ObjectFile);
   pm.run(*ll_module);
   out.flush();
 }
@@ -102,4 +154,3 @@ void ODqCompCodegen::PrintIr()
   ll_module->print(llvm::outs(), nullptr);
   print("===============\n\n");
 }
-

@@ -949,7 +949,7 @@ void ODqCompParser::ParseStmtVar()
   if (scf->CheckSymbol("="))  // variable initializer specified
   {
     scf->SkipWhite();
-    OExpr * initexpr = ParseExpression();
+    initexpr = ParseExpression();
   }
 
   scf->SkipWhite();

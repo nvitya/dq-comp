@@ -34,13 +34,17 @@ private:
   using                super = ODqCompParser;
 
 public:
+  LlMachine *          ll_machine = nullptr;
+
   ODqCompCodegen()
   {
   }
 
   virtual ~ODqCompCodegen() {}
 
+  void PrepareTarget();
   void GenerateIr();
+  void OptimizeIr(int aoptlevel);
   void PrintIr();
 
   void EmitObject(const string afilename);

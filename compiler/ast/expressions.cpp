@@ -32,13 +32,14 @@ LlValue * OVarRef::Generate(OScope * scope)
     throw logic_error(std::format("Variable \"{}\" was not prepared in the LLVM", pvalsym->name));
   }
 
-  if (VSK_PARAMETER == pvalsym->kind)
+  auto * alloca = dyn_cast<llvm::AllocaInst>(pvalsym->ll_value);
+  if (alloca)
   {
-    return pvalsym->ll_value;
+    return ll_builder.CreateLoad(alloca->getAllocatedType(), pvalsym->ll_value, pvalsym->name);
   }
   else
   {
-    return ll_builder.CreateLoad(pvalsym->ll_value->getType(), pvalsym->ll_value, pvalsym->name);
+    return pvalsym->ll_value;  // function parameter (direct value)
   }
 }
 

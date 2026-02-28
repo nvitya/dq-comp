@@ -20,6 +20,7 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/IR/DIBuilder.h>
+#include <llvm/Target/TargetMachine.h>
 
 using namespace std;
 
@@ -27,6 +28,7 @@ using namespace std;
 using LlContext      = llvm::LLVMContext;
 using LlModule       = llvm::Module;
 using LlBuilder      = llvm::IRBuilder<>;
+using LlMachine      = llvm::TargetMachine;
 
 using LlValue        = llvm::Value;
 using LlType         = llvm::Type;
