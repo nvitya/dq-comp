@@ -18,6 +18,7 @@
 #include "dq_module.h"
 #include "dqc_parser.h"
 #include "otype_func.h"
+#include "expressions.h"
 #include "statements.h"
 
 ODqCompParser::ODqCompParser()

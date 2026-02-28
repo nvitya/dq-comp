@@ -15,6 +15,7 @@
 
 #include <vector>
 #include "symbols.h"
+#include "expressions.h"
 #include "statements.h"
 
 using namespace std;

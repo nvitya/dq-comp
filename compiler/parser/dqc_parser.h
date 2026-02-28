@@ -16,6 +16,7 @@
 #include "stdint.h"
 #include <string>
 #include "comp_options.h"
+#include "expressions.h"
 #include "statements.h"
 #include "dqc_ast.h"
 
