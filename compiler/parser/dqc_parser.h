@@ -37,25 +37,29 @@ public:
 
   void ParseModule();
 
+public: // top level items
   void ParseVarDecl();
   void ParseConstDecl();
   void ParseFunction();
-  bool CheckStatementClose();
 
+public: // statement blocks
+  void ReadStatementBlock(OStmtBlock * stblock, const string blockend, string * rendstr = nullptr);
+
+  void ParseStmtVar();
+  bool ParseStmtAssign(OValSym * pvalsym);
   void ParseStmtReturn();
+  void ParseStmtWhile();
+  void ParseStmtIf();
+
+public: // utility
+  bool CheckStatementClose();
 
   void StatementError(const string amsg, OScPosition * scpos = nullptr, bool atryrecover = true);
   void ExpressionError(const string amsg, OScPosition * scpos = nullptr);
 
-  void ReadStatementBlock(OStmtBlock * stblock, const string blockend, string * rendstr = nullptr);
-
   void Error(const string amsg, OScPosition * ascpos = nullptr);
   void Warning(const string amsg, OScPosition * ascpos = nullptr);
   void Hint(const string amsg, OScPosition * ascpos = nullptr);
-
-public:
-  void ParseStmtWhile();
-  void ParseStmtIf();
 
 public: // expressions
   OStmtBlock *  curblock = nullptr;

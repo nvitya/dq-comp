@@ -58,7 +58,8 @@ public:
 
 enum EBinOp
 {
-  BINOP_ADD = 0,
+  BINOP_NONE = 0,
+  BINOP_ADD = 1,
   BINOP_SUB,
   BINOP_MUL
 };

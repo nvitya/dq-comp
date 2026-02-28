@@ -420,10 +420,10 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
 
     if (ReservedWord(sid))
     {
-      if (scf->CheckSymbol("var"))  // local variable declaration
+      if ("var" == sid)  // local variable declaration
       {
-        StatementError("var statement parsing is not implemented");
-        //ParseStatementVaxr(block->scope);
+        //StatementError("var statement parsing is not implemented");
+        ParseStmtVar();
         continue;
       }
       else if ("return" == sid)
@@ -449,20 +449,29 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
         continue;
       }
     }
-    else // assignment
+    else // starts with a non-reserved word (in sid)
     {
-      if (!g_module->ValSymDeclared(sid, &pvalsym))
+      pvalsym = curscope->FindValSym(sid, nullptr, true);
+      if (not pvalsym)
       {
-        StatementError(format("Undefined variable \"{}\"", sid));
+        StatementError(format("Unknown identifier \"{}\"", sid));
         continue;
       }
 
-      scf->SkipWhite();
-      if (!scf->CheckSymbol("="))
+      if (VSK_VARIABLE == pvalsym->kind)
       {
-        StatementError("Assignment operator \"=\" is expected.");
-        continue;
+        if (ParseStmtAssign(pvalsym))
+        {
+          continue;
+        }
       }
+
+      // function call
+
+      // unknown
+
+      StatementError(format("Unknown statement/function \"{}\"", sid));
+      continue;
     }
   }
 
@@ -889,7 +898,123 @@ void ODqCompParser::StatementError(const string amsg, OScPosition * scpos, bool 
   scf->SkipWhite();
 }
 
-void ODqCompParser::ExpressionError(const string amsg, OScPosition * scpos)
+void ODqCompParser::ParseStmtVar()
+{
+  // syntax form: "var identifier : type [ = expression];"
+  // note: "var" is already consumed
+
+  string     sid;
+  string     stype;
+  OValSym *  pvalsym;
+  OType *    ptype;
+
+  scf->SkipWhite();
+  if (not scf->ReadIdentifier(sid))
+  {
+    StatementError("Identifier is expected after \"var\". Syntax: \"var identifier : type [ = expression];\"");
+    return;
+  }
+
+  pvalsym = curscope->FindValSym(sid, nullptr, false);  // do not search in the parent scopes this time !
+  if (pvalsym)
+  {
+    StatementError(format("Variable \"{}\" is already declared with the type \"{}\"", sid, pvalsym->ptype->name), &scf->prevpos);
+    return;
+  }
+
+  scf->SkipWhite();
+  if (not scf->CheckSymbol(":"))
+  {
+    StatementError("Type specifier \":\" is expected after \"var\". Syntax: \"var identifier : type [ = expression];\"");
+    return;
+  }
+
+  scf->SkipWhite();
+  if (not scf->ReadIdentifier(stype))
+  {
+    StatementError("Type identifier is expected after \"var\". Syntax: \"var identifier : type [ = expression];\"");
+    return;
+  }
+
+  // check the type here for proper source code position (scf->prevpos)
+  ptype = g_module->scope_priv->FindType(stype);
+  if (not ptype)
+  {
+    StatementError(format("Unknown type \"{}\"", stype), &scf->prevpos);
+    return;
+  }
+
+  OExpr * initexpr = nullptr;
+  scf->SkipWhite();
+  if (scf->CheckSymbol("="))  // variable initializer specified
+  {
+    scf->SkipWhite();
+    OExpr * initexpr = ParseExpression();
+  }
+
+  scf->SkipWhite();
+  if (!scf->CheckSymbol(";"))
+  {
+    Error("\";\" is missing after the var declaration");
+  }
+
+  pvalsym = ptype->CreateValSym(sid);
+  curscope->DefineValSym(pvalsym);
+  curblock->AddStatement(new OStmtVarDecl(scpos_statement_start, pvalsym, initexpr));
+}
+
+bool ODqCompParser::ParseStmtAssign(OValSym * pvalsym)
+{
+  // syntax form: "identifier = expression;"
+  // note: identifier(=sid) is already consumed, assign operation expected
+
+  string     stype;
+  OType *    ptype;
+  EBinOp     op = BINOP_NONE;
+
+  scf->SkipWhite();
+  if (scf->CheckSymbol("="))
+  {
+    op = BINOP_NONE;
+  }
+  else if (scf->CheckSymbol("+="))
+  {
+    op = BINOP_ADD;
+  }
+  else if (scf->CheckSymbol("-="))
+  {
+    op = BINOP_SUB;
+  }
+  else if (scf->CheckSymbol("*="))
+  {
+    op = BINOP_MUL;
+  }
+  else
+  {
+    return false;
+  }
+
+  OExpr * expr = ParseExpression();
+
+  scf->SkipWhite();
+  if (!scf->CheckSymbol(";"))
+  {
+    Error("\";\" is missing after the var declaration");
+  }
+
+  if (BINOP_NONE == op)
+  {
+    curblock->AddStatement(new OStmtAssign(scpos_statement_start, pvalsym, expr));
+  }
+  else
+  {
+    curblock->AddStatement(new OStmtModifyAssign(scpos_statement_start, pvalsym, op, expr));
+  }
+
+  return true;
+}
+
+void ODqCompParser::ExpressionError(const string amsg, OScPosition *scpos)
 {
   OScPosition log_scpos(scpos_statement_start);
 
