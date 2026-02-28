@@ -5,7 +5,7 @@
  * This source code is licensed under the MIT License.
  * See the LICENSE file in the project root for the full license text.
  * ---------------------------------------------------------------------------------
- * file:    comp_symbols.h
+ * file:    symbols.h
  * authors: nvitya
  * created: 2026-02-01
  * brief:   Compiler Symbol Objects

@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include "comp_symbols.h"
+#include "symbols.h"
 
 class OScopeDefines : public OScope
 {

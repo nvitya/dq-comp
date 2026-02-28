@@ -18,7 +18,7 @@
 #include <string>
 #include <print>
 
-#include "comp_symbols.h"
+#include "symbols.h"
 #include "otype_int.h"
 
 using namespace std;

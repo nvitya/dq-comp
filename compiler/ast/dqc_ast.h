@@ -16,7 +16,7 @@
 #include "stdint.h"
 #include <string>
 #include "comp_options.h"
-#include "comp_symbols.h"
+#include "symbols.h"
 #include "dq_module.h"
 
 #include "dqc_base.h"

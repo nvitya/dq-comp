@@ -14,7 +14,7 @@
 #pragma once
 
 #include <vector>
-#include "comp_symbols.h"
+#include "symbols.h"
 #include "statements.h"
 
 using namespace std;

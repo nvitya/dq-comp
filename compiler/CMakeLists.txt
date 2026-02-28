@@ -20,6 +20,7 @@ include_directories(src)
 include_directories(ast)
 include_directories(types)
 include_directories(parser)
+include_directories(builtins)
 include_directories(codegen)
 include_directories(src_test)
 include_directories(utils)
@@ -29,11 +30,12 @@ file(GLOB SRC_AST       "ast/*.cpp")
 file(GLOB SRC_TYPES     "types/*.cpp")
 file(GLOB SRC_CODEGEN   "codegen/*.cpp")
 file(GLOB SRC_PARSER    "parser/*.cpp")
+file(GLOB SRC_BUILTINS  "builtins/*.cpp")
 file(GLOB SRC_SRC_TEST  "src_test/*.cpp")
 file(GLOB SRC_UTILS     "utils/*.cpp")
 
 
-add_executable(dq-comp ${SRC_SRC} ${SRC_AST} ${SRC_TYPES} ${SRC_PARSER} ${SRC_CODEGEN} ${SRC_SRC_TEST} ${SRC_UTILS})
+add_executable(dq-comp ${SRC_SRC} ${SRC_AST} ${SRC_TYPES} ${SRC_PARSER} ${SRC_CODEGEN} ${SRC_BUILTINS} ${SRC_SRC_TEST} ${SRC_UTILS})
 
 # on exception I want to have a nice backtrace
 set_target_properties(dq-comp PROPERTIES ENABLE_EXPORTS ON)

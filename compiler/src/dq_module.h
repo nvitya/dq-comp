@@ -15,7 +15,7 @@
 
 #include <string>
 #include <format>
-#include "comp_symbols.h"
+#include "symbols.h"
 #include "scope_builtins.h"
 
 using namespace std;
