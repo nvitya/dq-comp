@@ -140,6 +140,21 @@ public:
   void Generate(OScope * scope) override;
 };
 
+class OStmtVoidCall : public OStmt
+{
+private:
+  using        super = OStmt;
+public:
+  OExpr *      callexpr;
+  OStmtVoidCall(OScPosition & ascpos, OExpr * acallexpr)
+  :
+    super(ascpos),
+    callexpr(acallexpr)
+  {}
+
+  void Generate(OScope * scope) override;
+};
+
 class OStmtWhile : public OStmt
 {
 private:

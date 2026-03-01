@@ -469,6 +469,12 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
       }
 
       // function call
+      OValSymFunc * vsfunc = dynamic_cast<OValSymFunc *>(pvalsym);
+      if (vsfunc)
+      {
+        ParseStmtVoidCall(vsfunc);
+        continue;
+      }
 
       // unknown
 
@@ -1193,6 +1199,30 @@ bool ODqCompParser::ParseStmtAssign(OValSym * pvalsym)
   }
 
   return true;
+}
+
+void ODqCompParser::ParseStmtVoidCall(OValSymFunc * vsfunc)
+{
+  scf->SkipWhite();
+  if (not scf->CheckSymbol("("))
+  {
+    StatementError("\"(\" is missing for the function call");
+    return;
+  }
+
+  OExpr * callexpr = ParseExprFuncCall(vsfunc);  // re-use the existing version in the expressions
+  if (not callexpr)
+  {
+    return;
+  }
+
+  scf->SkipWhite();
+  if (!scf->CheckSymbol(";"))
+  {
+    Error("\";\" is missing after the var declaration");
+  }
+
+  curblock->AddStatement(new OStmtVoidCall(scpos_statement_start, callexpr));
 }
 
 bool ODqCompParser::CheckAssignType(OType * dsttype, OExpr ** rexpr, const string astmt)

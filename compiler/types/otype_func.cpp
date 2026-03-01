@@ -47,7 +47,15 @@ LlType * OTypeFunc::CreateLlType()  // do not call GetLlType() until the functio
   {
     ll_partypes.push_back(fpar->ptype->GetLlType());
   }
-  LlType *  ll_rettype  = rettype->GetLlType();
+  LlType *  ll_rettype;
+  if (rettype)
+  {
+    ll_rettype = rettype->GetLlType();
+  }
+  else
+  {
+    ll_rettype = llvm::Type::getVoidTy(ll_ctx);
+  }
   return LlFuncType::get(ll_rettype, ll_partypes, false);
 }
 

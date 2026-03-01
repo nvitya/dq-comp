@@ -74,6 +74,11 @@ void OStmtModifyAssign::Generate(OScope *scope)
   }
 }
 
+void OStmtVoidCall::Generate(OScope * scope)
+{
+  LlValue * ll_value = callexpr->Generate(scope);
+}
+
 void OStmtWhile::Generate(OScope * scope)
 {
   LlFunction *    ll_func    = ll_builder.GetInsertBlock()->getParent();
@@ -204,4 +209,3 @@ void OStmtIf::Generate(OScope * scope)
 
   ll_builder.SetInsertPoint(bb_merge);
 }
-

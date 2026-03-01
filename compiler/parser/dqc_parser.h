@@ -50,6 +50,7 @@ public: // statement blocks
   void ParseStmtReturn();
   void ParseStmtWhile();
   void ParseStmtIf();
+  void ParseStmtVoidCall(OValSymFunc * vsfunc);
 
 public: // utility
   bool CheckStatementClose();

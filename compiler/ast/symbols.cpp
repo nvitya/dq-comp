@@ -105,8 +105,7 @@ void OValSym::GenDeclaration(bool apublic, OValue * ainitval)
     LlType *          ll_type  = ptype->GetLlType();
     LlConst *         ll_init_val = ainitval->GetLlConst();
 
-    auto * gv = new llvm::GlobalVariable(*ll_module, ll_type, false, linktype, ll_init_val, name);
-    //ll_globals[vs->name] = gv;
+    ll_value = new llvm::GlobalVariable(*ll_module, ll_type, false, linktype, ll_init_val, name);
   }
 }
 
