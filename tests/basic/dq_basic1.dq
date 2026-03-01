@@ -13,6 +13,11 @@ function dq_fl_add_int(a : float, b : int) -> float:
   result = a + b;
 endfunc
 
+function dq_fl_error(a : int, b : int) -> float:
+  var i : int = a / b;
+  result = i;
+endfunc
+
 #{ifdef FULLCODE}
 
 function dq_add(a : int, b : int) -> int:

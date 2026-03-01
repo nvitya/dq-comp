@@ -1042,18 +1042,19 @@ void ODqCompParser::ParseStmtVar()
   {
     scf->SkipWhite();
     initexpr = ParseExpression();
-    if (not CheckAssignType(ptype, &initexpr))  // might add implicit conversion
-    {
-      // error message is already provided.
-      delete initexpr;
-      return;
-    }
   }
 
   scf->SkipWhite();
   if (!scf->CheckSymbol(";"))
   {
     Error("\";\" is missing after the var declaration");
+  }
+
+  if (initexpr and (not CheckAssignType(ptype, &initexpr)))  // might add implicit conversion
+  {
+    // error message is already provided.
+    delete initexpr;
+    return;
   }
 
   pvalsym = ptype->CreateValSym(sid);
@@ -1106,17 +1107,22 @@ bool ODqCompParser::ParseStmtAssign(OValSym * pvalsym)
 
   OExpr * expr = ParseExpression();
 
-  if (not CheckAssignType(ptype, &expr))  // might add implicit conversion
-  {
-    // error message is already provided.
-    delete expr;
-    return false;
-  }
-
   scf->SkipWhite();
   if (!scf->CheckSymbol(";"))
   {
     Error("\";\" is missing after the var declaration");
+  }
+
+  if (!expr)
+  {
+    return true;
+  }
+
+  if (not CheckAssignType(ptype, &expr))  // might add implicit conversion
+  {
+    // error message is already provided.
+    delete expr;
+    return true;  // signalizes processed, not error-free here !
   }
 
   if (BINOP_NONE == op)
