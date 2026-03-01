@@ -1188,6 +1188,8 @@ void ODqCompParser::Error(const string amsg, OScPosition * ascpos)
   if (!epos) epos = &scpos_statement_start;
 
   print("{} ERROR: {}\n", epos->Format(), amsg);
+
+  SetError(2, amsg);
 }
 
 void ODqCompParser::Warning(const string amsg, OScPosition * ascpos)

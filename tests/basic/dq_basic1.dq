@@ -13,10 +13,14 @@ function dq_fl_add_int(a : float, b : int) -> float:
   result = a + b;
 endfunc
 
+#{ifdef ERRTEST}
+
 function dq_fl_error(a : int, b : int) -> float:
   var i : int = a / b;
   result = i;
 endfunc
+
+#{endif}
 
 #{ifdef FULLCODE}
 

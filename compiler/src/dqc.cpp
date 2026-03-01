@@ -52,12 +52,14 @@ int ODqCompiler::Run(int argc, char ** argv)
   ParseModule();
   if (error)
   {
+    print("Compile error.\n");
     return error;
   }
 
   GenerateIr();
   if (error)
   {
+    print("Code generation error.\n");
     return error;
   }
 

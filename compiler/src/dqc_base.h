@@ -27,6 +27,7 @@ class ODqCompBase
 public:
   OScFeederDq *    scf = nullptr;
 
+  int              errorcnt = 0;
   int              error = 0;
   string           errormsg = "";
 
