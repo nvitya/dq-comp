@@ -5,6 +5,14 @@
 const CFLOAT1  : float = 0.5;
 var   g_float  : float = CFLOAT1 / 2;
 
+function dq_fl_add(a : float, b : float) -> float:
+  result = a + b;
+endfunc
+
+function dq_fl_add_int(a : float, b : int) -> float:
+  result = a + b;
+endfunc
+
 #{ifdef FULLCODE}
 
 function dq_add(a : int, b : int) -> int:

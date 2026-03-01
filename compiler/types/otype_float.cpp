@@ -116,13 +116,14 @@ LlValue * OTypeFloat::GenerateConversion(OScope * scope, OExpr * src)
   OTypeInt * tint = dynamic_cast<OTypeInt *>(src->ptype);
   if (tint)
   {
+    LlValue * ll_value = src->Generate(scope);
     if (tint->issigned)
     {
-      return ll_builder.CreateSIToFP(src->Generate(scope), ptype->GetLlType());
+      return ll_builder.CreateSIToFP(ll_value, GetLlType());
     }
     else
     {
-      return ll_builder.CreateUIToFP(src->Generate(scope), ptype->GetLlType());
+      return ll_builder.CreateUIToFP(ll_value, GetLlType());
     }
   }
 
