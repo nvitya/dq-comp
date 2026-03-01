@@ -801,6 +801,11 @@ OExpr * ODqCompParser::CreateBinExpr(EBinOp op, OExpr * left, OExpr * right)
   OExpr * newleft  = left;
   OExpr * newright = right;
 
+  if (not left  or  not right)
+  {
+    return nullptr;
+  }
+
   // check type compatibilities
   ETypeKind tkl = left->ptype->kind;
   ETypeKind tkr = right->ptype->kind;
@@ -950,10 +955,20 @@ OExpr * ODqCompParser::ParseExprPrimary()
   //OType * ptype = vs->ptype;
   ETypeKind tk = vs->ptype->kind;
 
-  if (TK_FUNCTION == tk)
+  scf->SkipWhite();
+
+  OValSymFunc * vsfunc = dynamic_cast<OValSymFunc *>(vs);
+  if (vsfunc)
   {
-    Error(format("Function call \"{}\" not implemented", sid));
-    return result;
+    if (scf->CheckSymbol("("))
+    {
+      result = ParseExprFuncCall(vsfunc);
+      return result;
+    }
+    else
+    {
+      Error(format("\"(\" is required for function call"));
+    }
   }
 
   if (TK_COMPOUND == tk)
@@ -966,28 +981,71 @@ OExpr * ODqCompParser::ParseExprPrimary()
   return result;
 }
 
-void ODqCompParser::StatementError(const string amsg, OScPosition * scpos, bool atryrecover)
+OExpr * ODqCompParser::ParseExprFuncCall(OValSymFunc * vsfunc)
 {
-  OScPosition log_scpos(scf->curfile, scf->curp);
+  // function name and "(" was already consumed
 
-  if (scpos and scpos->scfile) // use the position provided
+  OCallExpr * result = new OCallExpr(vsfunc);
+  OTypeFunc * tfunc = static_cast<OTypeFunc *>(vsfunc->ptype);
+  bool        bok = true;
+
+  // parse and check the arguments
+  int pcnt = 0;
+  while (true)
   {
-    log_scpos.Assign(*scpos);
-  }
-
-  Error(amsg, &log_scpos);
-  //print("{}: {}\n", log_scpos.Format(), amsg);
-
-  // try to recover
-  if (atryrecover)
-  {
-    if (!scf->SearchPattern(";", true))  // TODO: improve to handle #{} and strings
+    scf->SkipWhite();
+    if (scf->CheckSymbol(")"))
     {
-
+      break;
     }
+
+    if ((pcnt > 0) and not scf->CheckSymbol(","))
+    {
+      Error("\",\" or \")\" is missing at function call arguments");
+      bok = false;
+      break;
+    }
+
+    if (pcnt >= tfunc->params.size())
+    {
+      Error(format("Too many arguments provided, expected {}", tfunc->params.size()));
+      bok = false;
+      break;
+    }
+
+    OExpr * argexpr = ParseExpression();
+    if (!argexpr)
+    {
+      // error message already produced ?
+      bok = false;
+      break;
+    }
+
+    result->AddArgument(argexpr);  // to avoid memory leak, this must come before the type check
+
+    OType * argtype = tfunc->params[pcnt]->ptype;
+    if (not CheckAssignType(argtype, &argexpr, "Argument"))
+    {
+      bok = false;
+      break;
+    }
+
+    ++pcnt;
   }
 
-  scf->SkipWhite();
+  if (result->args.size() != tfunc->params.size())
+  {
+    Error(format("Too few arguments provided: {}, expected: {}", result->args.size(), tfunc->params.size()));
+    bok = false;
+  }
+
+  if (!bok)
+  {
+    delete result;
+    return nullptr;
+  }
+
+  return result;
 }
 
 void ODqCompParser::ParseStmtVar()
@@ -1050,7 +1108,7 @@ void ODqCompParser::ParseStmtVar()
     Error("\";\" is missing after the var declaration");
   }
 
-  if (initexpr and (not CheckAssignType(ptype, &initexpr)))  // might add implicit conversion
+  if (initexpr and (not CheckAssignType(ptype, &initexpr, "Assignment")))  // might add implicit conversion
   {
     // error message is already provided.
     delete initexpr;
@@ -1118,7 +1176,7 @@ bool ODqCompParser::ParseStmtAssign(OValSym * pvalsym)
     return true;
   }
 
-  if (not CheckAssignType(ptype, &expr))  // might add implicit conversion
+  if (not CheckAssignType(ptype, &expr, "Modify assignment"))  // might add implicit conversion
   {
     // error message is already provided.
     delete expr;
@@ -1137,7 +1195,7 @@ bool ODqCompParser::ParseStmtAssign(OValSym * pvalsym)
   return true;
 }
 
-bool ODqCompParser::CheckAssignType(OType * dsttype, OExpr ** rexpr)
+bool ODqCompParser::CheckAssignType(OType * dsttype, OExpr ** rexpr, const string astmt)
 {
   ETypeKind tkd = dsttype->kind;
   ETypeKind tke = (*rexpr)->ptype->kind;
@@ -1150,12 +1208,36 @@ bool ODqCompParser::CheckAssignType(OType * dsttype, OExpr ** rexpr)
     }
     else
     {
-      Error(format("Assignment type mismatch: \"{}\" = \"{}\"", dsttype->name, (*rexpr)->ptype->name));
+      Error(format("{} type mismatch: \"{}\" = \"{}\"", astmt, dsttype->name, (*rexpr)->ptype->name));
       return false;
     }
   }
 
   return true;
+}
+
+void ODqCompParser::StatementError(const string amsg, OScPosition * scpos, bool atryrecover)
+{
+  OScPosition log_scpos(scf->curfile, scf->curp);
+
+  if (scpos and scpos->scfile) // use the position provided
+  {
+    log_scpos.Assign(*scpos);
+  }
+
+  Error(amsg, &log_scpos);
+  //print("{}: {}\n", log_scpos.Format(), amsg);
+
+  // try to recover
+  if (atryrecover)
+  {
+    if (!scf->SearchPattern(";", true))  // TODO: improve to handle #{} and strings
+    {
+
+    }
+  }
+
+  scf->SkipWhite();
 }
 
 void ODqCompParser::ExpressionError(const string amsg, OScPosition *scpos)

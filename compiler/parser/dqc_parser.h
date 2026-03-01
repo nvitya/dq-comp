@@ -78,8 +78,11 @@ public: // expressions
   OExpr * ParseExprNeg();
   OExpr * ParseExprPrimary();
 
+  OExpr * ParseExprFuncCall(OValSymFunc * vsfunc);
+
 protected:
   OExpr * CreateBinExpr(EBinOp op, OExpr * left, OExpr * right);  // handles implicit conversions
-  bool    CheckAssignType(OType * dsttype, OExpr ** rexpr);       // returns false when the assignment is not possible
+  bool    CheckAssignType(OType * dsttype, OExpr ** rexpr,
+                          const string astmt);                    // returns false when the assignment is not possible
                                                                   // adds implicit conversion if necessary
 };

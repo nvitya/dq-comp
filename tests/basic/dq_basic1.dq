@@ -1,6 +1,6 @@
 // single line comment: this is a dq test program
 
-//#{define FULLCODE}
+#{define FULLCODE}
 
 const CFLOAT1  : float = 0.5;
 var   g_float  : float = CFLOAT1 / 2;
@@ -13,21 +13,16 @@ function dq_fl_add_int(a : float, b : int) -> float:
   result = a + b;
 endfunc
 
-#{ifdef ERRTEST}
-
-function dq_fl_error(a : int, b : int) -> float:
-  var i : int = a / b;
-  result = i;
-endfunc
-
-#{endif}
-
 #{ifdef FULLCODE}
 
 function dq_add(a : int, b : int) -> int:
   return a + b;
 endfunc
 
+function dq_call(a : int) -> int:
+  var i : int = dq_add(3, a);
+  result = i * a;
+endfunc
 
 const GVINT    : int = 99;
 const GVBOOL1  : bool = false;

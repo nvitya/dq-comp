@@ -152,6 +152,7 @@ public:
   OValSymFunc *     vsfunc;
   vector<OExpr *>   args;
   /* ctor */        OCallExpr(OValSymFunc * avsfunc);
+                   ~OCallExpr();
   LlValue *         Generate(OScope * scope) override;
 
 public:

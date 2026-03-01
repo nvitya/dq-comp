@@ -202,6 +202,12 @@ LlValue * ONegExpr::Generate(OScope * scope)
   return ll_builder.CreateNeg(ll_val);
 }
 
+/* ctor */ OCallExpr::OCallExpr(OValSymFunc * avsfunc)
+{
+  vsfunc = avsfunc;
+  ptype = static_cast<OTypeFunc *>(vsfunc->ptype)->rettype;
+}
+
 LlValue * OCallExpr::Generate(OScope * scope)
 {
   LlFunction * ll_func = vsfunc->ll_func;
@@ -218,8 +224,11 @@ LlValue * OCallExpr::Generate(OScope * scope)
   return ll_builder.CreateCall(ll_func, ll_args);
 }
 
-/* ctor */ OCallExpr::OCallExpr(OValSymFunc * avsfunc)
+OCallExpr::~OCallExpr()
 {
-  vsfunc = avsfunc;
-  ptype = static_cast<OTypeFunc *>(vsfunc->ptype)->rettype;
+  for (OExpr * arg : args)
+  {
+    delete arg;
+  }
+  args.clear();
 }
