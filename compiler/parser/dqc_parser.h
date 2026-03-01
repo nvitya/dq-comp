@@ -74,6 +74,7 @@ public: // expressions
 
   OExpr * ParseExprAdd();
   OExpr * ParseExprMul();
+  OExpr * ParseExprDiv();
   OExpr * ParseExprNeg();
   OExpr * ParseExprPrimary();
 

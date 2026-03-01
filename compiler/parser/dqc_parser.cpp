@@ -727,7 +727,7 @@ OExpr * ODqCompParser::ParseExprMul()
 {
   scf->SkipWhite();
 
-  OExpr * left  = ParseExprPrimary();
+  OExpr * left  = ParseExprDiv();
   OExpr * right = nullptr;
 
   while (not scf->Eof())
@@ -735,10 +735,53 @@ OExpr * ODqCompParser::ParseExprMul()
     scf->SkipWhite();
     if (scf->CheckSymbol("*"))
     {
-      right = ParseExprPrimary();
+      right = ParseExprDiv();
       if (right)
       {
         return new OBinExpr(BINOP_MUL, left, right);
+      }
+    }
+    else
+    {
+      break;
+    }
+  }
+
+  return left;
+}
+
+OExpr * ODqCompParser::ParseExprDiv()
+{
+  scf->SkipWhite();
+
+  OExpr * left  = ParseExprPrimary();
+  OExpr * right = nullptr;
+
+  while (not scf->Eof())
+  {
+    scf->SkipWhite();
+    if (scf->CheckSymbol("/"))
+    {
+      right = ParseExprPrimary();
+      if (right)
+      {
+        return new OBinExpr(BINOP_DIV, left, right);
+      }
+    }
+    else if (scf->CheckSymbol("IDIV"))
+    {
+      right = ParseExprPrimary();
+      if (right)
+      {
+        return new OBinExpr(BINOP_IDIV, left, right);
+      }
+    }
+    else if (scf->CheckSymbol("IMOD"))
+    {
+      right = ParseExprPrimary();
+      if (right)
+      {
+        return new OBinExpr(BINOP_IMOD, left, right);
       }
     }
     else
@@ -799,13 +842,24 @@ OExpr * ODqCompParser::ParseExprPrimary()
 
   if (scf->IsNumChar())  // '0' .. '9' ?
   {
-    //TODO: support floating point: 0.123, 2.1e-5, 1.234E6
-
-    // int64 only so far (without sign)
     int64_t  intval;
     if (scf->ReadInt64Value(intval))
     {
-      result = new OIntLit(intval);
+      // check for floating point: 0.123, 2.1e-5, 1.234E6, 0.
+      char c = *scf->curp;
+      if (('.' == c) or ('e' == c) or ('E' == c)) // convert to floating point
+      {
+        double fpval = intval;
+        if (not scf->ReadFloatFracExp(fpval))
+        {
+          Error("Floating point literal parsing error.");
+        }
+        result = new OFloatLit(fpval);
+      }
+      else
+      {
+        result = new OIntLit(intval);
+      }
     }
     else  // impossible case
     {
@@ -988,6 +1042,18 @@ bool ODqCompParser::ParseStmtAssign(OValSym * pvalsym)
   else if (scf->CheckSymbol("*="))
   {
     op = BINOP_MUL;
+  }
+  else if (scf->CheckSymbol("/="))
+  {
+    op = BINOP_DIV;
+  }
+  else if (scf->CheckSymbol("IDIV="))
+  {
+    op = BINOP_IDIV;
+  }
+  else if (scf->CheckSymbol("IMOD="))
+  {
+    op = BINOP_IMOD;
   }
   else
   {

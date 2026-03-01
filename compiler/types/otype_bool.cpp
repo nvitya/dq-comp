@@ -5,10 +5,10 @@
  * This source code is licensed under the MIT License.
  * See the LICENSE file in the project root for the full license text.
  * ---------------------------------------------------------------------------------
- * file:    otype_int.h
+ * file:    otype_bool.h
  * authors: nvitya
  * created: 2026-02-02
- * brief:
+ * brief:   "bool" (boolean) type implementation
  */
 
 #include "otype_bool.h"

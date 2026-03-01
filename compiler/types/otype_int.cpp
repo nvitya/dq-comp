@@ -83,10 +83,12 @@ bool OValueInt::CalculateConstant(OExpr * expr)
         return false;
       }
 
-      if      (BINOP_ADD == ex->op)  value = vleft.value + vright.value;
-      else if (BINOP_SUB == ex->op)  value = vleft.value - vright.value;
-      else if (BINOP_MUL == ex->op)  value = vleft.value * vright.value;
-      else                           return false;
+      if      (BINOP_ADD  == ex->op)  value = vleft.value + vright.value;
+      else if (BINOP_SUB  == ex->op)  value = vleft.value - vright.value;
+      else if (BINOP_MUL  == ex->op)  value = vleft.value * vright.value;
+      else if (BINOP_IDIV == ex->op)  value = vleft.value / vright.value;
+      else if (BINOP_IMOD == ex->op)  value = vleft.value % vright.value;
+      else                            return false;
       return true;
     }
   }

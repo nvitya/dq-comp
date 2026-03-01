@@ -125,6 +125,8 @@ public: // parsing functions
   bool ReadHex64Value(uint64_t & rvalue);
   bool ReadQuotedString(string & rvalue);
 
+  bool ReadFloatFracExp(double & rvalue);
+
   bool ReadDecimalNumbers();       // sets prevptr, prevlen
   bool ReadHexNumbers();           // sets prevptr, prevlen
   bool ReadFloatNum();             // sets prevptr, prevlen

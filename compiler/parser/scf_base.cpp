@@ -915,3 +915,68 @@ bool OScFeederBase::ReadFloatNum()
   return result;
 }
 
+bool OScFeederBase::ReadFloatFracExp(double & rvalue)
+{
+  // examples: 0.123, 2.1e-5, 1.234E6, 0.
+
+  double fpval = rvalue;
+
+  if ('.' == *curp)
+  {
+    // parse fractional part
+    ++curp;
+    double  fpdigmul = 0.1;
+    while (curp < bufend)
+    {
+      char c = *curp;
+      if (c >= '0' and c <= '9')
+      {
+        fpval = fpval + (c - '0') * fpdigmul;
+        fpdigmul = fpdigmul * 0.1;
+      }
+      else
+      {
+        break;
+      }
+      ++curp;
+    }
+  }
+
+  if (('e' == *curp) || ('E' == *curp))
+  {
+    // parse exponential part
+    ++curp;
+    double fpexp = 0.0;
+    double fpexpsign = 1;
+    bool expok = false;
+    while (curp < bufend)
+    {
+      char c = *curp;
+      if ('-' == c)
+      {
+        fpexpsign = -1;
+      }
+      else if (c >= '0' and c <= '9')
+      {
+        fpexp = fpexp * 10 + (c - '0');
+        expok = true;
+      }
+      else
+      {
+        break;
+      }
+      ++curp;
+    }
+
+    if (!expok)
+    {
+      return false;
+    }
+
+    fpval = fpval * exp10(fpexp);
+  }
+
+  rvalue = fpval;
+  curcol = (curp - clstart) + 1;
+  return true;
+}

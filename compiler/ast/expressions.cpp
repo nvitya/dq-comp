@@ -25,6 +25,11 @@ LlValue * OBoolLit::Generate(OScope * scope)
   return llvm::ConstantInt::get(g_builtins->type_bool->GetLlType(), (value ? 1 : 0));
 }
 
+LlValue * OFloatLit::Generate(OScope * scope)
+{
+  return llvm::ConstantInt::get(g_builtins->type_float->GetLlType(), value);
+}
+
 LlValue * OVarRef::Generate(OScope * scope)
 {
   if (!pvalsym->ll_value)
@@ -48,9 +53,10 @@ LlValue * OBinExpr::Generate(OScope * scope)
   LlValue * ll_left  = left->Generate(scope);
   LlValue * ll_right = right->Generate(scope);
 
-  if      (BINOP_ADD == op)  return ll_builder.CreateAdd(ll_left, ll_right);
-  else if (BINOP_SUB == op)  return ll_builder.CreateSub(ll_left, ll_right);
-  else if (BINOP_MUL == op)  return ll_builder.CreateMul(ll_left, ll_right);
+  if      (BINOP_ADD == op)   return ll_builder.CreateAdd(ll_left, ll_right);
+  else if (BINOP_SUB == op)   return ll_builder.CreateSub(ll_left, ll_right);
+  else if (BINOP_MUL == op)   return ll_builder.CreateMul(ll_left, ll_right);
+  else if (BINOP_IDIV == op)  return ll_builder.CreateSDiv(ll_left, ll_right);
 
   throw logic_error(std::format("GenerateExpr(): Unhandled binop = {} ", int(op)));
 }

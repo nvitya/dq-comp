@@ -8,7 +8,7 @@
  * file:    scope_builtins.cpp
  * authors: nvitya
  * created: 2026-02-02
- * brief:
+ * brief:   built-in types, variables
  */
 
 #include "scope_builtins.h"
@@ -50,6 +50,13 @@ void OScopeBuiltins::Init()
   #endif
   DefineType(type_int);
   DefineType(type_uint);
+
+  type_float32 = new OTypeFloat("float32", 32);
+  type_float64 = new OTypeFloat("float64", 64);
+  type_float   = new OTypeFloat("float", 64);
+  DefineType(type_float32);
+  DefineType(type_float64);
+  DefineType(type_float);
 }
 
 void init_scope_builtins()

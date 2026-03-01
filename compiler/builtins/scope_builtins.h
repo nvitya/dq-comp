@@ -18,6 +18,7 @@
 
 #include "otype_int.h"
 #include "otype_bool.h"
+#include "otype_float.h"
 #include "otype_func.h"
 
 class OScopeBuiltins : public OScope
@@ -40,6 +41,10 @@ public:
   OTypeInt *    type_uint16;
   OTypeInt *    type_uint32;
   OTypeInt *    type_uint64;
+
+  OTypeFloat *  type_float;
+  OTypeFloat *  type_float32;
+  OTypeFloat *  type_float64;
 
   OScopeBuiltins()
   :

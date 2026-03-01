@@ -8,7 +8,7 @@
  * file:    otype_bool.h
  * authors: nvitya
  * created: 2026-02-02
- * brief:
+ * brief:   "bool" (boolean) type implementation
  */
 
 #pragma once

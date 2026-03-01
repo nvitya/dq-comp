@@ -43,14 +43,6 @@ void OStmtAssign::Generate(OScope * scope)
     throw logic_error(std::format("Variable \"{}\" was not prepared in the LLVM", variable->name));
   }
 
-#if 0
-  // TODO: check types at parsing
-  if (ll_set_value->getType() != variable->ll_value->getType())
-  {
-    throw logic_error(std::format("Type mismatch at assignment"));
-  }
-#endif
-
   ll_builder.CreateStore(ll_set_value, variable->ll_value);
 }
 
@@ -63,28 +55,14 @@ void OStmtModifyAssign::Generate(OScope *scope)
     throw logic_error(std::format("Variable \"{}\" was not prepared in the LLVM", variable->name));
   }
 
-#if 0  // this way of type-check does not work, because one side can be a pointer too
-  // TODO: check types at parsing
-  if (ll_mod_value->getType() != variable->ll_value->getType())
-  {
-    throw logic_error(std::format("Type mismatch at assignment"));
-  }
-#endif
-
   // Load current value
   LlValue * ll_curval = ll_builder.CreateLoad(variable->ll_value->getType(), variable->ll_value, variable->name);
 
-#if 0
-  if (ll_mod_value->getType() != variable->ll_value->getType())
-  {
-    throw logic_error(std::format("Type mismatch at modify assignment"));
-  }
-#endif
-
   LlValue * ll_newval = nullptr;
-  if      (BINOP_ADD == op)  ll_newval = ll_builder.CreateAdd(ll_curval, ll_mod_value);
-  else if (BINOP_SUB == op)  ll_newval = ll_builder.CreateSub(ll_curval, ll_mod_value);
-  else if (BINOP_MUL == op)  ll_newval = ll_builder.CreateMul(ll_curval, ll_mod_value);
+  if      (BINOP_ADD  == op)  ll_newval = ll_builder.CreateAdd(ll_curval, ll_mod_value);
+  else if (BINOP_SUB  == op)  ll_newval = ll_builder.CreateSub(ll_curval, ll_mod_value);
+  else if (BINOP_MUL  == op)  ll_newval = ll_builder.CreateMul(ll_curval, ll_mod_value);
+  else if (BINOP_IDIV == op)  ll_newval = ll_builder.CreateSDiv(ll_curval, ll_mod_value);
 
   if (ll_newval)
   {

@@ -1,15 +1,21 @@
 // single line comment: this is a dq test program
 
+//#{define FULLCODE}
+
+const CFLOAT1  : float = 0.5;
+var g_float   : float = CFLOAT1 + 1;
+
+#{ifdef FULLCODE}
+
 function dq_add(a : int, b : int) -> int:
   return a + b;
 endfunc
 
-#{define FULLCODE}
-#{ifdef FULLCODE}
 
 const GVINT    : int = 99;
 const GVBOOL1  : bool = false;
 const GVBOOL2  : bool = true;
+
 
 var globvar1  : int = 1 + GVINT;
 var globvar2  : int = 2;

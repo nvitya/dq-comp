@@ -32,6 +32,18 @@ public:
   LlValue * Generate(OScope * scope) override;
 };
 
+class OFloatLit : public OExpr
+{
+public:
+  double    value;
+  OFloatLit(double v)
+  :
+    value(v)
+  {}
+
+  LlValue * Generate(OScope * scope) override;
+};
+
 class OBoolLit : public OExpr
 {
 public:
@@ -61,7 +73,16 @@ enum EBinOp
   BINOP_NONE = 0,
   BINOP_ADD = 1,
   BINOP_SUB,
-  BINOP_MUL
+  BINOP_MUL,
+  BINOP_DIV,
+  BINOP_IDIV,
+  BINOP_IMOD,
+
+  BINOP_IAND,
+  BINOP_IOR,
+  BINOP_IXOR,
+  BINOP_ISHL,
+  BINOP_ISHR
 };
 
 class OBinExpr : public OExpr
