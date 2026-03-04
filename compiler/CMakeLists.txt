@@ -52,3 +52,12 @@ llvm_map_components_to_libnames(llvm_libs
 #target_link_libraries(dqc ${llvm_libs})
 
 target_link_libraries(dq-comp PRIVATE stdc++exp ${llvm_libs})
+
+# for early compiler development:
+add_custom_command(TARGET dq-comp POST_BUILD
+    COMMAND sudo cp $<TARGET_FILE:dq-comp> /usr/local/bin/dq-comp
+    COMMENT "Copying dq-comp to /usr/local/bin..."
+)
+
+# Define the installation destination
+install(TARGETS dq-comp DESTINATION /usr/local/bin)
