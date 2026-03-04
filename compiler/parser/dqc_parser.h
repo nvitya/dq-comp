@@ -67,16 +67,24 @@ public: // expressions
   OStmtBlock *  curblock = nullptr;
   OScope *      curscope = nullptr;
 
-  OExpr * ParseExpression();
+  OExpr * ParseExpression(); // calls ParseExprOr()
 
+  // if a == 1 or 1 SHL 5 AND 0xFFFF != 0
+  // if a == 1 or regval >> 5 AND 0xF != 0
+
+  //   5 + -x << 2
+
+  // Expression parsing in increasing operator priority:
   OExpr * ParseExprOr();
   OExpr * ParseExprAnd();
   OExpr * ParseExprNot();
   OExpr * ParseComparison();
-
   OExpr * ParseExprAdd();
   OExpr * ParseExprMul();
   OExpr * ParseExprDiv();
+  OExpr * ParseExprBinOr();
+  OExpr * ParseExprBinAnd();
+  OExpr * ParseExprShift();
   OExpr * ParseExprNeg();
   OExpr * ParseExprPrimary();
 

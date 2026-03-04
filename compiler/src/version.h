@@ -11,13 +11,17 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.1.0"
+#define DQ_COMPILER_VERSION  "0.1.1"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.1.1:
+  - Binary integer operations (AND, OR, XOR, SHL, SHR)
 v0.1.0:
   - working expression evaluations
   - working code generation
+  - working debug info
+  - command line arguments
 v0.0.4:
   - compiler symbol, type, scope objects
 v0.0.3:

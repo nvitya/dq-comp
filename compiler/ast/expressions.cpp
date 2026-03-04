@@ -114,6 +114,12 @@ LlValue * OBinExpr::Generate(OScope * scope)
     else if (BINOP_MUL == op)   return ll_builder.CreateMul(ll_left, ll_right);
     else if (BINOP_IDIV == op)  return ll_builder.CreateSDiv(ll_left, ll_right);
 
+    else if (BINOP_IOR  == op)  return ll_builder.CreateOr(ll_left, ll_right);
+    else if (BINOP_IAND == op)  return ll_builder.CreateAnd(ll_left, ll_right);
+    else if (BINOP_IXOR == op)  return ll_builder.CreateXor(ll_left, ll_right);
+    else if (BINOP_ISHL == op)  return ll_builder.CreateShl(ll_left, ll_right);
+    else if (BINOP_ISHR == op)  return ll_builder.CreateAShr(ll_left, ll_right);
+
     throw logic_error(std::format("OBinExpr.Generate(): Unhandled int binop = {} ", int(op)));
   }
   else if (TK_FLOAT == ptype->kind)
@@ -188,6 +194,22 @@ LlValue * ONotExpr::Generate(OScope * scope)
 {
   LlValue * ll_val = operand->Generate(scope);
   return ll_builder.CreateXor(ll_val, llvm::ConstantInt::get(g_builtins->type_bool->GetLlType(), 1));
+}
+
+/* ctor */ OBinNotExpr::OBinNotExpr(OExpr * expr)
+{
+  operand = expr;
+  ptype = operand->ptype;
+  if (TK_INT != ptype->kind)
+  {
+    ptype = g_builtins->type_int;
+  }
+}
+
+LlValue * OBinNotExpr::Generate(OScope * scope)
+{
+  LlValue * ll_val = operand->Generate(scope);
+  return ll_builder.CreateNot(ll_val);
 }
 
 /* ctor */ ONegExpr::ONegExpr(OExpr * expr)

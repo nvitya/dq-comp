@@ -136,6 +136,14 @@ public:
   LlValue *  Generate(OScope * scope) override;
 };
 
+class OBinNotExpr : public OExpr
+{
+public:
+  OExpr *    operand;
+  /* ctor */ OBinNotExpr(OExpr * expr);
+  LlValue *  Generate(OScope * scope) override;
+};
+
 class ONegExpr : public OExpr
 {
 public:

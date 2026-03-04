@@ -44,6 +44,14 @@ function dq_testfunc2(a : int, b : int) -> int
   }
 }
 
+function dq_ilogiops(a : int, b : int) -> int:
+  if a AND 1 << 5 != 0:
+    result = b OR a;
+  else:
+    result = NOT b XOR 1;
+  endif
+endfunc
+
 function dq_ifcheck(a : int, b : int) -> int:
   if a < b:
     return -1;
