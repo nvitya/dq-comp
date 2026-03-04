@@ -31,7 +31,7 @@ public:
   ODqCompiler();
   virtual ~ODqCompiler();
 
-  int Run(int argc, char ** argv);
+  void Run(int argc, char ** argv);
 };
 
 extern ODqCompiler *  g_compiler;

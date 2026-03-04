@@ -30,44 +30,52 @@ ODqCompiler::~ODqCompiler()
 {
 }
 
-int ODqCompiler::Run(int argc, char ** argv)
+void ODqCompiler::Run(int argc, char ** argv)
 {
-  error = 0;
-  errormsg = "";
+  errorcnt = 0;
 
   ParseCmdLineArgs(argc, argv);
-  if (error != 0)
+  if (errorcnt)
   {
-    return error;
+    return;
   }
 
   // initialize the source code feeder:
   if (scf->Init(in_filename) != 0)
   {
-    return SetError(1, "Error opening file");
+    ++errorcnt;
+    return;
   }
 
   ll_init_debug_info();
 
   ParseModule();
-  if (error)
+  if (errorcnt)
   {
     print("Compile error.\n");
-    return error;
+    return;
   }
 
   GenerateIr();
-  if (error)
+  if (errorcnt)
   {
     print("Code generation error.\n");
-    return error;
+    return;
   }
 
-  PrintIr();
+  if (g_opt.ir_print)
+  {
+    PrintIr();
+  }
 
   EmitObject(out_filename);
 
-  return error;
+  if (0 == errorcnt)
+  {
+    print("OK.\n");
+  }
+
+  return;
 }
 
 void dqc_init()

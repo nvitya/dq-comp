@@ -34,7 +34,7 @@ public:
   ODqCompClargs();
   virtual ~ODqCompClargs();
 
-  int ParseCmdLineArgs(int argc, char ** argv);
+  void ParseCmdLineArgs(int argc, char ** argv);
 
   void PrintUsage();
 

@@ -11,10 +11,13 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.0.4"
+#define DQ_COMPILER_VERSION  "0.1.0"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.1.0:
+  - working expression evaluations
+  - working code generation
 v0.0.4:
   - compiler symbol, type, scope objects
 v0.0.3:

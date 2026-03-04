@@ -80,9 +80,10 @@ void ODqCompParser::ParseModule()
     }
   }
 
-  printf("ParseModule finished.");
-
-  //printf("First normal token:\n\"%s\"\n", scf->curp);
+  if (g_opt.verbose)
+  {
+    printf("ParseModule finished.");
+  }
 }
 
 void ODqCompParser::ParseVarDecl()
@@ -1301,7 +1302,7 @@ void ODqCompParser::Error(const string amsg, OScPosition * ascpos)
 
   print("{} ERROR: {}\n", epos->Format(), amsg);
 
-  SetError(2, amsg);
+  ++errorcnt;
 }
 
 void ODqCompParser::Warning(const string amsg, OScPosition * ascpos)

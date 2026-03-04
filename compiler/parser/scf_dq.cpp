@@ -102,7 +102,10 @@ OScFile * OScFeederDq::LoadFile(const string afilename)
     return nullptr;
   }
 
-  print("File \"{}\" loaded: {} bytes\n", fullname, f->length);
+  if (g_opt.verbose)
+  {
+    print("File \"{}\" loaded: {} bytes\n", fullname, f->length);
+  }
 
   scfiles.push_back(f);
   f->index = scfiles.size() - 1;
@@ -277,8 +280,11 @@ void OScFeederDq::ParseDirective()
       // skip to the end
       curp = bufend;
 
-      print("{}: ", scpos_start_directive.Format());
-      print("include_once found, returning from the include now\n");
+      if (g_opt.verbose)
+      {
+        print("{}: ", scpos_start_directive.Format());
+        print("include_once found, returning from the include now\n");
+      }
     }
   }
   else  // unknown
@@ -337,8 +343,11 @@ void OScFeederDq::ParseDirectiveInclude()
     return;
   }
 
-  print("{}: ", scpos_start_directive.Format());
-  print("Including ({})\n", sfname);
+  if (g_opt.verbose)
+  {
+    print("{}: ", scpos_start_directive.Format());
+    print("Including ({})\n", sfname);
+  }
 
   OScFile * incfile = LoadFile(sfname);
   if (!incfile)
@@ -374,7 +383,6 @@ void OScFeederDq::PreprocError(const string amsg, OScPosition * ascpos, bool atr
   if (!epos)  epos = &scpos_start_directive;
 
   g_compiler->Error(amsg, epos);
-  //print("{}: {}\n", log_scpos.Format(), amsg);
 
   // try to recover
   if (atryrecover)
@@ -419,11 +427,17 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
       }
     }
 
-    print("{}: #{{{}}} \"{}\" {}\n", scpos_start_directive.Format(), aid, sid, (inactive_code ? "(inactive)" : ""));
+    if (g_opt.verbose)
+    {
+      print("{}: #{{{}}} \"{}\" {}\n", scpos_start_directive.Format(), aid, sid, (inactive_code ? "(inactive)" : ""));
+    }
   }
   else if ("if" == aid)
   {
-    print("{}: #if found, NOT IMPLEMENTED YET!\n", scpos_start_directive.Format());
+    if (g_opt.verbose)
+    {
+      print("{}: #if found, NOT IMPLEMENTED YET!\n", scpos_start_directive.Format());
+    }
   }
 
   // closer
@@ -442,7 +456,10 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
       }
       inactive_code = curcond->parent_inactive;
       curcond = curcond->parent;
-      print("{}: #{{endif}} {}\n", scpos_start_directive.Format(), (inactive_code ? "(inactive)" : ""));
+      if (g_opt.verbose)
+      {
+        print("{}: #{{endif}} {}\n", scpos_start_directive.Format(), (inactive_code ? "(inactive)" : ""));
+      }
     }
   }
 
@@ -477,7 +494,10 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
         inactive_code = true;
       }
 
-      print("{}: #{{else}} {}\n", scpos_start_directive.Format(), (inactive_code ? "(inactive)" : ""));
+      if (g_opt.verbose)
+      {
+        print("{}: #{{else}} {}\n", scpos_start_directive.Format(), (inactive_code ? "(inactive)" : ""));
+      }
     }
   }
   else if (("elifdef" == aid) || ("elifndef" == aid))
@@ -526,11 +546,20 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
       }
     }
 
-    print("{}: #{{{}}} \"{}\" {}\n", scpos_start_directive.Format(), aid, sid, (inactive_code ? "(inactive)" : ""));
+    if (g_opt.verbose)
+    {
+      print("{}: #{{{}}} \"{}\" {}\n", scpos_start_directive.Format(), aid, sid, (inactive_code ? "(inactive)" : ""));
+    }
   }
   else if ("elif" == aid)
   {
-    print("{}: #{{elif}} found, NOT IMPLEMENTED YET!\n", scpos_start_directive.Format());
+   PreprocError(format("{}: #{{elif}} found, NOT IMPLEMENTED YET!\n", scpos_start_directive.Format()));
+   return false;
+
+   if (g_opt.verbose)
+   {
+      print("{}: #{{elif}} found, NOT IMPLEMENTED YET!\n", scpos_start_directive.Format());
+   }
   }
   else
   {

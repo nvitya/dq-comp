@@ -134,11 +134,11 @@ int main(int argc, char ** argv)
 
   dqc_init(); // creates the compiler object
 
-  // process the command line arguments
-  r = g_compiler->Run(argc, argv);
+  g_compiler->Run(argc, argv);
+  r = g_compiler->errorcnt;
 
   delete g_compiler;
 
-  printf("\n");
+  //printf("\n");
   return r;
 }

@@ -24,6 +24,10 @@ public:
   bool     verbose = false;   // -v
   bool     dbg_info = false;  // -g
 
+  bool     ir_print = false;  // -ir
+
+  int      optlevel = 0;
+
   bool     blockmode_braces = false;
 
   // include dirs

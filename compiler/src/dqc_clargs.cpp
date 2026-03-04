@@ -11,6 +11,7 @@
  * brief:
  */
 
+#include <print>
 #include <string>
 #include "dqc_clargs.h"
 #include "comp_options.h"
@@ -25,7 +26,7 @@ ODqCompClargs::~ODqCompClargs()
 {
 }
 
-int ODqCompClargs::ParseCmdLineArgs(int argc, char **argv)
+void ODqCompClargs::ParseCmdLineArgs(int argc, char **argv)
 {
   for (int i = 1; i < argc; i++)
   {
@@ -33,13 +34,19 @@ int ODqCompClargs::ParseCmdLineArgs(int argc, char **argv)
 
     if ('-' == v[0])  // some compiler switch
     {
-      if ("-v" == v)
+      if      ("-v"  == v)    g_opt.verbose = true;
+      else if ("-g"  == v)    g_opt.dbg_info = true;
+      else if ("-ir" == v)    g_opt.ir_print = true;
+      else if ("-O0" == v)    g_opt.optlevel = 0;
+      else if ("-O1" == v)    g_opt.optlevel = 1;
+      else if ("-O2" == v)    g_opt.optlevel = 2;
+      else if ("-O3" == v)    g_opt.optlevel = 3;
+      else
       {
-        g_opt.verbose = true;
-      }
-      else if ("-g" == v)
-      {
-        g_opt.dbg_info = true;
+        ++errorcnt;
+        print("Unknown command line switch: {}\n", v);
+        PrintUsage();
+        return;
       }
     }
     else if ("" == in_filename)
@@ -58,9 +65,10 @@ int ODqCompClargs::ParseCmdLineArgs(int argc, char **argv)
 
   if ("" == in_filename)
   {
+    ++errorcnt;
     printf("Input file name is missing.\n");
     PrintUsage();
-    return 1;
+    return;
   }
 
   if ("" == out_filename)
@@ -69,10 +77,16 @@ int ODqCompClargs::ParseCmdLineArgs(int argc, char **argv)
   }
 
   printf("Compiling: \"%s\"...\n", in_filename.c_str());
-  return 0;
+  return;
 }
 
 void ODqCompClargs::PrintUsage()
 {
-  printf("Usage: dq-comp <file.dq> [output.o] [-v] [-g]\n");
+  print("Usage:\n");
+  print("  dq-comp <file.dq> [output.o] [switches]\n");
+  print("Switches:\n");
+  print("  -On: optimization level, n=0-3\n");
+  print("  -g: generate debug info\n");
+  print("  -v: print compiler internal trace messages\n");
+  print("  -ir: print LLVM IR code\n");
 }

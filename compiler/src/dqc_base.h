@@ -28,14 +28,10 @@ public:
   OScFeederDq *    scf = nullptr;
 
   int              errorcnt = 0;
-  int              error = 0;
-  string           errormsg = "";
 
 public:
   ODqCompBase();
   virtual ~ODqCompBase();
-
-  int SetError(int aerror, const string amsg);
 
   bool ReservedWord(const string aname);
 };

@@ -23,13 +23,6 @@ ODqCompBase::~ODqCompBase()
   delete scf;
 }
 
-int ODqCompBase::SetError(int aerror, const string amsg)
-{
-  error = aerror;
-  errormsg = amsg;
-  return error;
-}
-
 const string dq_reserved_words =
    "|var|for|while|if|else|return|break|continue"
    "|and|not|or"

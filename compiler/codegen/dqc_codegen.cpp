@@ -34,7 +34,10 @@ using namespace std;
 
 void ODqCompCodegen::GenerateIr()
 {
-  print("Generating IR...\n");
+  if (g_opt.verbose)
+  {
+    print("Generating IR...\n");
+  }
 
   PrepareTarget();
 
@@ -50,7 +53,8 @@ void ODqCompCodegen::GenerateIr()
     else if (DK_TYPE == decl->kind)
     {
       OType * pt = decl->ptype;
-      print("Unhandled type declaration \"{}\"\n", pt->name);
+      print("ERROR: Unhandled type declaration \"{}\"\n", pt->name);
+      ++errorcnt;
     }
   }
 
@@ -74,8 +78,7 @@ void ODqCompCodegen::GenerateIr()
     di_builder->finalize();
   }
 
-  OptimizeIr(0);
-  //OptimizeIr(1);
+  OptimizeIr(g_opt.optlevel);
 }
 
 void ODqCompCodegen::PrepareTarget()

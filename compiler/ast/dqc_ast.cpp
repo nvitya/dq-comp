@@ -31,11 +31,12 @@ ODecl * ODqCompAst::AddDeclVar(OScPosition & scpos, string aid, OType * atype)
 
   ODecl * result = g_module->DeclareValSym(section_public, pvalsym);
 
-  // TODO: add initialization
-
-  print("{}: ", scpos.Format());
-  print("AddVarDecl(): var {} : {}", aid, atype->name);
-  print("\n");
+  if (g_opt.verbose)
+  {
+    print("{}: ", scpos.Format());
+    print("AddVarDecl(): var {} : {}", aid, atype->name);
+    print("\n");
+  }
 
   return result;
 }
@@ -47,9 +48,12 @@ ODecl * ODqCompAst::AddDeclConst(OScPosition & scpos, string aid, OType * atype,
 
   ODecl * result = g_module->DeclareValSym(section_public, pvalsym);
 
-  print("{}: ", scpos.Format());
-  print("AddConstDecl(): var {} : {}", aid, atype->name);
-  print("\n");
+  if (g_opt.verbose)
+  {
+    print("{}: ", scpos.Format());
+    print("AddConstDecl(): var {} : {}", aid, atype->name);
+    print("\n");
+  }
 
   return result;
 }
@@ -58,8 +62,11 @@ ODecl * ODqCompAst::AddDeclFunc(OScPosition & scpos, OValSymFunc * avsfunc)
 {
   ODecl * result = g_module->DeclareValSym(section_public, avsfunc);
 
-  print("{}: ", scpos.Format());
-  print("AddDeclFunc(): {}", avsfunc->name);
+  if (g_opt.verbose)
+  {
+    print("{}: ", scpos.Format());
+    print("AddDeclFunc(): {}", avsfunc->name);
+  }
 
   avsfunc->scpos.Assign(scpos);
 
@@ -80,7 +87,10 @@ ODecl * ODqCompAst::AddDeclFunc(OScPosition & scpos, OValSymFunc * avsfunc)
     avsfunc->body->scope->DefineValSym(avsfunc->vsresult);
   }
 
-  print("\n");
+  if (g_opt.verbose)
+  {
+    print("\n");
+  }
 
   return result;
 }
