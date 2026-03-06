@@ -150,9 +150,11 @@ repeat_skip:  // jumped here when returning from an include
         RecalcCurLineCol();
       }
     }
-    else if (CheckSymbol("#{"))  // compiler directive
+    else if (CheckSymbol("#"))  // compiler directive
     {
+      bool saved_ppc_brace = preproc_closer_brace;
       ParseDirective();
+      preproc_closer_brace = saved_ppc_brace;
     }
     else // should be a normal token then
     {
@@ -208,7 +210,7 @@ void OScFeederDq::SkipInactiveCode()  // for an inactive #{if...} branch, called
 
     // Call CheckSymbol with consume=false, to not consume the symbols
 
-    if (CheckSymbol("#{", false))  // directive
+    if (CheckSymbol("#", false))  // directive
     {
       return;  // return to the SkipWhite() to handle this
     }
@@ -231,17 +233,28 @@ void OScFeederDq::SkipInactiveCode()  // for an inactive #{if...} branch, called
 
 void OScFeederDq::ParseDirective()
 {
+  // "#" is already consumed
   // Examples:
-  //   #{include "filename.dq"}
+  //   #include "filename.dq"
   //   #{opt ... }
   //   #{if ... }
 
   string sid;
 
-  // the prevpos was already set pointint the beginning of the "#{ " symbol
+  // the prevpos was already set pointint the beginning of the "# " symbol
   scpos_start_directive.Assign(prevpos);  // save the start of the directive. prevpos saved in the CheckSymbol()
 
-  SkipSpaces(); // do not use SkipWhite() here !
+  SkipSpaces(false); // do not use SkipWhite() here !
+
+  if (CheckSymbol("{"))
+  {
+    preproc_closer_brace = "}";
+    SkipSpaces(false);
+  }
+  else
+  {
+    preproc_closer_brace = false; // line end then
+  }
 
   // some keyword must come here
   if (not ReadIdentifier(sid))
@@ -296,7 +309,7 @@ void OScFeederDq::ParseDirective()
 
 void OScFeederDq::ParseDirectiveDefine()
 {
-  // #{define DEFNAME }
+  // #define DEFNAME
   // note: include already consumed!
 
   string sid;
@@ -306,7 +319,7 @@ void OScFeederDq::ParseDirectiveDefine()
   // identifier must come here
   if (not ReadIdentifier(sid))
   {
-    PreprocError("#{define} error: identifier is missing");
+    PreprocError("#define error: identifier is missing");
     return;
   }
 
@@ -315,9 +328,9 @@ void OScFeederDq::ParseDirectiveDefine()
     return;
   }
 
-  // TODO: handle advanced constructs like #{define MAXLEN : int = 32}
+  // TODO: handle advanced constructs like #define MAXLEN : int = 32
 
-  // Override the source code position, to point to the #{define ...} statement start
+  // Override the source code position, to point to the #define ... statement start
   g_compiler->errorpos = &scpos_start_directive;
   g_defines->DefineValSym(g_builtins->type_bool->CreateConst(scpos_start_directive, sid, true));
   g_compiler->errorpos = nullptr;  // return to the default error position (statement start)
@@ -325,7 +338,7 @@ void OScFeederDq::ParseDirectiveDefine()
 
 void OScFeederDq::ParseDirectiveInclude()
 {
-  // #{include "filename.dq" }
+  // #include "filename.dq"
   // note: include already consumed!
 
   string sfname;
@@ -387,9 +400,19 @@ void OScFeederDq::PreprocError(const string amsg, OScPosition * ascpos, bool atr
   // try to recover
   if (atryrecover)
   {
-    if (ReadToChar('}')) // find the closing
+    if (preproc_closer_brace)
     {
-      CheckSymbol("}"); // consume
+      if (ReadToChar('{')) // find the closing
+      {
+        CheckSymbol("}"); // consume
+      }
+    }
+    else // line end
+    {
+      if (ReadTo("\r\n"))
+      {
+        SkipSpaces(true);
+      }
     }
   }
 }
@@ -429,7 +452,7 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
 
     if (g_opt.verbose)
     {
-      print("{}: #{{{}}} \"{}\" {}\n", scpos_start_directive.Format(), aid, sid, (inactive_code ? "(inactive)" : ""));
+      print("{}: #{} \"{}\" {}\n", scpos_start_directive.Format(), aid, sid, (inactive_code ? "(inactive)" : ""));
     }
   }
   else if ("if" == aid)
@@ -446,19 +469,19 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
   {
     if (!curcond)
     {
-      PreprocError("#{{endif}} without previous #{{if...}}!");
+      PreprocError("#endif without previous #if...!");
     }
     else
     {
       if (curcond->startpos.scfile != curfile)
       {
-        PreprocError("#{{endif}} for different include file!");
+        PreprocError("#endif for different include file!");
       }
       inactive_code = curcond->parent_inactive;
       curcond = curcond->parent;
       if (g_opt.verbose)
       {
-        print("{}: #{{endif}} {}\n", scpos_start_directive.Format(), (inactive_code ? "(inactive)" : ""));
+        print("{}: #endif {}\n", scpos_start_directive.Format(), (inactive_code ? "(inactive)" : ""));
       }
     }
   }
@@ -469,11 +492,11 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
   {
     if (!curcond)
     {
-      PreprocError("#{{else}} without #{{if...}}");
+      PreprocError("#else without #if...");
     }
     else if (FCOND_ELSE == curcond->state)
     {
-      PreprocError(format("#{{else}} directive after previous #{{else}} at {}", curcond->elsepos.Format()));
+      PreprocError(format("#else directive after previous #else at {}", curcond->elsepos.Format()));
     }
     else
     {
@@ -481,7 +504,7 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
 
       if (curcond->startpos.scfile != curfile)  // same include ?
       {
-        PreprocError("#{{else}} for #{{if...}} in different include file!");
+        PreprocError("#else for #if... in different include file!");
         curcond = new OScfCondition(curcond, scpos_start_directive, inactive_code);
         inactive_code = true;
       }
@@ -496,7 +519,7 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
 
       if (g_opt.verbose)
       {
-        print("{}: #{{else}} {}\n", scpos_start_directive.Format(), (inactive_code ? "(inactive)" : ""));
+        print("{}: #else {}\n", scpos_start_directive.Format(), (inactive_code ? "(inactive)" : ""));
       }
     }
   }
@@ -511,12 +534,12 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
 
     if (!curcond)
     {
-      PreprocError(format("#{{{}}} without #{{if...}}", aid));
+      PreprocError(format("#{} without #if...", aid));
       inactive_code = true;
     }
     else if (FCOND_ELSE == curcond->state)
     {
-      PreprocError(format("#{{elif...}} directive after previous #{{else}} at {}", curcond->elsepos.Format()));
+      PreprocError(format("#elif... directive after previous #else at {}", curcond->elsepos.Format()));
       inactive_code = true;
     }
     else
@@ -526,7 +549,7 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
 
       if (curcond->startpos.scfile != curfile)  // same include ?
       {
-        PreprocError("#{{elifdef}} for #{{if...}} in different include file!");
+        PreprocError("#elifdef for #if... in different include file!");
         curcond = new OScfCondition(curcond, scpos_start_directive, inactive_code);
         inactive_code = true;
       }
@@ -548,17 +571,17 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
 
     if (g_opt.verbose)
     {
-      print("{}: #{{{}}} \"{}\" {}\n", scpos_start_directive.Format(), aid, sid, (inactive_code ? "(inactive)" : ""));
+      print("{}: #{} \"{}\" {}\n", scpos_start_directive.Format(), aid, sid, (inactive_code ? "(inactive)" : ""));
     }
   }
   else if ("elif" == aid)
   {
-   PreprocError(format("{}: #{{elif}} found, NOT IMPLEMENTED YET!\n", scpos_start_directive.Format()));
+   PreprocError(format("{}: #elif found, NOT IMPLEMENTED YET!\n", scpos_start_directive.Format()));
    return false;
 
    if (g_opt.verbose)
    {
-      print("{}: #{{elif}} found, NOT IMPLEMENTED YET!\n", scpos_start_directive.Format());
+      print("{}: #elif found, NOT IMPLEMENTED YET!\n", scpos_start_directive.Format());
    }
   }
   else
@@ -572,14 +595,23 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
 
 bool OScFeederDq::FindDirectiveEnd()
 {
-  // the #{id is already consumed, find the end
+  // the #[{]id is already consumed, find the end
 
-  SkipSpaces();
-  if (not CheckSymbol("}"))
+  if (preproc_closer_brace)
   {
-    PreprocError("Compiler directive closer \"}\" is missing");
-    return false;
+    SkipSpaces();
+    if (not CheckSymbol("}"))
+    {
+      PreprocError("Compiler directive closer \"}\" is missing");
+      return false;
+    }
   }
-
+  else // line end
+  {
+    if (ReadTo("\r\n"))
+    {
+      SkipSpaces(true);
+    }
+  }
   return true;
 }

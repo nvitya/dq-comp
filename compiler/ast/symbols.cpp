@@ -154,14 +154,13 @@ void OValSym::GenGlobalDecl(bool apublic, OValue * ainitval)
 
     if (g_opt.dbg_info)
     {
-      LlDiType * di_type = ptype->GetDiType();
       llvm::DIGlobalVariableExpression * debug_expr = di_builder->createGlobalVariableExpression(
           di_unit,            // The scope (usually the compile unit)
           name,               // The name in the source code
           name,               // The linkage name (mangled name, if applicable)
           scpos.scfile->di_file, // The file where it is declared
           scpos.line,         // The line number in the source code (example: line 10)
-          di_type,            // The debug type we created above
+          ptype->GetDiType(), // The debug type
           not apublic         // Is it local to the compile unit? (false for true globals)
       );
       gv->addDebugInfo(debug_expr);

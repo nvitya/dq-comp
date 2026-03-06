@@ -78,6 +78,7 @@ protected:
 
   OScfCondition *      curcond = nullptr;
   bool                 inactive_code = false;
+  bool                 preproc_closer_brace = true;
 
   void ParseDirective();
   void PreprocError(const string amsg, OScPosition * ascpos = nullptr, bool atryrecover = true);
