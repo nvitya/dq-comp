@@ -14,6 +14,7 @@
 #include "expressions.h"
 #include "scope_builtins.h"
 #include "otype_array.h"
+#include <llvm/IR/Intrinsics.h>
 
 /* ctor */ OExprTypeConv::OExprTypeConv(OType * dsttype, OExpr * asrc)
 {
@@ -389,6 +390,29 @@ LlValue * OSliceLengthExpr::Generate(OScope * scope)
   LlType * ll_slicetype = slicevalsym->ptype->GetLlType();
   LlValue * ll_len_addr = ll_builder.CreateStructGEP(ll_slicetype, slicevalsym->ll_value, 1, "slice.len.addr");
   return ll_builder.CreateLoad(LlType::getInt64Ty(ll_ctx), ll_len_addr, "slice.len");
+}
+
+/* ctor */ OFloatRoundExpr::OFloatRoundExpr(ERoundMode amode, OExpr * asrc)
+{
+  mode  = amode;
+  src   = asrc;
+  ptype = g_builtins->type_int;
+}
+
+OFloatRoundExpr::~OFloatRoundExpr()
+{
+  delete src;
+}
+
+LlValue * OFloatRoundExpr::Generate(OScope * scope)
+{
+  LlValue * ll_src = src->Generate(scope);
+  llvm::Intrinsic::ID iid;
+  if      (RNDMODE_ROUND == mode)  iid = llvm::Intrinsic::round;
+  else if (RNDMODE_CEIL  == mode)  iid = llvm::Intrinsic::ceil;
+  else                             iid = llvm::Intrinsic::floor;
+  LlValue * ll_rounded = ll_builder.CreateUnaryIntrinsic(iid, ll_src);
+  return ll_builder.CreateFPToSI(ll_rounded, g_builtins->type_int->GetLlType());
 }
 
 /* ctor */ OCallExpr::OCallExpr(OValSymFunc * avsfunc)

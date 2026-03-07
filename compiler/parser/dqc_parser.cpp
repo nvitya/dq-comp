@@ -1263,6 +1263,10 @@ OExpr * ODqCompParser::ParseExprPrimary()
     return ParseBuiltinLen();
   }
 
+  if ("round" == sid)  return ParseBuiltinFloatRound(RNDMODE_ROUND);
+  if ("ceil"  == sid)  return ParseBuiltinFloatRound(RNDMODE_CEIL);
+  if ("floor" == sid)  return ParseBuiltinFloatRound(RNDMODE_FLOOR);
+
   OValSym * vs = curscope->FindValSym(sid);
   if (!vs)
   {
@@ -1431,6 +1435,33 @@ OExpr * ODqCompParser::ParseExprFuncCall(OValSymFunc * vsfunc)
   }
 
   return result;
+}
+
+OExpr * ODqCompParser::ParseBuiltinFloatRound(ERoundMode amode)
+{
+  scf->SkipWhite();
+  if (not scf->CheckSymbol("("))
+  {
+    Error("\"(\" expected");
+    return nullptr;
+  }
+  OExpr * argexpr = ParseExpression();
+  if (!argexpr)  return nullptr;
+
+  if (TK_FLOAT != argexpr->ptype->kind)
+  {
+    Error(format("round/ceil/floor requires a float argument, got \"{}\"", argexpr->ptype->name));
+    delete argexpr;
+    return nullptr;
+  }
+  scf->SkipWhite();
+  if (not scf->CheckSymbol(")"))
+  {
+    Error("\")\" expected");
+    delete argexpr;
+    return nullptr;
+  }
+  return new OFloatRoundExpr(amode, argexpr);
 }
 
 OExpr * ODqCompParser::ParseBuiltinLen()

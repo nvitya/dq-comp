@@ -11,10 +11,13 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.2.3"
+#define DQ_COMPILER_VERSION  "0.2.4"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.2.4:
+  - Float to int conversion with round(), ceil(), floor()
+  - const definition fix
 v0.2.3:
   - Expression evaluation and code generation fixes for float and unsigned handling
   - nicer expression parsing functions

@@ -215,6 +215,23 @@ public:
   LlValue *  Generate(OScope * scope) override;
 };
 
+enum ERoundMode
+{
+  RNDMODE_ROUND,
+  RNDMODE_CEIL,
+  RNDMODE_FLOOR
+};
+
+class OFloatRoundExpr : public OExpr
+{
+public:
+  ERoundMode  mode;
+  OExpr *     src;
+  /* ctor */  OFloatRoundExpr(ERoundMode amode, OExpr * asrc);
+             ~OFloatRoundExpr();
+  LlValue *   Generate(OScope * scope) override;
+};
+
 class OValSymFunc;  // forward declaration for otype_func.h
 
 class OCallExpr : public OExpr

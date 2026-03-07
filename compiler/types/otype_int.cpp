@@ -12,8 +12,10 @@
  */
 
 #include "otype_int.h"
+#include "otype_float.h"
 #include "expressions.h"
 #include "dqc.h"
+#include <cmath>
 
 LlConst * OValueInt::CreateLlConst()
 {
@@ -102,6 +104,22 @@ bool OValueInt::CalculateConstant(OExpr * expr)
         g_compiler->ExpressionError(format("Int constant expression unhandled operator: {}", int(ex->op)));
       }
 
+      return true;
+    }
+  }
+
+  {
+    auto * ex = dynamic_cast<OFloatRoundExpr *>(expr);
+    if (ex)
+    {
+      OValueFloat vf(g_builtins->type_float, 0);
+      if (not vf.CalculateConstant(ex->src))
+      {
+        return false;
+      }
+      if      (RNDMODE_ROUND == ex->mode)  value = (int64_t)std::round(vf.value);
+      else if (RNDMODE_CEIL  == ex->mode)  value = (int64_t)std::ceil(vf.value);
+      else                                 value = (int64_t)std::floor(vf.value);
       return true;
     }
   }

@@ -208,6 +208,11 @@ void OValSym::GenGlobalDecl(bool apublic, OValue * ainitval)
     }
 
   }
+  else if (VSK_CONST == kind)
+  {
+    OValSymConst * vsconst = static_cast<OValSymConst *>(this);
+    ll_value = vsconst->pvalue->GetLlConst();
+  }
 }
 
 OExpr::OExpr()

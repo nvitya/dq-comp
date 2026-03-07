@@ -95,6 +95,7 @@ public: // expressions
 
   OExpr * ParseExprFuncCall(OValSymFunc * vsfunc);
   OExpr * ParseBuiltinLen();
+  OExpr * ParseBuiltinFloatRound(ERoundMode amode);
   OExpr * ParseArrayLit();
 
 protected:
