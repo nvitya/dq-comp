@@ -15,6 +15,8 @@
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.3.1:
+  - Calling strnlen from libc instead of the internal implementation
 v0.3.0:
   - Some simple C string support
 v0.2.4:

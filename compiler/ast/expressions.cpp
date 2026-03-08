@@ -537,6 +537,10 @@ LlValue * OCStringSizeExpr::Generate(OScope * scope)
   ptype = g_builtins->type_int;
 }
 
+#define USE_INLINE_STRLEN 0
+
+#if USE_INLINE_STRLEN  // inline version
+
 LlValue * OCStringLenExpr::Generate(OScope * scope)
 {
   LlValue * ll_charptr;
@@ -583,6 +587,42 @@ LlValue * OCStringLenExpr::Generate(OScope * scope)
   ll_builder.SetInsertPoint(done_bb);
   return ll_i;
 }
+
+#else  // call the strnlen from libc
+
+LlValue * OCStringLenExpr::Generate(OScope * scope)
+{
+  LlValue * ll_charptr;
+  LlValue * ll_maxlen;
+  OTypeCString * cstrtype = static_cast<OTypeCString *>(cstrvalsym->ptype);
+
+  if (cstrtype->maxlen > 0)
+  {
+    // Fixed cstring[N]: GEP to element 0
+    LlValue * ll_zero = llvm::ConstantInt::get(LlType::getInt64Ty(ll_ctx), 0);
+    ll_charptr = ll_builder.CreateGEP(cstrtype->GetLlType(), cstrvalsym->ll_value,
+        {ll_zero, ll_zero}, "cstr.ptr");
+    ll_maxlen = llvm::ConstantInt::get(LlType::getInt64Ty(ll_ctx), cstrtype->maxlen);
+  }
+  else
+  {
+    // Unsized cstring param: extract pointer from descriptor
+    LlType * ll_desctype = cstrtype->GetLlType();
+    LlValue * ll_ptr_addr = ll_builder.CreateStructGEP(ll_desctype, cstrvalsym->ll_value, 0, "cstr.ptr.addr");
+    ll_charptr = ll_builder.CreateLoad(llvm::PointerType::get(ll_ctx, 0), ll_ptr_addr, "cstr.ptr");
+
+    // Extract maxlen from descriptor
+    LlValue * ll_maxlen_addr = ll_builder.CreateStructGEP(ll_desctype, cstrvalsym->ll_value, 1, "cstr.maxlen.addr");
+    ll_maxlen = ll_builder.CreateLoad(LlType::getInt64Ty(ll_ctx), ll_maxlen_addr, "cstr.maxlen");
+  }
+
+  // Call strnlen from libc
+  llvm::FunctionType * ft = llvm::FunctionType::get(LlType::getInt64Ty(ll_ctx), {llvm::PointerType::get(ll_ctx, 0), LlType::getInt64Ty(ll_ctx)}, false);
+  llvm::FunctionCallee callee = ll_module->getOrInsertFunction("strnlen", ft);
+  return ll_builder.CreateCall(callee, {ll_charptr, ll_maxlen}, "len");
+}
+
+#endif
 
 /* ctor */ OCStringToDescExpr::OCStringToDescExpr(OValSym * avs, OType * desctype)
 {
