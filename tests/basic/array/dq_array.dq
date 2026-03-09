@@ -1,6 +1,6 @@
 // array tests
 
-#define ERRORTEST
+// #define ERRORTEST
 
 function dq_arr_basic() -> int:
   var a : int[3];

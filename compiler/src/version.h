@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.3.2"
+#define DQ_COMPILER_VERSION  "0.3.3"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.3.3:
+  - Expression parsing cleanup, more advanced postfix parsing
 v0.3.2:
   - Improved pointer syntax: (p + 1)^ and p[1]^
 v0.3.1:

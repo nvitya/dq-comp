@@ -90,7 +90,7 @@ public: // expressions
   OExpr * ParseExprBinOr();
   OExpr * ParseExprBinAnd();
   OExpr * ParseExprShift();
-  OExpr * ParseExprNeg();
+  OExpr * ParseExprUnary();
   OExpr * ParseExprPostfix();
   OExpr * ParseExprPrimary();
 

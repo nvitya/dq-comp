@@ -1096,7 +1096,7 @@ OExpr * ODqCompParser::ParseExprShift()
 {
   scf->SkipWhite();
 
-  OExpr * left  = ParseExprNeg();
+  OExpr * left  = ParseExprUnary();
   if (!left)
   {
     return nullptr;
@@ -1114,7 +1114,7 @@ OExpr * ODqCompParser::ParseExprShift()
       break;
     }
 
-    OExpr *  right = ParseExprNeg();
+    OExpr *  right = ParseExprUnary();
     OExpr *  res = CreateBinExpr(op, left, right);
     if (!res)
     {
@@ -1127,18 +1127,82 @@ OExpr * ODqCompParser::ParseExprShift()
   return left;
 }
 
-OExpr * ODqCompParser::ParseExprNeg()
+OExpr * ODqCompParser::ParseExprUnary()
 {
+  scf->SkipWhite();
+
+  // address-of operator: &variable, &arr[index], &s[index]
+  if (scf->CheckSymbol("&"))
+  {
+    scf->SkipWhite();
+    string addrname;
+    if (!scf->ReadIdentifier(addrname))
+    {
+      Error("Variable name expected after \"&\"");
+      return nullptr;
+    }
+    OValSym * addrvs = curscope->FindValSym(addrname);
+    if (!addrvs)
+    {
+      Error(format("Unknown variable \"{}\"", addrname));
+      return nullptr;
+    }
+    if (VSK_VARIABLE != addrvs->kind and VSK_PARAMETER != addrvs->kind)
+    {
+      Error(format("\"{}\" is not a variable, cannot take its address", addrname));
+      return nullptr;
+    }
+    // address of array element: &arr[index]
+    if (TK_ARRAY == addrvs->ptype->kind)
+    {
+      scf->SkipWhite();
+      if (scf->CheckSymbol("["))
+      {
+        if (not addrvs->initialized)
+        {
+          Error(format("Accessing uninitialized array \"{}\"", addrvs->name));
+        }
+        OExpr * indexexpr = ParseExpression();
+        scf->SkipWhite();
+        if (not scf->CheckSymbol("]"))
+        {
+          Error("\"]\" expected after array index in address-of");
+          delete indexexpr;
+          return nullptr;
+        }
+        return new OAddrOfArrayElemExpr(addrvs, indexexpr);
+      }
+    }
+    // address of cstring element: &s[index]
+    if (TK_STRING == addrvs->ptype->kind)
+    {
+      scf->SkipWhite();
+      if (scf->CheckSymbol("["))
+      {
+        OExpr * indexexpr = ParseExpression();
+        scf->SkipWhite();
+        if (not scf->CheckSymbol("]"))
+        {
+          Error("\"]\" expected after cstring index in address-of");
+          delete indexexpr;
+          return nullptr;
+        }
+        return new OCStringElemAddrExpr(addrvs, indexexpr);
+      }
+    }
+    return new OAddrOfExpr(addrvs);
+  }
+
   if (scf->CheckSymbol("-"))
   {
-    OExpr * val = ParseExprPostfix();
+    OExpr * val = ParseExprUnary();
     if (!val) return nullptr;
     return new ONegExpr(val);
   }
 
   if (scf->CheckSymbol("NOT"))
   {
-    OExpr * val = ParseExprPostfix();
+    OExpr * val = ParseExprUnary();
     if (!val) return nullptr;
     return new OBinNotExpr(val);
   }
@@ -1238,25 +1302,76 @@ OExpr * ODqCompParser::ParseExprPostfix()
   while (true)
   {
     scf->SkipWhite();
-    if (TK_POINTER == result->ptype->kind and scf->CheckSymbol("["))
+
+    ETypeKind  tk     = result->ptype->kind;
+    OVarRef *  varref = dynamic_cast<OVarRef *>(result);
+
+    if (varref)
     {
-      OExpr * indexexpr = ParseExpression();
-      scf->SkipWhite();
-      if (not scf->CheckSymbol("]"))
+      if (TK_COMPOUND == tk)
       {
-        Error("\"]\" expected after pointer index");
+        Error(format("Object/Struct reference \"{}\" not implemented", varref->pvalsym->name));
+        return result;
       }
-      result = new OPointerIndexExpr(result, indexexpr);
-    }
-    else if (TK_POINTER == result->ptype->kind and scf->CheckSymbol("^"))
+
+      OValSymFunc * vsfunc = dynamic_cast<OValSymFunc *>(varref->pvalsym);
+      if (vsfunc)
+      {
+        // Function call postfix: f(args)
+        if (not scf->CheckSymbol("("))
+        {
+          Error("\"(\" is required for function call");
+        }
+        OExpr * callexpr = ParseExprFuncCall(vsfunc);
+        delete result;
+        result = callexpr;
+        if (!result) return nullptr;
+        continue;
+      }
+
+      if ((TK_ARRAY == tk or TK_ARRAY_SLICE == tk) and scf->CheckSymbol("["))
+      {
+        OValSym * vs = varref->pvalsym;
+        if (not vs->initialized)
+        {
+          Error(format("Accessing uninitialized array \"{}\"", vs->name));
+        }
+        OExpr * indexexpr = ParseExpression();
+        scf->SkipWhite();
+        if (not scf->CheckSymbol("]"))
+        {
+          Error("\"]\" expected after array index");
+        }
+        delete result;
+        result = new OArrayIndexExpr(vs, indexexpr);
+        continue;
+      }
+    } // if varref
+
+    // pointer operations — apply to any expression (not just OVarRef)
+
+    if (TK_POINTER == tk)
     {
-      result = new ODerefExpr(result);
-      break;  // after dereference, result is no longer a pointer
-    }
-    else
-    {
-      break;
-    }
+      if (scf->CheckSymbol("[")) // p[i]: pointer indexing, no dereference !
+      {
+        OExpr * indexexpr = ParseExpression();
+        scf->SkipWhite();
+        if (not scf->CheckSymbol("]"))
+        {
+          Error("\"]\" expected after pointer index");
+        }
+        result = new OPointerIndexExpr(result, indexexpr);
+        continue;
+      }
+
+      if (scf->CheckSymbol("^")) // p^: dereference
+      {
+        result = new ODerefExpr(result);
+        continue;
+      }
+    } // if pointer
+
+    break;
   }
   return result;
 }
@@ -1358,69 +1473,6 @@ OExpr * ODqCompParser::ParseExprPrimary()
     return result;
   }
 
-  // address-of operator: &variable
-  if (scf->CheckSymbol("&"))
-  {
-    scf->SkipWhite();
-    string addrname;
-    if (!scf->ReadIdentifier(addrname))
-    {
-      Error("Variable name expected after \"&\"");
-      return nullptr;
-    }
-    OValSym * addrvs = curscope->FindValSym(addrname);
-    if (!addrvs)
-    {
-      Error(format("Unknown variable \"{}\"", addrname));
-      return nullptr;
-    }
-    if (VSK_VARIABLE != addrvs->kind and VSK_PARAMETER != addrvs->kind)
-    {
-      Error(format("\"{}\" is not a variable, cannot take its address", addrname));
-      return nullptr;
-    }
-    // address of array element: &arr[index]
-    if (TK_ARRAY == addrvs->ptype->kind)
-    {
-      scf->SkipWhite();
-      if (scf->CheckSymbol("["))
-      {
-        if (not addrvs->initialized)
-        {
-          Error(format("Accessing uninitialized array \"{}\"", addrvs->name));
-        }
-        OExpr * indexexpr = ParseExpression();
-        scf->SkipWhite();
-        if (not scf->CheckSymbol("]"))
-        {
-          Error("\"]\" expected after array index in address-of");
-          delete indexexpr;
-          return nullptr;
-        }
-        return new OAddrOfArrayElemExpr(addrvs, indexexpr);
-      }
-    }
-    // address of cstring element: &s[index]
-    if (TK_STRING == addrvs->ptype->kind)
-    {
-      scf->SkipWhite();
-      if (scf->CheckSymbol("["))
-      {
-        OExpr * indexexpr = ParseExpression();
-        scf->SkipWhite();
-        if (not scf->CheckSymbol("]"))
-        {
-          Error("\"]\" expected after cstring index in address-of");
-          delete indexexpr;
-          return nullptr;
-        }
-        return new OCStringElemAddrExpr(addrvs, indexexpr);
-      }
-    }
-    result = new OAddrOfExpr(addrvs);
-    return result;
-  }
-
   // identifier
 
   OScPosition scpos_sid;
@@ -1461,53 +1513,6 @@ OExpr * ODqCompParser::ParseExprPrimary()
   {
     Error(format("Unknown identifier \"{}\"", sid));
     return result;
-  }
-
-  // types
-  //  - variable reference
-  //  - constant
-  //  - compbound variable
-  //  - function
-
-  //OType * ptype = vs->ptype;
-  ETypeKind tk = vs->ptype->kind;
-
-  scf->SkipWhite();
-
-  OValSymFunc * vsfunc = dynamic_cast<OValSymFunc *>(vs);
-  if (vsfunc)
-  {
-    if (scf->CheckSymbol("("))
-    {
-      result = ParseExprFuncCall(vsfunc);
-      return result;
-    }
-    else
-    {
-      Error(format("\"(\" is required for function call"));
-    }
-  }
-
-  if (TK_COMPOUND == tk)
-  {
-    Error(format("Object/Struct reference \"{}\" not implemented", sid));
-    return result;
-  }
-
-  // array element access: arr[index]
-  if ((TK_ARRAY == tk or TK_ARRAY_SLICE == tk) and scf->CheckSymbol("["))
-  {
-    if (not vs->initialized)
-    {
-      Error(format("Accessing uninitialized array \"{}\"", vs->name), &scpos_sid);
-    }
-    OExpr * indexexpr = ParseExpression();
-    scf->SkipWhite();
-    if (not scf->CheckSymbol("]"))
-    {
-      Error("\"]\" expected after array index");
-    }
-    return new OArrayIndexExpr(vs, indexexpr);
   }
 
   result = new OVarRef(vs);
