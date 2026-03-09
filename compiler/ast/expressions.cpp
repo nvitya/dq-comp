@@ -380,6 +380,22 @@ LlValue * OArrayIndexExpr::Generate(OScope * scope)
   }
 }
 
+/* ctor */ OPointerIndexExpr::OPointerIndexExpr(OExpr * aptr, OExpr * aindex)
+{
+  ptrexpr   = aptr;
+  indexexpr = aindex;
+  ptype     = aptr->ptype;  // same pointer type: result is a pointer to element i
+}
+
+LlValue * OPointerIndexExpr::Generate(OScope * scope)
+{
+  LlValue *      ll_ptr   = ptrexpr->Generate(scope);
+  LlValue *      ll_index = indexexpr->Generate(scope);
+  OTypePointer * ptrtype  = static_cast<OTypePointer *>(ptype);
+  LlType *       ll_elem  = ptrtype->basetype->GetLlType();
+  return ll_builder.CreateGEP(ll_elem, ll_ptr, {ll_index}, "ptr.idx");
+}
+
 /* ctor */ OArrayToSliceExpr::OArrayToSliceExpr(OValSym * aarray, OType * slicetype)
 {
   arrayvalsym = aarray;

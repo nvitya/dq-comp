@@ -1131,19 +1131,19 @@ OExpr * ODqCompParser::ParseExprNeg()
 {
   if (scf->CheckSymbol("-"))
   {
-    OExpr * val = ParseExprPrimary();
+    OExpr * val = ParseExprPostfix();
     if (!val) return nullptr;
     return new ONegExpr(val);
   }
 
   if (scf->CheckSymbol("NOT"))
   {
-    OExpr * val = ParseExprPrimary();
+    OExpr * val = ParseExprPostfix();
     if (!val) return nullptr;
     return new OBinNotExpr(val);
   }
 
-  return ParseExprPrimary();
+  return ParseExprPostfix();
 }
 
 OExpr * ODqCompParser::FreeLeftRight(OExpr * left, OExpr * right)
@@ -1228,6 +1228,37 @@ OExpr * ODqCompParser::CreateBinExpr(EBinOp op, OExpr * left, OExpr * right)
   }
 
   return new OBinExpr(op, newleft, newright);
+}
+
+OExpr * ODqCompParser::ParseExprPostfix()
+{
+  OExpr * result = ParseExprPrimary();
+  if (!result) return nullptr;
+
+  while (true)
+  {
+    scf->SkipWhite();
+    if (TK_POINTER == result->ptype->kind and scf->CheckSymbol("["))
+    {
+      OExpr * indexexpr = ParseExpression();
+      scf->SkipWhite();
+      if (not scf->CheckSymbol("]"))
+      {
+        Error("\"]\" expected after pointer index");
+      }
+      result = new OPointerIndexExpr(result, indexexpr);
+    }
+    else if (TK_POINTER == result->ptype->kind and scf->CheckSymbol("^"))
+    {
+      result = new ODerefExpr(result);
+      break;  // after dereference, result is no longer a pointer
+    }
+    else
+    {
+      break;
+    }
+  }
+  return result;
 }
 
 OExpr * ODqCompParser::ParseExprPrimary()
@@ -1483,13 +1514,6 @@ OExpr * ODqCompParser::ParseExprPrimary()
   if (not vs->initialized)
   {
     Error(format("Accessing uninitialized variable \"{}\"", vs->name), &scpos_sid);
-  }
-
-  // postfix dereference: p^
-  scf->SkipWhite();
-  if (TK_POINTER == vs->ptype->kind and scf->CheckSymbol("^"))
-  {
-    result = new ODerefExpr(result);
   }
 
   return result;

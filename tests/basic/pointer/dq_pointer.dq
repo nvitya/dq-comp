@@ -51,3 +51,10 @@ function dq_ptr_and_arr() -> int:
   p += 1;
   result += p^;
 endfunc
+
+function dq_ptr_and_arr2() -> int:
+  var arr : int[3] = [3,4,5];
+  var p : ^int = &arr[0];
+  result = (p + 1)^;
+  result += p[2]^;  // sane as (p + 2)^, but this syntax is more readable. [] at pointer do not do dereferencing as in C !
+endfunc

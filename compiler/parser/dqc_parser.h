@@ -91,6 +91,7 @@ public: // expressions
   OExpr * ParseExprBinAnd();
   OExpr * ParseExprShift();
   OExpr * ParseExprNeg();
+  OExpr * ParseExprPostfix();
   OExpr * ParseExprPrimary();
 
   OExpr * ParseExprFuncCall(OValSymFunc * vsfunc);

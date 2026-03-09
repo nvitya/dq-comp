@@ -197,6 +197,16 @@ public:
   LlValue *  Generate(OScope * scope) override;
 };
 
+// Pointer subscript: p[i] computes address of element i (no dereference). Use p[i]^ to read.
+class OPointerIndexExpr : public OExpr
+{
+public:
+  OExpr *  ptrexpr;
+  OExpr *  indexexpr;
+  /* ctor */ OPointerIndexExpr(OExpr * aptr, OExpr * aindex);
+  LlValue *  Generate(OScope * scope) override;
+};
+
 // Implicit conversion from fixed array to slice when passing to int[] parameter
 class OArrayToSliceExpr : public OExpr
 {

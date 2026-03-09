@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.3.0"
+#define DQ_COMPILER_VERSION  "0.3.2"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.3.2:
+  - Improved pointer syntax: (p + 1)^ and p[1]^
 v0.3.1:
   - Calling strnlen from libc instead of the internal implementation
 v0.3.0:
