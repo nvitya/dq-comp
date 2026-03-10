@@ -575,31 +575,6 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
 
       if (VSK_VARIABLE == pvalsym->kind or VSK_PARAMETER == pvalsym->kind)
       {
-        scf->SkipWhite();
-        if (TK_COMPOUND == pvalsym->ptype->kind and scf->CheckSymbol("."))
-        {
-          ParseStmtStructMemberAssign(pvalsym);
-          continue;
-        }
-        if (TK_POINTER == pvalsym->ptype->kind and scf->CheckSymbol("^"))
-        {
-          // Check if the pointer points to a compound type — handle ep^.member
-          OTypePointer * ptrtype = static_cast<OTypePointer *>(pvalsym->ptype);
-          scf->SkipWhite();
-          if (TK_COMPOUND == ptrtype->basetype->kind and scf->CheckSymbol("."))
-          {
-            ParseStmtDerefMemberAssign(pvalsym);
-            continue;
-          }
-          ParseStmtDerefAssign(pvalsym);
-          continue;
-        }
-        if ((TK_ARRAY == pvalsym->ptype->kind or TK_ARRAY_SLICE == pvalsym->ptype->kind)
-            and scf->CheckSymbol("["))
-        {
-          ParseStmtArrayAssign(pvalsym);
-          continue;
-        }
         if (ParseStmtAssign(pvalsym))
         {
           continue;
@@ -1003,215 +978,78 @@ OExpr * ODqCompParser::ParseComparison()
   return new OCompareExpr(op, left, right);
 }
 
-OExpr * ODqCompParser::ParseExprAdd()
+// Table-driven binary operator parser: shared logic for all precedence levels
+OExpr * ODqCompParser::ParseBinOpLevel(
+    OExpr * (ODqCompParser::*parse_next)(),
+    const BinOpEntry ops[], int nops)
 {
   scf->SkipWhite();
-
-  OExpr *  left = ParseExprMul();
-  if (!left)
-  {
-    return nullptr;
-  }
+  OExpr * left = (this->*parse_next)();
+  if (!left) return nullptr;
 
   while (not scf->Eof())
   {
     scf->SkipWhite();
     EBinOp op = BINOP_NONE;
-    if      (scf->CheckSymbol("+"))  op = BINOP_ADD;
-    else if (scf->CheckSymbol("-"))  op = BINOP_SUB;
-    else
+    for (int i = 0; i < nops; ++i)
     {
-      break;
+      if (scf->CheckSymbol(ops[i].sym))
+      {
+        op = ops[i].op;
+        break;
+      }
     }
+    if (op == BINOP_NONE)  break;
 
-    OExpr *  right = ParseExprMul();
-    OExpr *  res = CreateBinExpr(op, left, right);
+    OExpr * right = (this->*parse_next)();
+    OExpr * res = CreateBinExpr(op, left, right);
     if (!res) return FreeLeftRight(left, right);
-
     left = res;
   }
-
   return left;
+}
+
+OExpr * ODqCompParser::ParseExprAdd()
+{
+  static const BinOpEntry ops[] = { {"+", BINOP_ADD}, {"-", BINOP_SUB} };
+  return ParseBinOpLevel(&ODqCompParser::ParseExprMul, ops, 2);
 }
 
 OExpr * ODqCompParser::ParseExprMul()
 {
-  scf->SkipWhite();
-
-  OExpr * left  = ParseExprDiv();
-  if (!left)
-  {
-    return nullptr;
-  }
-
-  while (not scf->Eof())
-  {
-    scf->SkipWhite();
-    EBinOp op = BINOP_NONE;
-    if (scf->CheckSymbol("*"))   op = BINOP_MUL;
-    else
-    {
-      break;
-    }
-
-    OExpr *  right = ParseExprDiv();
-    OExpr *  res   = CreateBinExpr(op, left, right);
-    if (!res)
-    {
-      return FreeLeftRight(left, right);
-    }
-
-    left = res;
-  }
-
-  return left;
+  static const BinOpEntry ops[] = { {"*", BINOP_MUL} };
+  return ParseBinOpLevel(&ODqCompParser::ParseExprDiv, ops, 1);
 }
 
 OExpr * ODqCompParser::ParseExprDiv()
 {
-  scf->SkipWhite();
-
-  OExpr *  left = ParseExprBinOr();
-  if (!left)
-  {
-    return nullptr;
-  }
-
-  while (not scf->Eof())
-  {
-    scf->SkipWhite();
-    EBinOp op = BINOP_NONE;
-    if      (scf->CheckSymbol("/"))     op = BINOP_DIV;
-    else if (scf->CheckSymbol("IDIV"))  op = BINOP_IDIV;
-    else if (scf->CheckSymbol("IMOD"))  op = BINOP_IMOD;
-    else
-    {
-      break;
-    }
-
-    OExpr *  right = ParseExprBinOr();
-    OExpr *  res   = CreateBinExpr(op, left, right);
-    if (!res)
-    {
-      return FreeLeftRight(left, right);
-    }
-
-    left = res;
-  }
-
-  return left;
+  static const BinOpEntry ops[] = { {"/", BINOP_DIV}, {"IDIV", BINOP_IDIV}, {"IMOD", BINOP_IMOD} };
+  return ParseBinOpLevel(&ODqCompParser::ParseExprBinOr, ops, 3);
 }
 
 OExpr * ODqCompParser::ParseExprBinOr()
 {
-  scf->SkipWhite();
-
-  OExpr *  left = ParseExprBinAnd();
-  if (!left)
-  {
-    return nullptr;
-  }
-
-  while (not scf->Eof())
-  {
-    scf->SkipWhite();
-
-    EBinOp op = BINOP_NONE;
-    if      (scf->CheckSymbol("OR"))   op = BINOP_IOR;
-    else if (scf->CheckSymbol("XOR"))  op = BINOP_IXOR;
-    else
-    {
-      break;
-    }
-
-    OExpr *  right = ParseExprBinAnd();
-    OExpr *  res   = CreateBinExpr(op, left, right);
-    if (!res)
-    {
-      return FreeLeftRight(left, right);
-    }
-
-    left = res;
-  }
-
-  return left;
+  static const BinOpEntry ops[] = { {"OR", BINOP_IOR}, {"XOR", BINOP_IXOR} };
+  return ParseBinOpLevel(&ODqCompParser::ParseExprBinAnd, ops, 2);
 }
 
 OExpr * ODqCompParser::ParseExprBinAnd()
 {
-  scf->SkipWhite();
-
-  OExpr *  left = ParseExprShift();
-  if (!left)
-  {
-    return nullptr;
-  }
-
-  while (not scf->Eof())
-  {
-    scf->SkipWhite();
-
-    EBinOp op = BINOP_NONE;
-    if (scf->CheckSymbol("AND"))  op = BINOP_IAND;
-    else
-    {
-      break;
-    }
-
-    OExpr *  right = ParseExprShift();
-    OExpr *  res = CreateBinExpr(op, left, right);
-    if (!res)
-    {
-      return FreeLeftRight(left, right);
-    }
-
-    left = res;
-  }
-
-  return left;
+  static const BinOpEntry ops[] = { {"AND", BINOP_IAND} };
+  return ParseBinOpLevel(&ODqCompParser::ParseExprShift, ops, 1);
 }
-
 
 OExpr * ODqCompParser::ParseExprShift()
 {
-  scf->SkipWhite();
-
-  OExpr * left  = ParseExprUnary();
-  if (!left)
-  {
-    return nullptr;
-  }
-
-  while (not scf->Eof())
-  {
-    scf->SkipWhite();
-
-    EBinOp op = BINOP_NONE;
-    if      (scf->CheckSymbol("<<") or scf->CheckSymbol("SHL"))  op = BINOP_ISHL;
-    else if (scf->CheckSymbol(">>") or scf->CheckSymbol("SHR"))  op = BINOP_ISHR;
-    else
-    {
-      break;
-    }
-
-    OExpr *  right = ParseExprUnary();
-    OExpr *  res = CreateBinExpr(op, left, right);
-    if (!res)
-    {
-      return FreeLeftRight(left, right);
-    }
-
-    left = res;
-  }
-
-  return left;
+  static const BinOpEntry ops[] = { {"<<", BINOP_ISHL}, {"SHL", BINOP_ISHL}, {">>", BINOP_ISHR}, {"SHR", BINOP_ISHR} };
+  return ParseBinOpLevel(&ODqCompParser::ParseExprUnary, ops, 4);
 }
 
 OExpr * ODqCompParser::ParseExprUnary()
 {
   scf->SkipWhite();
 
-  // address-of operator: &variable, &arr[index], &s[index]
+  // address-of operator: &variable, &arr[index], &s[index], &sm.field, &sm.field[index], etc.
   if (scf->CheckSymbol("&"))
   {
     scf->SkipWhite();
@@ -1232,88 +1070,9 @@ OExpr * ODqCompParser::ParseExprUnary()
       Error(format("\"{}\" is not a variable, cannot take its address", addrname));
       return nullptr;
     }
-    // address of struct member array element: &sm.member[index]
-    if (TK_COMPOUND == addrvs->ptype->kind)
-    {
-      scf->SkipWhite();
-      if (scf->CheckSymbol("."))
-      {
-        string membername;
-        scf->SkipWhite();
-        if (not scf->ReadIdentifier(membername))
-        {
-          Error("Member name expected after \".\"");
-          return nullptr;
-        }
-        OCompoundType * ctype = static_cast<OCompoundType *>(addrvs->ptype);
-        int midx = ctype->FindMemberIndex(membername);
-        if (midx < 0)
-        {
-          Error(format("Unknown member \"{}\" in struct \"{}\"", membername, ctype->name));
-          return nullptr;
-        }
-        OType * mtype = ctype->member_order[midx]->ptype;
-        if (TK_ARRAY == mtype->kind)
-        {
-          scf->SkipWhite();
-          if (scf->CheckSymbol("["))
-          {
-            OExpr * indexexpr = ParseExpression();
-            scf->SkipWhite();
-            if (not scf->CheckSymbol("]"))
-            {
-              Error("\"]\" expected after array index in address-of");
-              delete indexexpr;
-              return nullptr;
-            }
-            return new OAddrOfStructMemberArrayElemExpr(addrvs, midx, mtype, indexexpr);
-          }
-        }
-        // address of a simple member (not an array)
-        // For now, not needed by the test — can be added later
-        Error(format("Address-of struct member \"{}\" without array subscript not yet supported", membername));
-        return nullptr;
-      }
-    }
-    // address of array element: &arr[index]
-    if (TK_ARRAY == addrvs->ptype->kind)
-    {
-      scf->SkipWhite();
-      if (scf->CheckSymbol("["))
-      {
-        if (not addrvs->initialized)
-        {
-          Error(format("Accessing uninitialized array \"{}\"", addrvs->name));
-        }
-        OExpr * indexexpr = ParseExpression();
-        scf->SkipWhite();
-        if (not scf->CheckSymbol("]"))
-        {
-          Error("\"]\" expected after array index in address-of");
-          delete indexexpr;
-          return nullptr;
-        }
-        return new OAddrOfArrayElemExpr(addrvs, indexexpr);
-      }
-    }
-    // address of cstring element: &s[index]
-    if (TK_STRING == addrvs->ptype->kind)
-    {
-      scf->SkipWhite();
-      if (scf->CheckSymbol("["))
-      {
-        OExpr * indexexpr = ParseExpression();
-        scf->SkipWhite();
-        if (not scf->CheckSymbol("]"))
-        {
-          Error("\"]\" expected after cstring index in address-of");
-          delete indexexpr;
-          return nullptr;
-        }
-        return new OCStringElemAddrExpr(addrvs, indexexpr);
-      }
-    }
-    return new OAddrOfExpr(addrvs);
+    OLValueExpr * lval = new OLValueVar(addrvs);
+    lval = ParseLValuePostfix(lval);
+    return new OAddrOfExpr(lval);
   }
 
   if (scf->CheckSymbol("-"))
@@ -1426,15 +1185,15 @@ OExpr * ODqCompParser::ParseExprPostfix()
   {
     scf->SkipWhite();
 
-    ETypeKind  tk     = result->ptype->kind;
-    OVarRef *  varref = dynamic_cast<OVarRef *>(result);
+    ETypeKind      tk   = result->ptype->kind;
+    OLValueExpr *  lval = dynamic_cast<OLValueExpr *>(result);
 
-    if (varref)
+    if (lval)
     {
+      // Struct member access on any lvalue: x.field
       if (TK_COMPOUND == tk and scf->CheckSymbol("."))
       {
-        // Struct member access: sm.field
-        OCompoundType * ctype = static_cast<OCompoundType *>(varref->pvalsym->ptype);
+        OCompoundType * ctype = static_cast<OCompoundType *>(lval->ptype);
         string membername;
         scf->SkipWhite();
         if (not scf->ReadIdentifier(membername))
@@ -1449,68 +1208,49 @@ OExpr * ODqCompParser::ParseExprPostfix()
           return result;
         }
         OType * mtype = ctype->member_order[midx]->ptype;
-
-        // Check for array subscript on the member: sm.member[i]
-        scf->SkipWhite();
-        if (TK_ARRAY == mtype->kind and scf->CheckSymbol("["))
-        {
-          OExpr * indexexpr = ParseExpression();
-          scf->SkipWhite();
-          if (not scf->CheckSymbol("]"))
-          {
-            Error("\"]\" expected after array index");
-          }
-          OValSym * vs = varref->pvalsym;
-          delete result;
-          result = new OStructMemberArrayIndexExpr(vs, midx, mtype, indexexpr);
-          continue;
-        }
-
-        OValSym * vs = varref->pvalsym;
-        delete result;
-        result = new OStructMemberExpr(vs, midx, mtype);
+        result = new OLValueMember(lval, ctype, midx, mtype);
         continue;
       }
 
-      OValSymFunc * vsfunc = dynamic_cast<OValSymFunc *>(varref->pvalsym);
-      if (vsfunc)
+      // Array/slice/cstring index on any lvalue: x[i]
+      if ((TK_ARRAY == tk or TK_ARRAY_SLICE == tk or TK_STRING == tk)
+          and scf->CheckSymbol("["))
       {
-        // Function call postfix: f(args)
-        if (not scf->CheckSymbol("("))
-        {
-          Error("\"(\" is required for function call");
-        }
-        OExpr * callexpr = ParseExprFuncCall(vsfunc);
-        delete result;
-        result = callexpr;
-        if (!result) return nullptr;
-        continue;
-      }
-
-      if ((TK_ARRAY == tk or TK_ARRAY_SLICE == tk) and scf->CheckSymbol("["))
-      {
-        OValSym * vs = varref->pvalsym;
-        if (not vs->initialized)
-        {
-          Error(format("Accessing uninitialized array \"{}\"", vs->name));
-        }
         OExpr * indexexpr = ParseExpression();
         scf->SkipWhite();
         if (not scf->CheckSymbol("]"))
         {
           Error("\"]\" expected after array index");
         }
-        delete result;
-        result = new OArrayIndexExpr(vs, indexexpr);
+        result = new OLValueIndex(lval, lval->ptype, indexexpr);
         continue;
       }
-    } // if varref
 
-    // pointer operations — apply to any expression (not just OVarRef)
+      // Function call: f(args)
+      OLValueVar * varref = dynamic_cast<OLValueVar *>(lval);
+      if (varref)
+      {
+        OValSymFunc * vsfunc = dynamic_cast<OValSymFunc *>(varref->pvalsym);
+        if (vsfunc)
+        {
+          if (not scf->CheckSymbol("("))
+          {
+            Error("\"(\" is required for function call");
+          }
+          OExpr * callexpr = ParseExprFuncCall(vsfunc);
+          delete result;
+          result = callexpr;
+          if (!result) return nullptr;
+          continue;
+        }
+      }
+    } // if lval
+
+    // pointer operations — apply to any expression (not just lvalue)
 
     if (TK_POINTER == tk)
     {
-      if (scf->CheckSymbol("[")) // p[i]: pointer indexing, no dereference !
+      if (scf->CheckSymbol("[")) // p[i]: pointer indexing, no dereference
       {
         OExpr * indexexpr = ParseExpression();
         scf->SkipWhite();
@@ -1522,47 +1262,9 @@ OExpr * ODqCompParser::ParseExprPostfix()
         continue;
       }
 
-      if (scf->CheckSymbol("^")) // p^: dereference
+      if (scf->CheckSymbol("^")) // p^: dereference -> lvalue
       {
-        OTypePointer * ptrtype = static_cast<OTypePointer *>(result->ptype);
-        // Check for ^.member (dereference + member access on compound)
-        scf->SkipWhite();
-        if (TK_COMPOUND == ptrtype->basetype->kind and scf->CheckSymbol("."))
-        {
-          OCompoundType * ctype = static_cast<OCompoundType *>(ptrtype->basetype);
-          string membername;
-          scf->SkipWhite();
-          if (not scf->ReadIdentifier(membername))
-          {
-            Error("Member name expected after \"^.\"");
-            return result;
-          }
-          int midx = ctype->FindMemberIndex(membername);
-          if (midx < 0)
-          {
-            Error(format("Unknown member \"{}\" in struct \"{}\"", membername, ctype->name));
-            return result;
-          }
-          OType * mtype = ctype->member_order[midx]->ptype;
-
-          // Check for array subscript: ep^.member[i]
-          scf->SkipWhite();
-          if (TK_ARRAY == mtype->kind and scf->CheckSymbol("["))
-          {
-            OExpr * indexexpr = ParseExpression();
-            scf->SkipWhite();
-            if (not scf->CheckSymbol("]"))
-            {
-              Error("\"]\" expected after array index");
-            }
-            result = new ODerefMemberArrayIndexExpr(result, ctype, midx, mtype, indexexpr);
-            continue;
-          }
-
-          result = new ODerefMemberExpr(result, ctype, midx, mtype);
-          continue;
-        }
-        result = new ODerefExpr(result);
+        result = new OLValueDeref(result);
         continue;
       }
     } // if pointer
@@ -1711,7 +1413,7 @@ OExpr * ODqCompParser::ParseExprPrimary()
     return result;
   }
 
-  result = new OVarRef(vs);
+  result = new OLValueVar(vs);
   if (not vs->initialized)
   {
     Error(format("Accessing uninitialized variable \"{}\"", vs->name), &scpos_sid);
@@ -2017,67 +1719,91 @@ void ODqCompParser::ParseStmtVar()
   curblock->AddStatement(new OStmtVarDecl(scpos_statement_start, pvalsym, initexpr));
 }
 
+OLValueExpr * ODqCompParser::ParseLValuePostfix(OLValueExpr * base)
+{
+  while (true)
+  {
+    scf->SkipWhite();
+    ETypeKind tk = base->ptype->kind;
+
+    // Struct member access: x.field
+    if (TK_COMPOUND == tk and scf->CheckSymbol("."))
+    {
+      OCompoundType * ctype = static_cast<OCompoundType *>(base->ptype);
+      string membername;
+      scf->SkipWhite();
+      if (not scf->ReadIdentifier(membername))
+      {
+        Error("Member name expected after \".\"");
+        return base;
+      }
+      int midx = ctype->FindMemberIndex(membername);
+      if (midx < 0)
+      {
+        Error(format("Unknown member \"{}\" in struct \"{}\"", membername, ctype->name));
+        return base;
+      }
+      OType * mtype = ctype->member_order[midx]->ptype;
+      base = new OLValueMember(base, ctype, midx, mtype);
+      continue;
+    }
+
+    // Array/slice/cstring index: x[i]
+    if ((TK_ARRAY == tk or TK_ARRAY_SLICE == tk or TK_STRING == tk)
+        and scf->CheckSymbol("["))
+    {
+      OExpr * indexexpr = ParseExpression();
+      scf->SkipWhite();
+      if (not scf->CheckSymbol("]"))
+      {
+        Error("\"]\" expected after index");
+      }
+      base = new OLValueIndex(base, base->ptype, indexexpr);
+      continue;
+    }
+
+    // Pointer dereference: p^
+    if (TK_POINTER == tk and scf->CheckSymbol("^"))
+    {
+      base = new OLValueDeref(base);
+      continue;
+    }
+
+    break;
+  }
+  return base;
+}
+
+EBinOp ODqCompParser::ParseAssignOp()
+{
+  scf->SkipWhite();
+  if      (scf->CheckSymbol("="))       return BINOP_NONE;  // simple assign (ab)uses BINOP_NONE
+  else if (scf->CheckSymbol("+="))      return BINOP_ADD;
+  else if (scf->CheckSymbol("-="))      return BINOP_SUB;
+  else if (scf->CheckSymbol("*="))      return BINOP_MUL;
+  else if (scf->CheckSymbol("/="))      return BINOP_DIV;
+  else if (scf->CheckSymbol("=IDIV="))  return BINOP_IDIV;
+  else if (scf->CheckSymbol("=IMOD="))  return BINOP_IMOD;
+  else if (scf->CheckSymbol("<<="))     return BINOP_ISHL;
+  else if (scf->CheckSymbol(">>="))     return BINOP_ISHR;
+  else if (scf->CheckSymbol("=AND="))   return BINOP_IAND;
+  else if (scf->CheckSymbol("=OR="))    return BINOP_IOR;
+  else if (scf->CheckSymbol("=XOR="))   return BINOP_IXOR;
+  return EBinOp(-1);  // not an assignment operator
+}
+
 bool ODqCompParser::ParseStmtAssign(OValSym * pvalsym)
 {
-  // syntax form: "identifier = expression;"
-  // note: identifier(=sid) is already consumed, assign operation expected
+  // Unified assignment parsing for all lvalue targets
+  // identifier is already consumed
 
-  string     stype;
-  OType *    ptype = pvalsym->ptype;
-  EBinOp     op = BINOP_NONE;
+  OLValueExpr * lval = new OLValueVar(pvalsym);
+  lval = ParseLValuePostfix(lval);
 
-  scf->SkipWhite();
-  if (scf->CheckSymbol("="))
+  EBinOp op = ParseAssignOp();
+  if (int(op) < 0)
   {
-    op = BINOP_NONE;
-  }
-  else if (scf->CheckSymbol("+="))   // i += 1;  i =+= 1;
-  {
-    op = BINOP_ADD;
-  }
-  else if (scf->CheckSymbol("-="))
-  {
-    op = BINOP_SUB;
-  }
-  else if (scf->CheckSymbol("*="))
-  {
-    op = BINOP_MUL;
-  }
-  else if (scf->CheckSymbol("/="))
-  {
-    op = BINOP_DIV;
-  }
-  else if (scf->CheckSymbol("=IDIV="))
-  {
-    op = BINOP_IDIV;
-  }
-  else if (scf->CheckSymbol("=IMOD="))
-  {
-    op = BINOP_IMOD;
-  }
-  else if (scf->CheckSymbol("<<="))
-  {
-    op = BINOP_ISHL;
-  }
-  else if (scf->CheckSymbol(">>="))
-  {
-    op = BINOP_ISHR;
-  }
-  else if (scf->CheckSymbol("=AND="))   // i =AND= 1;
-  {
-    op = BINOP_IAND;
-  }
-  else if (scf->CheckSymbol("=OR="))    // i =OR= 1;
-  {
-    op = BINOP_IOR;
-  }
-  else if (scf->CheckSymbol("=XOR="))   // i =XOR= 1;
-  {
-    op = BINOP_IXOR;
-  }
-
-  else
-  {
+    delete lval;
     return false;
   }
 
@@ -2093,35 +1819,39 @@ bool ODqCompParser::ParseStmtAssign(OValSym * pvalsym)
 
   if (!expr)
   {
-    return true;  // signalizes processed, not error-free here !
+    delete lval;
+    return true;
   }
 
+  OType * targettype = lval->ptype;
+
   // Pointer arithmetic: p += int  or  p -= int
-  if (TK_POINTER == ptype->kind and (BINOP_ADD == op or BINOP_SUB == op))
+  if (TK_POINTER == targettype->kind and (BINOP_ADD == op or BINOP_SUB == op))
   {
     if (TK_INT != expr->ptype->kind)
     {
       Error(format("Pointer arithmetic requires an integer offset, got \"{}\"", expr->ptype->name));
       delete expr;
+      delete lval;
       return true;
     }
     if (not pvalsym->initialized)
       Error(format("Variable \"{}\" is not initialized.", pvalsym->name));
     else
-      curblock->AddStatement(new OStmtModifyAssign(scpos_statement_start, pvalsym, op, expr));
+      curblock->AddStatement(new OStmtModifyAssign(scpos_statement_start, lval, op, expr));
     return true;
   }
 
-  if (not CheckAssignType(ptype, &expr, "Modify assignment"))  // might add implicit conversion
+  if (not CheckAssignType(targettype, &expr, "Assignment"))
   {
-    // error message is already provided.
     delete expr;
-    return true;  // signalizes processed, not error-free here !
+    delete lval;
+    return true;
   }
 
   if (BINOP_NONE == op)
   {
-    curblock->AddStatement(new OStmtAssign(scpos_statement_start, pvalsym, expr));
+    curblock->AddStatement(new OStmtAssign(scpos_statement_start, lval, expr));
     curblock->scope->SetVarInitialized(pvalsym);
   }
   else
@@ -2132,309 +1862,11 @@ bool ODqCompParser::ParseStmtAssign(OValSym * pvalsym)
     }
     else
     {
-      curblock->AddStatement(new OStmtModifyAssign(scpos_statement_start, pvalsym, op, expr));
+      curblock->AddStatement(new OStmtModifyAssign(scpos_statement_start, lval, op, expr));
     }
   }
 
-  return true; // signalizes processed, not error-free here !
-}
-
-void ODqCompParser::ParseStmtDerefAssign(OValSym * ptrvalsym)
-{
-  // syntax form: "ptrvar^ = expression;"
-  // note: identifier and "^" are already consumed
-
-  scf->SkipWhite();
-  if (not scf->CheckSymbol("="))
-  {
-    StatementError("\"=\" is expected after pointer dereference \"^\"");
-    return;
-  }
-
-  OExpr * expr = ParseExpression();
-  if (!expr)
-  {
-    return;
-  }
-
-  OTypePointer * ptrtype = static_cast<OTypePointer *>(ptrvalsym->ptype);
-  if (not CheckAssignType(ptrtype->basetype, &expr, "Pointer dereference assignment"))
-  {
-    delete expr;
-    return;
-  }
-
-  scf->SkipWhite();
-  if (!scf->CheckSymbol(";"))
-  {
-    Error("\";\" is missing after the assignment");
-  }
-
-  curblock->AddStatement(new OStmtDerefAssign(scpos_statement_start, ptrvalsym, expr));
-}
-
-void ODqCompParser::ParseStmtArrayAssign(OValSym * arrayvalsym)
-{
-  // syntax form: "arr[index] = expression;"
-  // note: identifier and "[" are already consumed
-
-  OExpr * indexexpr = ParseExpression();
-  if (!indexexpr)
-  {
-    return;
-  }
-
-  scf->SkipWhite();
-  if (not scf->CheckSymbol("]"))
-  {
-    Error("\"]\" expected after array index");
-    delete indexexpr;
-    return;
-  }
-
-  scf->SkipWhite();
-  if (not scf->CheckSymbol("="))
-  {
-    StatementError("\"=\" is expected after array index");
-    delete indexexpr;
-    return;
-  }
-
-  OExpr * expr = ParseExpression();
-  if (!expr)
-  {
-    delete indexexpr;
-    return;
-  }
-
-  // Determine the element type for type checking
-  OType * elemtype = nullptr;
-  if (TK_ARRAY == arrayvalsym->ptype->kind)
-  {
-    elemtype = static_cast<OTypeArray *>(arrayvalsym->ptype)->elemtype;
-  }
-  else // TK_ARRAY_SLICE
-  {
-    elemtype = static_cast<OTypeArraySlice *>(arrayvalsym->ptype)->elemtype;
-  }
-
-  if (not CheckAssignType(elemtype, &expr, "Array element assignment"))
-  {
-    delete indexexpr;
-    delete expr;
-    return;
-  }
-
-  scf->SkipWhite();
-  if (!scf->CheckSymbol(";"))
-  {
-    Error("\";\" is missing after the assignment");
-  }
-
-  // First element assignment marks the whole array as initialized
-  curblock->scope->SetVarInitialized(arrayvalsym);
-
-  curblock->AddStatement(new OStmtArrayAssign(scpos_statement_start, arrayvalsym, indexexpr, expr));
-}
-
-void ODqCompParser::ParseStmtStructMemberAssign(OValSym * structvalsym)
-{
-  // syntax: "structvar.member = expression;"  or  "structvar.member += expression;"
-  // note: identifier and "." are already consumed
-
-  string membername;
-  scf->SkipWhite();
-  if (not scf->ReadIdentifier(membername))
-  {
-    StatementError("Member name expected after \".\"");
-    return;
-  }
-
-  OCompoundType * ctype = static_cast<OCompoundType *>(structvalsym->ptype);
-  int midx = ctype->FindMemberIndex(membername);
-  if (midx < 0)
-  {
-    StatementError(format("Unknown member \"{}\" in struct \"{}\"", membername, ctype->name));
-    return;
-  }
-
-  OType * mtype = ctype->member_order[midx]->ptype;
-
-  // Check for array subscript on member: sm.member[idx] = ...
-  scf->SkipWhite();
-  if (TK_ARRAY == mtype->kind and scf->CheckSymbol("["))
-  {
-    OExpr * indexexpr = ParseExpression();
-    scf->SkipWhite();
-    if (not scf->CheckSymbol("]"))
-    {
-      Error("\"]\" expected after array index");
-      delete indexexpr;
-      return;
-    }
-    scf->SkipWhite();
-    if (not scf->CheckSymbol("="))
-    {
-      StatementError("\"=\" expected after array index");
-      delete indexexpr;
-      return;
-    }
-    OExpr * expr = ParseExpression();
-    if (!expr) { delete indexexpr; return; }
-
-    OType * elemtype = static_cast<OTypeArray *>(mtype)->elemtype;
-    if (not CheckAssignType(elemtype, &expr, "Struct member array assignment"))
-    {
-      delete indexexpr;
-      delete expr;
-      return;
-    }
-
-    scf->SkipWhite();
-    if (!scf->CheckSymbol(";"))  Error("\";\" is missing after the assignment");
-
-    curblock->AddStatement(new OStmtStructMemberArrayAssign(
-        scpos_statement_start, structvalsym, midx, mtype, indexexpr, expr));
-    return;
-  }
-
-  // Parse assignment operator
-  EBinOp op = BINOP_NONE;
-  if      (scf->CheckSymbol("="))    op = BINOP_NONE;
-  else if (scf->CheckSymbol("+="))   op = BINOP_ADD;
-  else if (scf->CheckSymbol("-="))   op = BINOP_SUB;
-  else if (scf->CheckSymbol("*="))   op = BINOP_MUL;
-  else if (scf->CheckSymbol("/="))   op = BINOP_DIV;
-  else
-  {
-    StatementError("Assignment operator expected after member name");
-    return;
-  }
-
-  OExpr * expr = ParseExpression();
-  if (!expr) return;
-
-  if (not CheckAssignType(mtype, &expr, "Struct member assignment"))
-  {
-    delete expr;
-    return;
-  }
-
-  scf->SkipWhite();
-  if (!scf->CheckSymbol(";"))
-  {
-    Error("\";\" is missing after the assignment");
-  }
-
-  if (BINOP_NONE == op)
-  {
-    curblock->AddStatement(new OStmtStructMemberAssign(scpos_statement_start, structvalsym, midx, mtype, expr));
-  }
-  else
-  {
-    curblock->AddStatement(new OStmtStructMemberModifyAssign(scpos_statement_start, structvalsym, midx, mtype, op, expr));
-  }
-}
-
-void ODqCompParser::ParseStmtDerefMemberAssign(OValSym * ptrvalsym)
-{
-  // syntax: "ptrvar^.member = expression;"  or  "ptrvar^.member[idx] = expression;"
-  // note: identifier, "^", and "." are already consumed
-
-  OTypePointer * ptrtype = static_cast<OTypePointer *>(ptrvalsym->ptype);
-  OCompoundType * ctype = static_cast<OCompoundType *>(ptrtype->basetype);
-
-  string membername;
-  scf->SkipWhite();
-  if (not scf->ReadIdentifier(membername))
-  {
-    StatementError("Member name expected after \"^.\"");
-    return;
-  }
-
-  int midx = ctype->FindMemberIndex(membername);
-  if (midx < 0)
-  {
-    StatementError(format("Unknown member \"{}\" in struct \"{}\"", membername, ctype->name));
-    return;
-  }
-
-  OType * mtype = ctype->member_order[midx]->ptype;
-
-  // Check for array subscript on member: ep^.member[idx] = ...
-  scf->SkipWhite();
-  if (TK_ARRAY == mtype->kind and scf->CheckSymbol("["))
-  {
-    OExpr * indexexpr = ParseExpression();
-    scf->SkipWhite();
-    if (not scf->CheckSymbol("]"))
-    {
-      Error("\"]\" expected after array index");
-      delete indexexpr;
-      return;
-    }
-    scf->SkipWhite();
-    if (not scf->CheckSymbol("="))
-    {
-      StatementError("\"=\" expected after array index");
-      delete indexexpr;
-      return;
-    }
-    OExpr * expr = ParseExpression();
-    if (!expr) { delete indexexpr; return; }
-
-    OType * elemtype = static_cast<OTypeArray *>(mtype)->elemtype;
-    if (not CheckAssignType(elemtype, &expr, "Deref member array assignment"))
-    {
-      delete indexexpr;
-      delete expr;
-      return;
-    }
-
-    scf->SkipWhite();
-    if (!scf->CheckSymbol(";"))  Error("\";\" is missing after the assignment");
-
-    curblock->AddStatement(new OStmtDerefMemberArrayAssign(
-        scpos_statement_start, ptrvalsym, ctype, midx, mtype, indexexpr, expr));
-    return;
-  }
-
-  // Parse assignment operator
-  EBinOp op = BINOP_NONE;
-  if      (scf->CheckSymbol("="))    op = BINOP_NONE;
-  else if (scf->CheckSymbol("+="))   op = BINOP_ADD;
-  else if (scf->CheckSymbol("-="))   op = BINOP_SUB;
-  else if (scf->CheckSymbol("*="))   op = BINOP_MUL;
-  else if (scf->CheckSymbol("/="))   op = BINOP_DIV;
-  else
-  {
-    StatementError("Assignment operator expected after member name");
-    return;
-  }
-
-  OExpr * expr = ParseExpression();
-  if (!expr) return;
-
-  if (not CheckAssignType(mtype, &expr, "Deref member assignment"))
-  {
-    delete expr;
-    return;
-  }
-
-  scf->SkipWhite();
-  if (!scf->CheckSymbol(";"))
-  {
-    Error("\";\" is missing after the assignment");
-  }
-
-  if (BINOP_NONE == op)
-  {
-    curblock->AddStatement(new OStmtDerefMemberAssign(scpos_statement_start, ptrvalsym, ctype, midx, mtype, expr));
-  }
-  else
-  {
-    curblock->AddStatement(new OStmtDerefMemberModifyAssign(scpos_statement_start, ptrvalsym, ctype, midx, mtype, op, expr));
-  }
+  return true;
 }
 
 void ODqCompParser::ParseStmtVoidCall(OValSymFunc * vsfunc)
@@ -2483,7 +1915,7 @@ bool ODqCompParser::CheckAssignType(OType * dsttype, OExpr ** rexpr, const strin
         return false;
       }
       // The source expression must be a variable reference so we can get its alloca
-      OVarRef * varref = dynamic_cast<OVarRef *>(*rexpr);
+      OLValueVar * varref = dynamic_cast<OLValueVar *>(*rexpr);
       if (!varref)
       {
         Error(format("{}: cannot convert non-variable array to slice", astmt));
@@ -2573,7 +2005,7 @@ bool ODqCompParser::CheckAssignType(OType * dsttype, OExpr ** rexpr, const strin
     if (cstrdst->maxlen == 0 and cstrsrc->maxlen > 0)
     {
       // cstring[N] variable → unsized cstring descriptor conversion
-      OVarRef * varref = dynamic_cast<OVarRef *>(*rexpr);
+      OLValueVar * varref = dynamic_cast<OLValueVar *>(*rexpr);
       if (!varref)
       {
         Error(format("{}: cannot convert non-variable cstring to descriptor", astmt));

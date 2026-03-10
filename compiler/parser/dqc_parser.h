@@ -53,10 +53,9 @@ public: // statement blocks
   void ParseStmtWhile();
   void ParseStmtIf();
   void ParseStmtVoidCall(OValSymFunc * vsfunc);
-  void ParseStmtDerefAssign(OValSym * ptrvalsym);
-  void ParseStmtArrayAssign(OValSym * arrayvalsym);
-  void ParseStmtStructMemberAssign(OValSym * structvalsym);
-  void ParseStmtDerefMemberAssign(OValSym * ptrvalsym);
+
+  OLValueExpr * ParseLValuePostfix(OLValueExpr * base);
+  EBinOp ParseAssignOp();
 
 public: // type parsing
   OType * ParseTypeSpec();  // parses type after ":" — handles ^, [N], []
@@ -104,6 +103,10 @@ public: // expressions
   OExpr * ParseArrayLit();
 
 protected:
+  struct BinOpEntry { const char * sym; EBinOp op; };
+  OExpr * ParseBinOpLevel(OExpr * (ODqCompParser::*parse_next)(),
+                          const BinOpEntry ops[], int nops);
+
   OExpr * CreateBinExpr(EBinOp op, OExpr * left, OExpr * right);  // handles implicit conversions
   bool    CheckAssignType(OType * dsttype, OExpr ** rexpr,
                           const string astmt);                    // returns false when the assignment is not possible

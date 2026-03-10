@@ -54,12 +54,53 @@ public:
   LlValue *  Generate(OScope * scope) override;
 };
 
-class OVarRef : public OExpr
+// --- LValue expression hierarchy ---
+// An lvalue represents an assignable location (variable, struct member, array element, deref).
+// GenerateAddress() produces the pointer to the storage location.
+// Generate() (default) loads the value from that address.
+
+class OLValueExpr : public OExpr
+{
+public:
+  virtual LlValue * GenerateAddress(OScope * scope) = 0;
+  LlValue * Generate(OScope * scope) override;  // default: load from GenerateAddress()
+};
+
+class OLValueVar : public OLValueExpr
 {
 public:
   OValSym *  pvalsym;
-  /* ctor */ OVarRef(OValSym * avalsym);
+  /* ctor */ OLValueVar(OValSym * avalsym);
+  LlValue *  GenerateAddress(OScope * scope) override;
   LlValue *  Generate(OScope * scope) override;
+};
+
+class OLValueDeref : public OLValueExpr
+{
+public:
+  OExpr *  ptrexpr;
+  /* ctor */ OLValueDeref(OExpr * aptr);
+  LlValue *  GenerateAddress(OScope * scope) override;
+};
+
+class OLValueMember : public OLValueExpr
+{
+public:
+  OLValueExpr *  base;
+  OType *        structtype;
+  uint32_t       memberindex;
+  /* ctor */ OLValueMember(OLValueExpr * abase, OType * astype, uint32_t aidx, OType * amembertype);
+  LlValue *  GenerateAddress(OScope * scope) override;
+};
+
+class OLValueIndex : public OLValueExpr
+{
+public:
+  OLValueExpr *  base;
+  OType *        containertype;  // array, slice, or cstring type
+  OExpr *        indexexpr;
+  /* ctor */ OLValueIndex(OLValueExpr * abase, OType * acontainertype, OExpr * aindex);
+  LlValue *  GenerateAddress(OScope * scope) override;
 };
 
 enum EBinOp
@@ -157,26 +198,8 @@ public:
 class OAddrOfExpr : public OExpr
 {
 public:
-  OValSym *  pvalsym;
-  /* ctor */ OAddrOfExpr(OValSym * avalsym);
-  LlValue *  Generate(OScope * scope) override;
-};
-
-// Address of an array element: &arr[index]
-class OAddrOfArrayElemExpr : public OExpr
-{
-public:
-  OValSym *  arrayvalsym;
-  OExpr *    indexexpr;
-  /* ctor */ OAddrOfArrayElemExpr(OValSym * aarray, OExpr * aindex);
-  LlValue *  Generate(OScope * scope) override;
-};
-
-class ODerefExpr : public OExpr
-{
-public:
-  OExpr *    operand;
-  /* ctor */ ODerefExpr(OExpr * aoperand);
+  OLValueExpr *  target;
+  /* ctor */ OAddrOfExpr(OLValueExpr * atarget);
   LlValue *  Generate(OScope * scope) override;
 };
 
@@ -184,16 +207,6 @@ class ONullLit : public OExpr
 {
 public:
   /* ctor */ ONullLit();
-  LlValue *  Generate(OScope * scope) override;
-};
-
-// Array element access: arr[index]
-class OArrayIndexExpr : public OExpr
-{
-public:
-  OValSym *  arrayvalsym;  // the array variable (need alloca address for GEP)
-  OExpr *    indexexpr;
-  /* ctor */ OArrayIndexExpr(OValSym * aarray, OExpr * aindex);
   LlValue *  Generate(OScope * scope) override;
 };
 
@@ -318,72 +331,3 @@ public:
   LlValue *  Generate(OScope * scope) override;
 };
 
-// Address of cstring element: &s[index] — handles both sized and unsized
-class OCStringElemAddrExpr : public OExpr
-{
-public:
-  OValSym *  cstrvalsym;
-  OExpr *    indexexpr;
-  /* ctor */ OCStringElemAddrExpr(OValSym * avs, OExpr * aindex);
-  LlValue *  Generate(OScope * scope) override;
-};
-
-// --- struct member expressions ---
-
-// Read a member of a struct variable: sm.id
-class OStructMemberExpr : public OExpr
-{
-public:
-  OValSym *  structvalsym;
-  uint32_t   memberindex;
-  /* ctor */ OStructMemberExpr(OValSym * astruct, uint32_t aidx, OType * amembertype);
-  LlValue *  Generate(OScope * scope) override;
-};
-
-// Read a member of a struct through pointer dereference: ep^.id
-class ODerefMemberExpr : public OExpr
-{
-public:
-  OExpr *    ptrexpr;      // expression that yields the pointer
-  OType *    structtype;   // the compound type being pointed to
-  uint32_t   memberindex;
-  /* ctor */ ODerefMemberExpr(OExpr * aptr, OType * astructtype, uint32_t aidx, OType * amembertype);
-  LlValue *  Generate(OScope * scope) override;
-};
-
-// Read an array element within a struct member: sm.member[i]
-class OStructMemberArrayIndexExpr : public OExpr
-{
-public:
-  OValSym *  structvalsym;
-  uint32_t   memberindex;
-  OType *    arraytype;    // the array member type
-  OExpr *    indexexpr;
-  /* ctor */ OStructMemberArrayIndexExpr(OValSym * astruct, uint32_t aidx, OType * aarrtype, OExpr * aindex);
-  LlValue *  Generate(OScope * scope) override;
-};
-
-// Read an array element within a struct member through pointer: ep^.member[i]
-class ODerefMemberArrayIndexExpr : public OExpr
-{
-public:
-  OExpr *    ptrexpr;
-  OType *    structtype;
-  uint32_t   memberindex;
-  OType *    arraytype;
-  OExpr *    indexexpr;
-  /* ctor */ ODerefMemberArrayIndexExpr(OExpr * aptr, OType * astructtype, uint32_t aidx, OType * aarrtype, OExpr * aindex);
-  LlValue *  Generate(OScope * scope) override;
-};
-
-// Address of struct member array element: &sm.elem[i]
-class OAddrOfStructMemberArrayElemExpr : public OExpr
-{
-public:
-  OValSym *  structvalsym;
-  uint32_t   memberindex;
-  OType *    arraytype;
-  OExpr *    indexexpr;
-  /* ctor */ OAddrOfStructMemberArrayElemExpr(OValSym * astruct, uint32_t aidx, OType * aarrtype, OExpr * aindex);
-  LlValue *  Generate(OScope * scope) override;
-};

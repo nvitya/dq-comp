@@ -63,7 +63,7 @@ bool OValueFloat::CalculateConstant(OExpr * expr)
   }
 
   {
-    auto * ex = dynamic_cast<OVarRef *>(expr);
+    auto * ex = dynamic_cast<OLValueVar *>(expr);
     if (ex)
     {
       OValSymConst * vsconst = dynamic_cast<OValSymConst *>(ex->pvalsym);

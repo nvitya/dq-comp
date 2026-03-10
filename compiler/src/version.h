@@ -11,12 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.4.0"
-
-// TODO: Parser generic handling of & (address-of) and member access !
+#define DQ_COMPILER_VERSION  "0.4.1"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.4.1:
+  - Refactored Left-value handling
 v0.4.0:
   - struct support added, preliminary version
 v0.3.3:

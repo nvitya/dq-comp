@@ -61,13 +61,30 @@ LlValue * OBoolLit::Generate(OScope * scope)
   return llvm::ConstantInt::get(g_builtins->type_bool->GetLlType(), (value ? 1 : 0));
 }
 
-/* ctor */ OVarRef::OVarRef(OValSym * avalsym)
+// --- LValue expression implementations ---
+
+LlValue * OLValueExpr::Generate(OScope * scope)
+{
+  LlValue * addr = GenerateAddress(scope);
+  return ll_builder.CreateLoad(ptype->GetLlType(), addr, "lval.load");
+}
+
+/* ctor */ OLValueVar::OLValueVar(OValSym * avalsym)
 {
   ptype = avalsym->ptype;
   pvalsym = avalsym;
 }
 
-LlValue * OVarRef::Generate(OScope * scope)
+LlValue * OLValueVar::GenerateAddress(OScope * scope)
+{
+  if (!pvalsym->ll_value)
+  {
+    throw logic_error(std::format("Variable \"{}\" was not prepared in the LLVM", pvalsym->name));
+  }
+  return pvalsym->ll_value;
+}
+
+LlValue * OLValueVar::Generate(OScope * scope)
 {
   if (!pvalsym->ll_value)
   {
@@ -83,6 +100,101 @@ LlValue * OVarRef::Generate(OScope * scope)
   {
     return pvalsym->ll_value;  // function parameter (direct value)
   }
+}
+
+/* ctor */ OLValueDeref::OLValueDeref(OExpr * aptr)
+{
+  ptrexpr = aptr;
+  OTypePointer * pt = static_cast<OTypePointer *>(aptr->ptype);
+  ptype = pt->basetype;
+}
+
+LlValue * OLValueDeref::GenerateAddress(OScope * scope)
+{
+  return ptrexpr->Generate(scope);  // the pointer value IS the address
+}
+
+/* ctor */ OLValueMember::OLValueMember(OLValueExpr * abase, OType * astype, uint32_t aidx, OType * amembertype)
+{
+  base        = abase;
+  structtype  = astype;
+  memberindex = aidx;
+  ptype       = amembertype;
+}
+
+LlValue * OLValueMember::GenerateAddress(OScope * scope)
+{
+  LlValue * baseaddr = base->GenerateAddress(scope);
+  return ll_builder.CreateStructGEP(structtype->GetLlType(), baseaddr, memberindex, "member.addr");
+}
+
+/* ctor */ OLValueIndex::OLValueIndex(OLValueExpr * abase, OType * acontainertype, OExpr * aindex)
+{
+  base          = abase;
+  containertype = acontainertype;
+  indexexpr     = aindex;
+
+  if (TK_ARRAY == acontainertype->kind)
+  {
+    ptype = static_cast<OTypeArray *>(acontainertype)->elemtype;
+  }
+  else if (TK_ARRAY_SLICE == acontainertype->kind)
+  {
+    ptype = static_cast<OTypeArraySlice *>(acontainertype)->elemtype;
+  }
+  else if (TK_STRING == acontainertype->kind)
+  {
+    ptype = g_builtins->type_cchar;
+  }
+}
+
+LlValue * OLValueIndex::GenerateAddress(OScope * scope)
+{
+  LlValue * ll_index = indexexpr->Generate(scope);
+
+  if (TK_ARRAY == containertype->kind)
+  {
+    // Fixed array: GEP with {0, index} into [N x T]
+    LlValue * baseaddr = base->GenerateAddress(scope);
+    LlValue * ll_zero = llvm::ConstantInt::get(LlType::getInt64Ty(ll_ctx), 0);
+    return ll_builder.CreateGEP(
+        containertype->GetLlType(), baseaddr,
+        {ll_zero, ll_index}, "arr.elem");
+  }
+  else if (TK_ARRAY_SLICE == containertype->kind)
+  {
+    // Slice: extract pointer from descriptor, then GEP into the data
+    LlValue * baseaddr = base->GenerateAddress(scope);
+    LlType * ll_slicetype = containertype->GetLlType();
+    LlValue * ll_ptr_addr = ll_builder.CreateStructGEP(ll_slicetype, baseaddr, 0, "slice.ptr.addr");
+    LlValue * ll_ptr = ll_builder.CreateLoad(llvm::PointerType::get(ll_ctx, 0), ll_ptr_addr, "slice.ptr");
+    return ll_builder.CreateGEP(ptype->GetLlType(), ll_ptr, {ll_index}, "slice.elem");
+  }
+  else if (TK_STRING == containertype->kind)
+  {
+    // CString indexing
+    OTypeCString * cstrtype = static_cast<OTypeCString *>(containertype);
+    if (cstrtype->maxlen > 0)
+    {
+      // Sized cstring[N]: GEP into [N x i8] with {0, index}
+      LlValue * baseaddr = base->GenerateAddress(scope);
+      LlValue * ll_zero = llvm::ConstantInt::get(LlType::getInt64Ty(ll_ctx), 0);
+      return ll_builder.CreateGEP(
+          cstrtype->GetLlType(), baseaddr,
+          {ll_zero, ll_index}, "cstr.elem");
+    }
+    else
+    {
+      // Unsized cstring param: extract ptr from descriptor, then GEP
+      LlValue * baseaddr = base->GenerateAddress(scope);
+      LlType * ll_desctype = cstrtype->GetLlType();
+      LlValue * ll_ptr_addr = ll_builder.CreateStructGEP(ll_desctype, baseaddr, 0, "cstr.ptr.addr");
+      LlValue * ll_ptr = ll_builder.CreateLoad(llvm::PointerType::get(ll_ctx, 0), ll_ptr_addr, "cstr.ptr");
+      return ll_builder.CreateGEP(LlType::getInt8Ty(ll_ctx), ll_ptr, {ll_index}, "cstr.elem");
+    }
+  }
+
+  throw logic_error("OLValueIndex::GenerateAddress: unsupported container type");
 }
 
 /* ctor */ OBinExpr::OBinExpr(EBinOp aop, OExpr * aleft, OExpr * aright)
@@ -281,51 +393,15 @@ LlValue * ONegExpr::Generate(OScope * scope)
   return ll_builder.CreateNeg(ll_val);
 }
 
-/* ctor */ OAddrOfExpr::OAddrOfExpr(OValSym * avalsym)
+/* ctor */ OAddrOfExpr::OAddrOfExpr(OLValueExpr * atarget)
 {
-  pvalsym = avalsym;
-  ptype = avalsym->ptype->GetPointerType();
+  target = atarget;
+  ptype = atarget->ptype->GetPointerType();
 }
 
 LlValue * OAddrOfExpr::Generate(OScope * scope)
 {
-  if (!pvalsym->ll_value)
-  {
-    throw logic_error(std::format("OAddrOfExpr: Variable \"{}\" was not prepared in the LLVM", pvalsym->name));
-  }
-  return pvalsym->ll_value;  // the alloca pointer IS the address
-}
-
-/* ctor */ OAddrOfArrayElemExpr::OAddrOfArrayElemExpr(OValSym * aarray, OExpr * aindex)
-{
-  arrayvalsym = aarray;
-  indexexpr   = aindex;
-  ptype = static_cast<OTypeArray *>(aarray->ptype)->elemtype->GetPointerType();
-}
-
-LlValue * OAddrOfArrayElemExpr::Generate(OScope * scope)
-{
-  LlValue * ll_index = indexexpr->Generate(scope);
-  LlValue * ll_zero  = llvm::ConstantInt::get(LlType::getInt64Ty(ll_ctx), 0);
-  return ll_builder.CreateGEP(
-      arrayvalsym->ptype->GetLlType(),
-      arrayvalsym->ll_value,
-      {ll_zero, ll_index},
-      "arr.elem.addr"
-  );
-}
-
-/* ctor */ ODerefExpr::ODerefExpr(OExpr * aoperand)
-{
-  operand = aoperand;
-  OTypePointer * ptrtype = static_cast<OTypePointer *>(aoperand->ptype);
-  ptype = ptrtype->basetype;
-}
-
-LlValue * ODerefExpr::Generate(OScope * scope)
-{
-  LlValue * ll_ptr = operand->Generate(scope);
-  return ll_builder.CreateLoad(ptype->GetLlType(), ll_ptr, "deref");
+  return target->GenerateAddress(scope);
 }
 
 /* ctor */ ONullLit::ONullLit()
@@ -336,48 +412,6 @@ LlValue * ODerefExpr::Generate(OScope * scope)
 LlValue * ONullLit::Generate(OScope * scope)
 {
   return llvm::ConstantPointerNull::get(llvm::PointerType::get(ll_ctx, 0));
-}
-
-/* ctor */ OArrayIndexExpr::OArrayIndexExpr(OValSym * aarray, OExpr * aindex)
-{
-  arrayvalsym = aarray;
-  indexexpr   = aindex;
-
-  if (TK_ARRAY == aarray->ptype->kind)
-  {
-    ptype = static_cast<OTypeArray *>(aarray->ptype)->elemtype;
-  }
-  else // TK_ARRAY_SLICE
-  {
-    ptype = static_cast<OTypeArraySlice *>(aarray->ptype)->elemtype;
-  }
-}
-
-LlValue * OArrayIndexExpr::Generate(OScope * scope)
-{
-  LlValue * ll_index = indexexpr->Generate(scope);
-
-  if (TK_ARRAY == arrayvalsym->ptype->kind)
-  {
-    // Fixed array: GEP with {0, index} into [N x T]
-    LlValue * ll_zero = llvm::ConstantInt::get(LlType::getInt64Ty(ll_ctx), 0);
-    LlValue * ll_gep = ll_builder.CreateGEP(
-        arrayvalsym->ptype->GetLlType(),
-        arrayvalsym->ll_value,
-        {ll_zero, ll_index},
-        "arr.elem"
-    );
-    return ll_builder.CreateLoad(ptype->GetLlType(), ll_gep, "arr.load");
-  }
-  else // TK_ARRAY_SLICE
-  {
-    // Slice: use StructGEP to get the pointer field from the alloca, then GEP into the data
-    LlType * ll_slicetype = arrayvalsym->ptype->GetLlType();
-    LlValue * ll_ptr_addr = ll_builder.CreateStructGEP(ll_slicetype, arrayvalsym->ll_value, 0, "slice.ptr.addr");
-    LlValue * ll_ptr = ll_builder.CreateLoad(llvm::PointerType::get(ll_ctx, 0), ll_ptr_addr, "slice.ptr");
-    LlValue * ll_gep = ll_builder.CreateGEP(ptype->GetLlType(), ll_ptr, {ll_index}, "slice.elem");
-    return ll_builder.CreateLoad(ptype->GetLlType(), ll_gep, "slice.load");
-  }
 }
 
 /* ctor */ OPointerIndexExpr::OPointerIndexExpr(OExpr * aptr, OExpr * aindex)
@@ -683,129 +717,3 @@ LlValue * OCStringLitToDescExpr::Generate(OScope * scope)
   return ll_desc;
 }
 
-/* ctor */ OCStringElemAddrExpr::OCStringElemAddrExpr(OValSym * avs, OExpr * aindex)
-{
-  cstrvalsym = avs;
-  indexexpr  = aindex;
-  ptype = g_builtins->type_cchar->GetPointerType();  // ^cchar
-}
-
-LlValue * OCStringElemAddrExpr::Generate(OScope * scope)
-{
-  OTypeCString * cstrtype = static_cast<OTypeCString *>(cstrvalsym->ptype);
-  LlValue * ll_index = indexexpr->Generate(scope);
-
-  if (cstrtype->maxlen > 0)
-  {
-    // Sized cstring[N]: GEP into [N x i8] with {0, index}
-    LlValue * ll_zero = llvm::ConstantInt::get(LlType::getInt64Ty(ll_ctx), 0);
-    return ll_builder.CreateGEP(
-        cstrtype->GetLlType(), cstrvalsym->ll_value,
-        {ll_zero, ll_index}, "cstr.elem.addr");
-  }
-  else
-  {
-    // Unsized cstring param: extract ptr from descriptor, then GEP
-    LlType * ll_desctype = cstrtype->GetLlType();
-    LlValue * ll_ptr_addr = ll_builder.CreateStructGEP(ll_desctype, cstrvalsym->ll_value, 0, "cstr.ptr.addr");
-    LlValue * ll_ptr = ll_builder.CreateLoad(llvm::PointerType::get(ll_ctx, 0), ll_ptr_addr, "cstr.ptr");
-    return ll_builder.CreateGEP(LlType::getInt8Ty(ll_ctx), ll_ptr, {ll_index}, "cstr.elem.addr");
-  }
-}
-
-// --- struct member expressions ---
-
-/* ctor */ OStructMemberExpr::OStructMemberExpr(OValSym * astruct, uint32_t aidx, OType * amembertype)
-{
-  structvalsym = astruct;
-  memberindex  = aidx;
-  ptype = amembertype;
-}
-
-LlValue * OStructMemberExpr::Generate(OScope * scope)
-{
-  LlValue * ll_gep = ll_builder.CreateStructGEP(
-      structvalsym->ptype->GetLlType(), structvalsym->ll_value, memberindex, "member.addr");
-  return ll_builder.CreateLoad(ptype->GetLlType(), ll_gep, "member.val");
-}
-
-/* ctor */ ODerefMemberExpr::ODerefMemberExpr(OExpr * aptr, OType * astructtype, uint32_t aidx, OType * amembertype)
-{
-  ptrexpr     = aptr;
-  structtype  = astructtype;
-  memberindex = aidx;
-  ptype = amembertype;
-}
-
-LlValue * ODerefMemberExpr::Generate(OScope * scope)
-{
-  LlValue * ll_ptr = ptrexpr->Generate(scope);
-  LlValue * ll_gep = ll_builder.CreateStructGEP(
-      structtype->GetLlType(), ll_ptr, memberindex, "deref.member.addr");
-  return ll_builder.CreateLoad(ptype->GetLlType(), ll_gep, "deref.member.val");
-}
-
-/* ctor */ OStructMemberArrayIndexExpr::OStructMemberArrayIndexExpr(
-    OValSym * astruct, uint32_t aidx, OType * aarrtype, OExpr * aindex)
-{
-  structvalsym = astruct;
-  memberindex  = aidx;
-  arraytype    = aarrtype;
-  indexexpr    = aindex;
-  // element type from the array
-  ptype = static_cast<OTypeArray *>(aarrtype)->elemtype;
-}
-
-LlValue * OStructMemberArrayIndexExpr::Generate(OScope * scope)
-{
-  LlValue * ll_member_addr = ll_builder.CreateStructGEP(
-      structvalsym->ptype->GetLlType(), structvalsym->ll_value, memberindex, "member.arr.addr");
-  LlValue * ll_index = indexexpr->Generate(scope);
-  LlValue * ll_zero = llvm::ConstantInt::get(LlType::getInt64Ty(ll_ctx), 0);
-  LlValue * ll_elem = ll_builder.CreateGEP(
-      arraytype->GetLlType(), ll_member_addr, {ll_zero, ll_index}, "member.arr.elem");
-  return ll_builder.CreateLoad(ptype->GetLlType(), ll_elem, "member.arr.load");
-}
-
-/* ctor */ ODerefMemberArrayIndexExpr::ODerefMemberArrayIndexExpr(
-    OExpr * aptr, OType * astructtype, uint32_t aidx, OType * aarrtype, OExpr * aindex)
-{
-  ptrexpr     = aptr;
-  structtype  = astructtype;
-  memberindex = aidx;
-  arraytype   = aarrtype;
-  indexexpr   = aindex;
-  ptype = static_cast<OTypeArray *>(aarrtype)->elemtype;
-}
-
-LlValue * ODerefMemberArrayIndexExpr::Generate(OScope * scope)
-{
-  LlValue * ll_ptr = ptrexpr->Generate(scope);
-  LlValue * ll_member_addr = ll_builder.CreateStructGEP(
-      structtype->GetLlType(), ll_ptr, memberindex, "deref.member.arr.addr");
-  LlValue * ll_index = indexexpr->Generate(scope);
-  LlValue * ll_zero = llvm::ConstantInt::get(LlType::getInt64Ty(ll_ctx), 0);
-  LlValue * ll_elem = ll_builder.CreateGEP(
-      arraytype->GetLlType(), ll_member_addr, {ll_zero, ll_index}, "deref.member.arr.elem");
-  return ll_builder.CreateLoad(ptype->GetLlType(), ll_elem, "deref.member.arr.load");
-}
-
-/* ctor */ OAddrOfStructMemberArrayElemExpr::OAddrOfStructMemberArrayElemExpr(
-    OValSym * astruct, uint32_t aidx, OType * aarrtype, OExpr * aindex)
-{
-  structvalsym = astruct;
-  memberindex  = aidx;
-  arraytype    = aarrtype;
-  indexexpr    = aindex;
-  ptype = static_cast<OTypeArray *>(aarrtype)->elemtype->GetPointerType();
-}
-
-LlValue * OAddrOfStructMemberArrayElemExpr::Generate(OScope * scope)
-{
-  LlValue * ll_member_addr = ll_builder.CreateStructGEP(
-      structvalsym->ptype->GetLlType(), structvalsym->ll_value, memberindex, "member.arr.addr");
-  LlValue * ll_index = indexexpr->Generate(scope);
-  LlValue * ll_zero = llvm::ConstantInt::get(LlType::getInt64Ty(ll_ctx), 0);
-  return ll_builder.CreateGEP(
-      arraytype->GetLlType(), ll_member_addr, {ll_zero, ll_index}, "member.arr.elem.addr");
-}

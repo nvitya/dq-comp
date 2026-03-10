@@ -126,15 +126,11 @@ void OStmtVarDecl::Generate(OScope * scope)
 
 void OStmtAssign::Generate(OScope * scope)
 {
-  if (!variable->ll_value)
-  {
-    throw logic_error(std::format("Variable \"{}\" was not prepared in the LLVM", variable->name));
-  }
-
   // Special handling: cstring[N] = "literal"
-  if (TK_STRING == variable->ptype->kind)
+  OLValueVar * varref = dynamic_cast<OLValueVar *>(target);
+  if (varref and TK_STRING == varref->pvalsym->ptype->kind)
   {
-    OTypeCString * cstrtype = static_cast<OTypeCString *>(variable->ptype);
+    OTypeCString * cstrtype = static_cast<OTypeCString *>(varref->pvalsym->ptype);
     if (cstrtype->maxlen > 0)
     {
       OCStringLit * strlit = dynamic_cast<OCStringLit *>(value);
@@ -143,48 +139,46 @@ void OStmtAssign::Generate(OScope * scope)
         OValueCString val(cstrtype, cstrtype->maxlen);
         val.value = strlit->value;
         LlConst * ll_const = val.CreateLlConst();
-        ll_builder.CreateStore(ll_const, variable->ll_value);
+        ll_builder.CreateStore(ll_const, varref->pvalsym->ll_value);
         return;
       }
     }
   }
 
+  LlValue * ll_addr = target->GenerateAddress(scope);
   LlValue * ll_set_value = value->Generate(scope);
-  ll_builder.CreateStore(ll_set_value, variable->ll_value);
+  ll_builder.CreateStore(ll_set_value, ll_addr);
 }
 
-void OStmtModifyAssign::Generate(OScope *scope)
+void OStmtModifyAssign::Generate(OScope * scope)
 {
-  LlValue * ll_mod_value = value->Generate(scope);
-
-  if (!variable->ll_value)
-  {
-    throw logic_error(std::format("Variable \"{}\" was not prepared in the LLVM", variable->name));
-  }
+  LlValue * ll_addr = target->GenerateAddress(scope);
+  OType * valtype = target->ptype;
 
   // Load current value
-  LlValue * ll_curval = ll_builder.CreateLoad(variable->ptype->GetLlType(), variable->ll_value, variable->name);
+  LlValue * ll_curval = ll_builder.CreateLoad(valtype->GetLlType(), ll_addr, "cur");
+  LlValue * ll_mod_value = value->Generate(scope);
 
   LlValue * ll_newval = nullptr;
-  if (TK_POINTER == variable->ptype->kind)
+  if (TK_POINTER == valtype->kind)
   {
-    OTypePointer * ptrtype = static_cast<OTypePointer *>(variable->ptype);
+    OTypePointer * ptrtype = static_cast<OTypePointer *>(valtype);
     LlType * ll_elemtype = ptrtype->basetype->GetLlType();
     if (BINOP_ADD == op)
       ll_newval = ll_builder.CreateGEP(ll_elemtype, ll_curval, {ll_mod_value}, "ptr.adv");
     else if (BINOP_SUB == op)
       ll_newval = ll_builder.CreateGEP(ll_elemtype, ll_curval, {ll_builder.CreateNeg(ll_mod_value)}, "ptr.rev");
   }
-  else if (TK_FLOAT == variable->ptype->kind)
+  else if (TK_FLOAT == valtype->kind)
   {
     if      (BINOP_ADD == op)  ll_newval = ll_builder.CreateFAdd(ll_curval, ll_mod_value);
     else if (BINOP_SUB == op)  ll_newval = ll_builder.CreateFSub(ll_curval, ll_mod_value);
     else if (BINOP_MUL == op)  ll_newval = ll_builder.CreateFMul(ll_curval, ll_mod_value);
     else if (BINOP_DIV == op)  ll_newval = ll_builder.CreateFDiv(ll_curval, ll_mod_value);
   }
-  else if (TK_INT == variable->ptype->kind)
+  else if (TK_INT == valtype->kind)
   {
-    bool issigned = static_cast<OTypeInt *>(variable->ptype)->issigned;
+    bool issigned = static_cast<OTypeInt *>(valtype)->issigned;
 
     if      (BINOP_ADD  == op)  ll_newval = ll_builder.CreateAdd(ll_curval, ll_mod_value);
     else if (BINOP_SUB  == op)  ll_newval = ll_builder.CreateSub(ll_curval, ll_mod_value);
@@ -202,53 +196,16 @@ void OStmtModifyAssign::Generate(OScope *scope)
   }
   else
   {
-    throw logic_error(std::format("Unsupported modify-assign type: {}", variable->ptype->name));
+    throw logic_error(std::format("Unsupported modify-assign type: {}", valtype->name));
   }
 
   if (ll_newval)
   {
-    ll_builder.CreateStore(ll_newval, variable->ll_value);
+    ll_builder.CreateStore(ll_newval, ll_addr);
   }
   else
   {
     throw logic_error(std::format("Unsupported modify-assign operation: {}", int(op)));
-  }
-}
-
-void OStmtDerefAssign::Generate(OScope * scope)
-{
-  // Load the pointer value from the pointer variable, then store the value through it
-  LlValue * ll_ptr = ll_builder.CreateLoad(llvm::PointerType::get(ll_ctx, 0), ptrvariable->ll_value, "ptr");
-  LlValue * ll_val = value->Generate(scope);
-  ll_builder.CreateStore(ll_val, ll_ptr);
-}
-
-void OStmtArrayAssign::Generate(OScope * scope)
-{
-  LlValue * ll_index = indexexpr->Generate(scope);
-  LlValue * ll_val = value->Generate(scope);
-
-  if (TK_ARRAY == arrayvalsym->ptype->kind)
-  {
-    // Fixed array: GEP with {0, index} into [N x T]
-    LlValue * ll_zero = llvm::ConstantInt::get(LlType::getInt64Ty(ll_ctx), 0);
-    LlValue * ll_gep = ll_builder.CreateGEP(
-        arrayvalsym->ptype->GetLlType(),
-        arrayvalsym->ll_value,
-        {ll_zero, ll_index},
-        "arr.elem"
-    );
-    ll_builder.CreateStore(ll_val, ll_gep);
-  }
-  else // TK_ARRAY_SLICE
-  {
-    // Slice: use StructGEP to get the pointer field, then GEP into the data
-    OTypeArraySlice * slicetype = static_cast<OTypeArraySlice *>(arrayvalsym->ptype);
-    LlType * ll_slicetype = arrayvalsym->ptype->GetLlType();
-    LlValue * ll_ptr_addr = ll_builder.CreateStructGEP(ll_slicetype, arrayvalsym->ll_value, 0, "slice.ptr.addr");
-    LlValue * ll_ptr = ll_builder.CreateLoad(llvm::PointerType::get(ll_ctx, 0), ll_ptr_addr, "slice.ptr");
-    LlValue * ll_gep = ll_builder.CreateGEP(slicetype->elemtype->GetLlType(), ll_ptr, {ll_index}, "slice.elem");
-    ll_builder.CreateStore(ll_val, ll_gep);
   }
 }
 
@@ -377,103 +334,3 @@ void OStmtIf::Generate(OScope * scope)
   ll_builder.SetInsertPoint(bb_merge);
 }
 
-// --- struct member assignment statements ---
-
-void OStmtStructMemberAssign::Generate(OScope * scope)
-{
-  LlValue * ll_gep = ll_builder.CreateStructGEP(
-      structvalsym->ptype->GetLlType(), structvalsym->ll_value, memberindex, "member.addr");
-  LlValue * ll_val = value->Generate(scope);
-  ll_builder.CreateStore(ll_val, ll_gep);
-}
-
-void OStmtStructMemberModifyAssign::Generate(OScope * scope)
-{
-  LlValue * ll_gep = ll_builder.CreateStructGEP(
-      structvalsym->ptype->GetLlType(), structvalsym->ll_value, memberindex, "member.addr");
-  LlValue * ll_curval = ll_builder.CreateLoad(membertype->GetLlType(), ll_gep, "member.cur");
-  LlValue * ll_mod_value = value->Generate(scope);
-  LlValue * ll_newval = nullptr;
-
-  if (TK_FLOAT == membertype->kind)
-  {
-    if      (BINOP_ADD == op)  ll_newval = ll_builder.CreateFAdd(ll_curval, ll_mod_value);
-    else if (BINOP_SUB == op)  ll_newval = ll_builder.CreateFSub(ll_curval, ll_mod_value);
-    else if (BINOP_MUL == op)  ll_newval = ll_builder.CreateFMul(ll_curval, ll_mod_value);
-    else if (BINOP_DIV == op)  ll_newval = ll_builder.CreateFDiv(ll_curval, ll_mod_value);
-  }
-  else if (TK_INT == membertype->kind)
-  {
-    if      (BINOP_ADD == op)  ll_newval = ll_builder.CreateAdd(ll_curval, ll_mod_value);
-    else if (BINOP_SUB == op)  ll_newval = ll_builder.CreateSub(ll_curval, ll_mod_value);
-    else if (BINOP_MUL == op)  ll_newval = ll_builder.CreateMul(ll_curval, ll_mod_value);
-  }
-
-  if (ll_newval)
-  {
-    ll_builder.CreateStore(ll_newval, ll_gep);
-  }
-}
-
-void OStmtStructMemberArrayAssign::Generate(OScope * scope)
-{
-  LlValue * ll_member_addr = ll_builder.CreateStructGEP(
-      structvalsym->ptype->GetLlType(), structvalsym->ll_value, memberindex, "member.arr.addr");
-  LlValue * ll_index = indexexpr->Generate(scope);
-  LlValue * ll_zero = llvm::ConstantInt::get(LlType::getInt64Ty(ll_ctx), 0);
-  LlValue * ll_elem = ll_builder.CreateGEP(
-      arraytype->GetLlType(), ll_member_addr, {ll_zero, ll_index}, "member.arr.elem");
-  LlValue * ll_val = value->Generate(scope);
-  ll_builder.CreateStore(ll_val, ll_elem);
-}
-
-void OStmtDerefMemberAssign::Generate(OScope * scope)
-{
-  LlValue * ll_ptr = ll_builder.CreateLoad(llvm::PointerType::get(ll_ctx, 0), ptrvalsym->ll_value, "ptr");
-  LlValue * ll_gep = ll_builder.CreateStructGEP(
-      structtype->GetLlType(), ll_ptr, memberindex, "deref.member.addr");
-  LlValue * ll_val = value->Generate(scope);
-  ll_builder.CreateStore(ll_val, ll_gep);
-}
-
-void OStmtDerefMemberModifyAssign::Generate(OScope * scope)
-{
-  LlValue * ll_ptr = ll_builder.CreateLoad(llvm::PointerType::get(ll_ctx, 0), ptrvalsym->ll_value, "ptr");
-  LlValue * ll_gep = ll_builder.CreateStructGEP(
-      structtype->GetLlType(), ll_ptr, memberindex, "deref.member.addr");
-  LlValue * ll_curval = ll_builder.CreateLoad(membertype->GetLlType(), ll_gep, "deref.member.cur");
-  LlValue * ll_mod_value = value->Generate(scope);
-  LlValue * ll_newval = nullptr;
-
-  if (TK_FLOAT == membertype->kind)
-  {
-    if      (BINOP_ADD == op)  ll_newval = ll_builder.CreateFAdd(ll_curval, ll_mod_value);
-    else if (BINOP_SUB == op)  ll_newval = ll_builder.CreateFSub(ll_curval, ll_mod_value);
-    else if (BINOP_MUL == op)  ll_newval = ll_builder.CreateFMul(ll_curval, ll_mod_value);
-    else if (BINOP_DIV == op)  ll_newval = ll_builder.CreateFDiv(ll_curval, ll_mod_value);
-  }
-  else if (TK_INT == membertype->kind)
-  {
-    if      (BINOP_ADD == op)  ll_newval = ll_builder.CreateAdd(ll_curval, ll_mod_value);
-    else if (BINOP_SUB == op)  ll_newval = ll_builder.CreateSub(ll_curval, ll_mod_value);
-    else if (BINOP_MUL == op)  ll_newval = ll_builder.CreateMul(ll_curval, ll_mod_value);
-  }
-
-  if (ll_newval)
-  {
-    ll_builder.CreateStore(ll_newval, ll_gep);
-  }
-}
-
-void OStmtDerefMemberArrayAssign::Generate(OScope * scope)
-{
-  LlValue * ll_ptr = ll_builder.CreateLoad(llvm::PointerType::get(ll_ctx, 0), ptrvalsym->ll_value, "ptr");
-  LlValue * ll_member_addr = ll_builder.CreateStructGEP(
-      structtype->GetLlType(), ll_ptr, memberindex, "deref.member.arr.addr");
-  LlValue * ll_index = indexexpr->Generate(scope);
-  LlValue * ll_zero = llvm::ConstantInt::get(LlType::getInt64Ty(ll_ctx), 0);
-  LlValue * ll_elem = ll_builder.CreateGEP(
-      arraytype->GetLlType(), ll_member_addr, {ll_zero, ll_index}, "deref.member.arr.elem");
-  LlValue * ll_val = value->Generate(scope);
-  ll_builder.CreateStore(ll_val, ll_elem);
-}
