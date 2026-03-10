@@ -1414,7 +1414,7 @@ OExpr * ODqCompParser::ParseExprPrimary()
   }
 
   result = new OLValueVar(vs);
-  if (not vs->initialized)
+  if (vs->kind != VSK_FUNCTION and not vs->initialized)
   {
     Error(format("Accessing uninitialized variable \"{}\"", vs->name), &scpos_sid);
   }
