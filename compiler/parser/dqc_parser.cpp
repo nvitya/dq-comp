@@ -1749,8 +1749,8 @@ OLValueExpr * ODqCompParser::ParseLValuePostfix(OLValueExpr * base)
     }
 
     // Array/slice/cstring index: x[i]
-    if ((TK_ARRAY == tk or TK_ARRAY_SLICE == tk or TK_STRING == tk)
-        and scf->CheckSymbol("["))
+    if ( (TK_ARRAY == tk or TK_ARRAY_SLICE == tk or TK_STRING == tk)
+         and scf->CheckSymbol("[") )
     {
       OExpr * indexexpr = ParseExpression();
       scf->SkipWhite();
@@ -1777,18 +1777,19 @@ OLValueExpr * ODqCompParser::ParseLValuePostfix(OLValueExpr * base)
 EBinOp ODqCompParser::ParseAssignOp()
 {
   scf->SkipWhite();
-  if      (scf->CheckSymbol("="))       return BINOP_NONE;  // simple assign (ab)uses BINOP_NONE
-  else if (scf->CheckSymbol("+="))      return BINOP_ADD;
+
+  if      (scf->CheckSymbol("+="))      return BINOP_ADD;
   else if (scf->CheckSymbol("-="))      return BINOP_SUB;
   else if (scf->CheckSymbol("*="))      return BINOP_MUL;
   else if (scf->CheckSymbol("/="))      return BINOP_DIV;
-  else if (scf->CheckSymbol("=IDIV="))  return BINOP_IDIV;
-  else if (scf->CheckSymbol("=IMOD="))  return BINOP_IMOD;
   else if (scf->CheckSymbol("<<="))     return BINOP_ISHL;
   else if (scf->CheckSymbol(">>="))     return BINOP_ISHR;
+  else if (scf->CheckSymbol("=IDIV="))  return BINOP_IDIV;
+  else if (scf->CheckSymbol("=IMOD="))  return BINOP_IMOD;
   else if (scf->CheckSymbol("=AND="))   return BINOP_IAND;
   else if (scf->CheckSymbol("=OR="))    return BINOP_IOR;
   else if (scf->CheckSymbol("=XOR="))   return BINOP_IXOR;
+  else if (scf->CheckSymbol("="))       return BINOP_NONE;  // must come after =XXX=!, simple assign (ab)uses BINOP_NONE
   return EBinOp(-1);  // not an assignment operator
 }
 
