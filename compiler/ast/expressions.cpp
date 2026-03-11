@@ -522,8 +522,16 @@ LlValue * OCallExpr::Generate(OScope * scope)
       }
       else if (valtype->isIntegerTy() && valtype->getIntegerBitWidth() < 32)
       {
-        // small int (cchar, int8, int16) -> i32 promotion
-        val = ll_builder.CreateSExt(val, llvm::Type::getInt32Ty(ll_ctx));
+        // small integers use the C default argument promotions
+        OTypeInt * inttype = dynamic_cast<OTypeInt *>(args[i]->ptype);
+        if (inttype && inttype->issigned)
+        {
+          val = ll_builder.CreateSExt(val, llvm::Type::getInt32Ty(ll_ctx));
+        }
+        else
+        {
+          val = ll_builder.CreateZExt(val, llvm::Type::getInt32Ty(ll_ctx));
+        }
       }
     }
 
@@ -735,4 +743,3 @@ LlValue * OCStringLitToDescExpr::Generate(OScope * scope)
       1, "strlit.desc.size");
   return ll_desc;
 }
-

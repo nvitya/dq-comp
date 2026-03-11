@@ -649,12 +649,14 @@ OType * ODqCompParser::ParseTypeSpec()
   // Parses type specification after ":"
   // Handles: ^type (pointer), type[N] (fixed array), type[] (slice)
 
-  bool is_pointer = false;
+  int pointer_level = 0;
   scf->SkipWhite();
-  if (scf->CheckSymbol("^"))
+  while (scf->CheckSymbol("^"))
   {
-    is_pointer = true;
+    ++pointer_level;
+    scf->SkipWhite();
   }
+  bool is_pointer = (pointer_level > 0);
 
   string stype;
   scf->SkipWhite();
@@ -671,9 +673,10 @@ OType * ODqCompParser::ParseTypeSpec()
     return nullptr;
   }
 
-  if (is_pointer)
+  while (pointer_level > 0)
   {
     ptype = ptype->GetPointerType();
+    --pointer_level;
   }
 
   // cstring[N] handling: [N] means sized cstring, not array

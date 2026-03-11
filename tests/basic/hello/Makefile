@@ -30,7 +30,7 @@ status:
 
 # Compile DQ source to object
 $(DQ_OBJ): $(DQ_SRC)
-	$(DQ) $(DQFLAGS) $(DQ_SRC) $(DQ_OBJ)
+	$(DQ) $(DQFLAGS) -c $(DQ_SRC) -o $(DQ_OBJ)
 
 # Link DQ object directly with libc (no C testbed)
 $(TARGET): $(DQ_OBJ)

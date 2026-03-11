@@ -11,10 +11,14 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.5.3"
+#define DQ_COMPILER_VERSION  "0.5.4"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.5.4:
+  - Double pointer parsing fix
+  - printf() varargs unsigned fix
+  - command line arguments demo added to the dq_hello.dq
 v0.5.3:
   - Duplicated postfix parsing removed from the parser
 v0.5.2:
