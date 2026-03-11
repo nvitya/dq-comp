@@ -1228,6 +1228,13 @@ OExpr * ODqCompParser::ParseExprPostfix()
 {
   OExpr * result = ParseExprPrimary();
   if (!result) return nullptr;
+  return ParsePostfix(result);
+}
+
+OExpr * ODqCompParser::ParsePostfix(OExpr * base)
+{
+  OExpr * result = base;
+  if (!result) return nullptr;
 
   while (true)
   {
@@ -1275,7 +1282,7 @@ OExpr * ODqCompParser::ParseExprPostfix()
         scf->SkipWhite();
         if (not scf->CheckSymbol("]"))
         {
-          Error("\"]\" expected after array index");
+          Error("\"]\" expected after index");
         }
         result = new OLValueIndex(lval, lval->ptype, indexexpr);
         continue;
@@ -1299,10 +1306,9 @@ OExpr * ODqCompParser::ParseExprPostfix()
           continue;
         }
       }
-    } // if lval
+    }
 
     // pointer operations — apply to any expression (not just lvalue)
-
     if (TK_POINTER == tk)
     {
       if (scf->CheckSymbol("[")) // p[i]: pointer indexing, no dereference
@@ -1322,10 +1328,11 @@ OExpr * ODqCompParser::ParseExprPostfix()
         result = new OLValueDeref(result);
         continue;
       }
-    } // if pointer
+    }
 
     break;
   }
+
   return result;
 }
 
@@ -1777,68 +1784,6 @@ void ODqCompParser::ParseStmtVar()
   curblock->AddStatement(new OStmtVarDecl(scpos_statement_start, pvalsym, initexpr));
 }
 
-OLValueExpr * ODqCompParser::ParseLValuePostfix(OLValueExpr * base)
-{
-  while (true)
-  {
-    scf->SkipWhite();
-    ETypeKind tk = base->ptype->kind;
-
-    // Struct member access: x.field
-    if (scf->CheckSymbol("."))
-    {
-      OLValueExpr * memberbase = nullptr;
-      OCompoundType * ctype = nullptr;
-      if (!ResolveCompoundMemberBase(base, base->ptype, memberbase, ctype))
-      {
-        Error("Member access requires a compound value or a ^compound pointer");
-        return base;
-      }
-
-      string membername;
-      scf->SkipWhite();
-      if (not scf->ReadIdentifier(membername))
-      {
-        Error("Member name expected after \".\"");
-        return base;
-      }
-      int midx = ctype->FindMemberIndex(membername);
-      if (midx < 0)
-      {
-        Error(format("Unknown member \"{}\" in struct \"{}\"", membername, ctype->name));
-        return base;
-      }
-      OType * mtype = ctype->member_order[midx]->ptype;
-      base = new OLValueMember(memberbase, ctype, midx, mtype);
-      continue;
-    }
-
-    // Array/slice/cstring index: x[i]
-    if ( (TK_ARRAY == tk or TK_ARRAY_SLICE == tk or TK_STRING == tk)
-         and scf->CheckSymbol("[") )
-    {
-      OExpr * indexexpr = ParseExpression();
-      scf->SkipWhite();
-      if (not scf->CheckSymbol("]"))
-      {
-        Error("\"]\" expected after index");
-      }
-      base = new OLValueIndex(base, base->ptype, indexexpr);
-      continue;
-    }
-
-    // Pointer dereference: p^
-    if (TK_POINTER == tk and scf->CheckSymbol("^"))
-    {
-      base = new OLValueDeref(base);
-      continue;
-    }
-
-    break;
-  }
-  return base;
-}
-
 EBinOp ODqCompParser::ParseAssignOp()
 {
   scf->SkipWhite();
@@ -1863,8 +1808,14 @@ bool ODqCompParser::ParseStmtAssign(OValSym * pvalsym)
   // Unified assignment parsing for all lvalue targets
   // identifier is already consumed
 
-  OLValueExpr * lval = new OLValueVar(pvalsym);
-  lval = ParseLValuePostfix(lval);
+  OExpr * targetexpr = ParsePostfix(new OLValueVar(pvalsym));
+  OLValueExpr * lval = dynamic_cast<OLValueExpr *>(targetexpr);
+  if (!lval)
+  {
+    Error("Assignment requires an lvalue target");
+    delete targetexpr;
+    return true;
+  }
 
   EBinOp op = ParseAssignOp();
   if (int(op) < 0)

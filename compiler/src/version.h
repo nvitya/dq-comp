@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.5.2"
+#define DQ_COMPILER_VERSION  "0.5.3"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.5.3:
+  - Duplicated postfix parsing removed from the parser
 v0.5.2:
   - "." makes auto pointer de-reference when the pointed type is a compound type (struct or object):
     var ep : ^StructElem = &arr_elems[0];

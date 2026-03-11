@@ -54,7 +54,6 @@ public: // statement blocks
   void ParseStmtIf();
   void ParseStmtVoidCall(OValSymFunc * vsfunc);
 
-  OLValueExpr * ParseLValuePostfix(OLValueExpr * base);
   EBinOp ParseAssignOp();
 
 public: // type parsing
@@ -94,6 +93,7 @@ public: // expressions
   OExpr * ParseExprShift();
   OExpr * ParseExprUnary();
   OLValueExpr * ParseAddressableExpr();
+  OExpr * ParsePostfix(OExpr * base);
   OExpr * ParseExprPostfix();
   OExpr * ParseExprPrimary();
 
