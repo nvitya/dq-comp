@@ -85,13 +85,13 @@ void ODqCompParser::ParseModule()
       scf->SkipWhite();
       if (not scf->ReadIdentifier(attrname))
       {
-        StatementError("Attribute name expected after \"[[\"");
+        StatementError2(DQERR_ATTR_NAME_EXPECTED);
         continue;
       }
       scf->SkipWhite();
       if (not scf->CheckSymbol("]]"))
       {
-        StatementError("\"]]\" expected after attribute name");
+        StatementError2(DQERR_SYM_EXPECTED_AFTER, "attribute name");
         continue;
       }
       if ("external" == attrname)
@@ -100,7 +100,7 @@ void ODqCompParser::ParseModule()
       }
       else
       {
-        StatementError("Unknown attribute: \"" + attrname + "\"");
+        StatementError2(DQERR_ATTR_UNKNOWN, attrname);
         continue;
       }
       scf->SkipWhite();
@@ -109,7 +109,7 @@ void ODqCompParser::ParseModule()
     // module root starters
     if (not scf->ReadIdentifier(sid))
     {
-      StatementError("Module statement keyword expected", &scpos_statement_start);
+      StatementError2(DQERR_MODULE_STATEMENT_EXPECTED, &scpos_statement_start);
       continue;
     }
 
@@ -140,7 +140,7 @@ void ODqCompParser::ParseModule()
     }
     else  // unknown
     {
-      StatementError("Unknown module root statement qualifier: \"" + sid + "\"", &scpos_statement_start);
+      StatementError2(DQERR_MODULE_STATEMENT_UNKNOWN, sid, &scpos_statement_start);
     }
   }
 
@@ -176,7 +176,7 @@ void ODqCompParser::ParseVarDecl()  // global var declaration (the local var is 
   scf->SkipWhite();
   if (not scf->CheckSymbol(":"))
   {
-    StatementError2(DQERR_TYPE_SPECIFIER_EXP_AFTER_SYM, sid);
+    StatementError2(DQERR_TYPE_SPECIFIER_EXP_AFTER, sid);
     return;
   }
 
@@ -400,7 +400,7 @@ void ODqCompParser::ParseFunction(bool aexternal)
   scf->SkipWhite();
   if (not scf->ReadIdentifier(sid))
   {
-    Error("Identifier is expected after \"function\". Syntax: \"function identifier(arglist) -> return_type\"");
+    Error2(DQERR_ID_EXP_AFTER, "function");
     return;
   }
 
@@ -426,7 +426,7 @@ void ODqCompParser::ParseFunction(bool aexternal)
       {
         if (not scf->CheckSymbol(","))
         {
-          Error("\",\" expected for parameter lists", &scf->prevpos);
+          Error2(DQERR_MISSING_COMMA, &scf->prevpos);
         }
         else { scf-> SkipWhite(); }
       }
@@ -438,14 +438,14 @@ void ODqCompParser::ParseFunction(bool aexternal)
         scf->SkipWhite();
         if (!scf->CheckSymbol(")"))
         {
-          Error("')' expected after '...'");
+          Error2(DQERR_SYM_EXPECTED_AFTER, ")", "\"...\"");
         }
         break;
       }
 
       if (not scf->ReadIdentifier(spname))
       {
-        Error("Parameter name expected", &scf->prevpos);
+        Error2(DQERR_FUNCPAR_NAME_EXP, &scf->prevpos);
         if (not scf->ReadTo(",)"))  // try to skip to next parameter
         {
           break;  // serious problem, would lead to endless-loop
@@ -455,7 +455,7 @@ void ODqCompParser::ParseFunction(bool aexternal)
 
       if (not tfunc->ParNameValid(spname))
       {
-        Error("Invalid function parameter name \""+spname+"\"", &scf->prevpos);
+        Error2(DQERR_FUNCPAR_NAME_INVALID, spname, &scf->prevpos);
         scf->ReadTo(",)");  // try to skip to next parameter
         continue;
       }
@@ -463,7 +463,7 @@ void ODqCompParser::ParseFunction(bool aexternal)
       scf->SkipWhite();
       if (not scf->CheckSymbol(":"))
       {
-        Error("Parameter type specification expected: \": type\"", &scf->prevpos);
+        Error2(DQERR_TYPE_SPECIFIER_EXP_AFTER, spname, &scf->prevpos);
         scf->ReadTo(",)");  // try to skip to next parameter
         continue;
       }
@@ -483,11 +483,11 @@ void ODqCompParser::ParseFunction(bool aexternal)
 
   if (tfunc->has_varargs && !aexternal)
   {
-    Error("Variadic '...' is only allowed on [[external]] functions");
+    Error2(DQERR_VARARGS_NOT_ALLOWED);
   }
-  if (tfunc->has_varargs && tfunc->params.empty())
+  else if (tfunc->has_varargs && tfunc->params.empty())
   {
-    Error("Variadic functions must have at least one named parameter before '...'");
+    Error2(DQERR_VARARGS_ALONE);
   }
 
   scf->SkipWhite();
@@ -497,14 +497,14 @@ void ODqCompParser::ParseFunction(bool aexternal)
     string frtname;
     if (not scf->ReadIdentifier(frtname))
     {
-      Error("Function return type identifier expected after \"->\"");
+      Error2(DQERR_FUNC_RETTYPE_EXPECTED);
     }
     else
     {
       tfunc->rettype = cur_mod_scope->FindType(frtname);
       if (not tfunc->rettype)
       {
-        Error(format("Unknown function return type \"{}\"", frtname));
+        Error2(DQERR_TYPE_UNKNOWN, frtname);
       }
     }
   }
@@ -522,7 +522,7 @@ void ODqCompParser::ParseFunction(bool aexternal)
     scf->SkipWhite();
     if (not scf->CheckSymbol(";"))
     {
-      Error("';' expected after external function declaration");
+      Error2(DQERR_FUNC_NO_BODY_ALLOWED_AFTER, "external function declaration");
     }
     curvsfunc = nullptr;
     return;
@@ -537,7 +537,7 @@ void ODqCompParser::ParseFunction(bool aexternal)
   // check if the result is set
   if (vsfunc->vsresult and not vsfunc->vsresult->initialized)
   {
-    Error(format("Function \"{}\" result is not set", vsfunc->name), &vsfunc->scpos_endfunc);
+    Error2(DQERR_FUNC_RESULT_NOT_SET, vsfunc->name, &vsfunc->scpos_endfunc);
   }
 
   curvsfunc = nullptr;
@@ -725,14 +725,14 @@ OType * ODqCompParser::ParseTypeSpec()
   scf->SkipWhite();
   if (not scf->ReadIdentifier(stype))
   {
-    Error("Type identifier expected");
+    Error2(DQERR_TYPE_ID_EXP);
     return nullptr;
   }
 
   OType * ptype = cur_mod_scope->FindType(stype);
   if (not ptype)
   {
-    Error(format("Unknown type \"{}\"", stype), &scf->prevpos);
+    Error2(DQERR_TYPE_UNKNOWN, stype, &scf->prevpos);
     return nullptr;
   }
   ptype = ptype->ResolveAlias();
@@ -752,18 +752,18 @@ OType * ODqCompParser::ParseTypeSpec()
       int64_t maxlen;
       if (not scf->ReadInt64Value(maxlen))
       {
-        Error("cstring size (integer) expected");
+        Error2(DQERR_CSTR_SIZE_EXPECTED);
         return nullptr;
       }
       if (maxlen <= 0)
       {
-        Error("cstring size must be a positive integer");
+        Error2(DQERR_CSTR_SIZE_EXPECTED);
         return nullptr;
       }
       scf->SkipWhite();
       if (not scf->CheckSymbol("]"))
       {
-        Error("\"]\" expected after cstring size");
+        Error2(DQERR_SYM_EXPECTED_AFTER, "]", "cstring size");
         return nullptr;
       }
       return g_builtins->type_cstring->GetSizedType(uint32_t(maxlen));
