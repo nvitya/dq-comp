@@ -265,7 +265,7 @@ void OScFeederDq::ParseDirective()
   // some keyword must come here
   if (not ReadIdentifier(sid))
   {
-    PreprocError("Compiler directive keyword is missing. Syntax: #{keyword arguments}");
+    PreprocError2(DQERR_CDIR_KW_MISSING);
     return;
   }
 
@@ -308,7 +308,7 @@ void OScFeederDq::ParseDirective()
   }
   else  // unknown
   {
-    PreprocError(format("Unknown compiler directive \"#{{{} ... }}\"", sid));
+    PreprocError2(DQERR_CDIR_UNKNOWN, sid);
     return;
   }
 }
@@ -325,7 +325,7 @@ void OScFeederDq::ParseDirectiveDefine()
   // identifier must come here
   if (not ReadIdentifier(sid))
   {
-    PreprocError("#define error: identifier is missing");
+    PreprocError2(DQERR_CDIR_DEF_ID_MISSING);
     return;
   }
 
@@ -370,7 +370,7 @@ void OScFeederDq::ParseDirectiveInclude()
 
   if (not ReadQuotedString(sfname))
   {
-    PreprocError("Include file name is missing. Syntax: #{include \"...\" }");
+    PreprocError2(DQERR_CDIR_INC_FN_MISSING);
     return;
   }
 
@@ -398,7 +398,7 @@ void OScFeederDq::ParseDirectiveInclude()
     incfile = LoadFile(parentpath + sfname);
     if (!incfile)
     {
-      PreprocError(format("Include file loading error: \" மூல \"", sfname));
+      PreprocError2(DQERR_CDIR_INC_LOADING, sfname);
       return;
     }
   }
@@ -413,12 +413,12 @@ void OScFeederDq::ParseDirectiveInclude()
   SetCurPos(incfile, incfile->pstart);
 }
 
-void OScFeederDq::PreprocError(const string amsg, OScPosition * ascpos, bool atryrecover)
+void OScFeederDq::PreprocError2(const TDiagDefErr & adiag, string_view par1, string_view par2, string_view par3, OScPosition *ascpos, bool atryrecover)
 {
   OScPosition * epos = ascpos;
   if (!epos)  epos = &scpos_start_directive;
 
-  g_compiler->Error(amsg, epos);
+  g_compiler->Error2(adiag, par1, par2, par3, epos);
 
   // try to recover
   if (atryrecover)
@@ -440,6 +440,22 @@ void OScFeederDq::PreprocError(const string amsg, OScPosition * ascpos, bool atr
   }
 }
 
+void OScFeederDq::PreprocError2(const TDiagDefErr & adiag, string_view par1, string_view par2, OScPosition * ascpos, bool atryrecover)
+{
+  PreprocError2(adiag, par1, par2, "", ascpos, atryrecover);
+}
+
+void OScFeederDq::PreprocError2(const TDiagDefErr & adiag, string_view par1, OScPosition * ascpos, bool atryrecover)
+{
+  PreprocError2(adiag, par1, "", "", ascpos, atryrecover);
+}
+
+void OScFeederDq::PreprocError2(const TDiagDefErr & adiag, OScPosition * ascpos, bool atryrecover)
+{
+  PreprocError2(adiag, "", "", "", ascpos, atryrecover);
+}
+
+
 bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a conditional processed
 {
   string sid;
@@ -456,7 +472,7 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
 
     if (!ReadIdentifier(sid))
     {
-      PreprocError("Define symbol name is missing after ifdef");
+      PreprocError2(DQERR_CDIR_COND_ID_MISSING, "#" + aid);
       inactive_code = true;
     }
     else
@@ -509,13 +525,13 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
   {
     if (!curcond)
     {
-      PreprocError("#endif without previous #if...!");
+      PreprocError2(DQERR_CDIR_ENDIF_WITHOUT_IF);
     }
     else
     {
       if (curcond->startpos.scfile != curfile)
       {
-        PreprocError("#endif for different include file!");
+        PreprocError2(DQERR_CDIR_COND_WRONG_INC, "#endif", "#if");
       }
       inactive_code = curcond->parent_inactive;
       curcond = curcond->parent;
@@ -532,11 +548,11 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
   {
     if (!curcond)
     {
-      PreprocError("#else without #if...");
+      PreprocError2(DQERR_CDIR_ELSE_WITHOUT_IF);
     }
     else if (FCOND_ELSE == curcond->state)
     {
-      PreprocError(format("#else directive after previous #else at {}", curcond->elsepos.Format()));
+      PreprocError2(DQERR_CDIR_MULTIPLE_ELSE_PREVPOS, curcond->elsepos.Format());
     }
     else
     {
@@ -544,7 +560,7 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
 
       if (curcond->startpos.scfile != curfile)  // same include ?
       {
-        PreprocError("#else for #if... in different include file!");
+        PreprocError2(DQERR_CDIR_COND_WRONG_INC, "#else", "#if");
         curcond = new OScfCondition(curcond, scpos_start_directive, inactive_code);
         inactive_code = true;
       }
@@ -568,18 +584,18 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
     SkipSpaces();
     if (not ReadIdentifier(sid))
     {
-      PreprocError("Define symbol name is missing after ifdef");
+      PreprocError2(DQERR_CDIR_COND_ID_MISSING, "#"+aid);
       inactive_code = true;
     }
 
     if (!curcond)
     {
-      PreprocError(format("#{} without #if...", aid));
+      PreprocError2(DQERR_CDIR_ELCOND_WITHOUT_IF, "#"+aid);
       inactive_code = true;
     }
     else if (FCOND_ELSE == curcond->state)
     {
-      PreprocError(format("#elif... directive after previous #else at {}", curcond->elsepos.Format()));
+      PreprocError2(DQERR_CDIR_ELCOND_AFTER_ELSE_PREVPOS, "#"+aid, curcond->elsepos.Format()); // this message is not perfect
       inactive_code = true;
     }
     else
@@ -589,7 +605,7 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
 
       if (curcond->startpos.scfile != curfile)  // same include ?
       {
-        PreprocError("#elifdef for #if... in different include file!");
+        PreprocError2(DQERR_CDIR_COND_WRONG_INC, "#elifdef", "#if");
         curcond = new OScfCondition(curcond, scpos_start_directive, inactive_code);
         inactive_code = true;
       }
@@ -618,12 +634,12 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
   {
     if (!curcond)
     {
-      PreprocError("#elif without #if...");
+      PreprocError2(DQERR_CDIR_ELCOND_WITHOUT_IF, "#elif");
       inactive_code = true;
     }
     else if (FCOND_ELSE == curcond->state)
     {
-      PreprocError(format("#elif directive after previous #else at {}", curcond->elsepos.Format()));
+      PreprocError2(DQERR_CDIR_ELCOND_AFTER_ELSE_PREVPOS, "#elif", curcond->elsepos.Format());
       inactive_code = true;
     }
     else
@@ -632,7 +648,7 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
 
       if (curcond->startpos.scfile != curfile)
       {
-        PreprocError("#elif for #if... in different include file!");
+        PreprocError2(DQERR_CDIR_COND_WRONG_INC, "#elif", "#if");
         curcond = new OScfCondition(curcond, scpos_start_directive, inactive_code);
         inactive_code = true;
       }
@@ -675,7 +691,7 @@ bool OScFeederDq::FindDirectiveEnd()
     SkipSpaces();
     if (not CheckSymbol("}"))
     {
-      PreprocError("Compiler directive closer \"}\" is missing");
+      PreprocError2(DQERR_CDIR_CLOSER_MISSING);
       return false;
     }
   }

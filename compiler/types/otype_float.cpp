@@ -69,14 +69,14 @@ bool OValueFloat::CalculateConstant(OExpr * expr)
       OValSymConst * vsconst = dynamic_cast<OValSymConst *>(ex->pvalsym);
       if (not vsconst)
       {
-        g_compiler->ExpressionError("Non-constant symbol in float constant expression");
+        g_compiler->ExpressionError2(DQERR_CONSTEXPR_NONCONST_SYM, ex->pvalsym->name, "float");
         return false;
       }
 
       OValueFloat * v = dynamic_cast<OValueFloat *>(vsconst->pvalue);
       if (not v)
       {
-        g_compiler->ExpressionError("Float constant expression type error");
+        g_compiler->ExpressionError2(DQERR_TYPE_EXPECTED, "float", ex->ResolvedType()->name);
         return false;
       }
 
@@ -102,12 +102,16 @@ bool OValueFloat::CalculateConstant(OExpr * expr)
       else if (BINOP_SUB == ex->op)  value = vleft.value - vright.value;
       else if (BINOP_MUL == ex->op)  value = vleft.value * vright.value;
       else if (BINOP_DIV == ex->op)  value = vleft.value / vright.value;
-      else                           return false;
+      else
+      {
+        g_compiler->ExpressionError2(DQERR_OP_INVALID_FOR, GetBinopSymbol(ex->op), "float expression");
+        return false;
+      }
       return true;
     }
   }
 
-  g_compiler->ExpressionError("Float constant expression error");
+  g_compiler->ExpressionError2(DQERR_CONSTEXPR_ERROR, "float");
   return false;
 }
 

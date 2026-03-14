@@ -57,16 +57,22 @@ DEF_DQ_ERR(DQERR_MISSING_ASSIGN_FOR,               "EMissingAssign",          "M
 
 DEF_DQ_ERR(DQERR_SIZE_SPEC,                        "ESizeSpec",               "$1 size must be a positive integer");
 DEF_DQ_ERR(DQERR_ARRAY_SIZESPEC,                   "EArraySizeSpec",          "Array size (or \"]\" is expected");
+DEF_DQ_ERR(DQERR_ARRAY_CONSTEXPR,                  "EArrayConstExpr",         "Array constant expression error");
 
 DEF_DQ_ERR(DQERR_NOT_IMPLEMENTED_YET,              "ENotImplementedYet",      "$1 is not implemented yet");
 DEF_DQ_ERR(DQERR_NOT_SUPPORTED,                    "ENotSupported",           "$1 is not supported");
+
+DEF_DQ_ERR(DQERR_OP_INVALID_FOR,                   "EOpInvalid",              "Operation \"$1\" is invalid for $2");
+DEF_DQ_ERR(DQERR_OP_UNHANDLED_FOR,                 "EOpUnhandled",            "Unhandled operation \"$1\" for $2");
 
 DEF_DQ_ERR(DQERR_STMTBLK_START_MISSING,            "EStmtBlockStartMissing",  "\":\" is missing for statement block start");
 DEF_DQ_ERR(DQERR_STMTBLK_CLOSE_MISSING,            "EStmtBlockCloseMissing",  "Statement block closer \"$1\" is missing");
 DEF_DQ_ERR(DQERR_STMT_UNKNOWN,                     "EStmtUnknown",            "Unknown statement or function \"$1\"");
 
 DEF_DQ_ERR(DQERR_EXPR_WRONG_VALUE_FOR,             "EExprWrongValue",         "Wrong value expression for \"$1\"");
+DEF_DQ_ERR(DQERR_CONSTEXPR_ERROR,                  "EConstExprError",         "$1 constant expressions error");
 DEF_DQ_ERR(DQERR_CONSTEXPR_INVALID_FOR,            "EConstExprInvalid",       "Invalid constant expression for \"$1\"");
+DEF_DQ_ERR(DQERR_CONSTEXPR_NONCONST_SYM,           "EConstExprNonConstVs",    "Non-constant symbol \"$1\" in $2 constant expression");
 
 DEF_DQ_ERR(DQERR_MODULE_STATEMENT_EXPECTED,        "EModStatementExpected",   "Module statement keyword expected");
 DEF_DQ_ERR(DQERR_MODULE_STATEMENT_UNKNOWN,         "EModStatementUnknown",    "Unknown module statement \"$1\"");
@@ -83,6 +89,7 @@ DEF_DQ_ERR(DQERR_TYPE_ALREADY_DEFINED_IN,          "ETypeAlreadyDef",         "T
 DEF_DQ_ERR(DQERR_TYPEDEF_ASSIGN_FOR,               "ETypeDefAssign",          "Missing type definition assignment \"=\" for \"$1\"");
 
 DEF_DQ_ERR(DQERR_TYPEMISM_FOR_OP,                  "ETypeMismatchOp",         "Type mismatch for operation: \"$1\" $2 \"$3\"");
+DEF_DQ_ERR(DQERR_TYPE_EXPECTED,                    "ETypeExpected",           "\"$1\" type expected, got \"$2\"");
 
 
 DEF_DQ_ERR(DQERR_VS_UNKNOWN,                       "EVsUnknown",              "Unknown symbol \"$1\"");
@@ -92,8 +99,10 @@ DEF_DQ_ERR(DQERR_GLOBALVAR_INITVALUE,              "EGlobVarInitvalue",       "I
 
 DEF_DQ_ERR(DQERR_STRUCT_MBID_EXPECTED,             "EStructMemberId",         "Member id or \"enstruct\" expected");
 
+DEF_DQ_ERR(DQERR_ARR_ELEMCOUNT_MISM,               "EArrElemCount",           "Array element count mismatch: expected $1, got $2");
 DEF_DQ_ERR(DQERR_CSTR_SIZE_EXPECTED,               "ECstrSizeExpected",       "cstring size expected, example: cstring[n]");
 DEF_DQ_ERR(DQERR_CSTR_SIZE_INVALID,                "ECstrSizeInvalid",        "Invalid cstring size, it must be a positive integer");
+DEF_DQ_ERR(DQERR_CSTR_CONSTEXPR,                   "ECstrConstExpr",          "CString constant expression error: string literal expected");
 
 DEF_DQ_ERR(DQERR_VARARGS_NOT_ALLOWED,              "EVarargsNotAllowed",      "Variadic \"...\" is only allowed on [[external]] functions");
 DEF_DQ_ERR(DQERR_VARARGS_ALONE,                    "EVarargsAlone",           "Variadic functions must have at least one named parameter before '...'");
@@ -106,11 +115,25 @@ DEF_DQ_ERR(DQERR_FUNC_RESULT_NOT_SET,              "EFuncResultNotSet",       "F
 DEF_DQ_ERR(DQERR_FUNC_RESULT_SPECIFIED,            "EFuncResultSet",          "Function \"$1\" result is set for function returning no value");
 
 DEF_DQ_ERR(DQERR_CONDEXPR_MISSING_FOR,             "ECondExprMissing",        "Condition expression is mission for \"$1\"");
-DEF_DQ_ERR(DQERR_MULTIPLE_ELSE,                    "EMultipleElse",           "Multiple else branch detected");
+DEF_DQ_ERR(DQERR_MULTIPLE_ELSE,                    "EMultipleElse",           "Multiple else branches detected");
 
 DEF_DQ_ERR(DQERR_EXPR_INVALID_ADDROF,              "EExprAddrofInvalid",      "Invalid expression for the address of \"&\" operator");
 DEF_DQ_ERR(DQERR_EXPR_VS_NOT_ADDRESSABLE,          "EExprVsNotAddressable",   "\"$1\" is not a variable, cannot take its address");
 
+
+DEF_DQ_ERR(DQERR_CDIR_KW_MISSING,                  "ECDirKwMissing",          "Compiler directive keyword is missing");
+DEF_DQ_ERR(DQERR_CDIR_CLOSER_MISSING,              "ECDirClose",              "Compiler directive closer \"}\" is missing");
+DEF_DQ_ERR(DQERR_CDIR_UNKNOWN,                     "ECDirUnknown",            "Unknown compiler directive \"$1\"");
+DEF_DQ_ERR(DQERR_CDIR_DEF_ID_MISSING,              "ECDirDefIdMissing",       "#define error: identifier is missing");
+DEF_DQ_ERR(DQERR_CDIR_COND_ID_MISSING,             "ECDirCondIdMissing",      "$1 error: identifier is missing");
+DEF_DQ_ERR(DQERR_CDIR_ELCOND_WITHOUT_IF,           "ECDirElCondWithoutIf",    "$1 without previous #if...!");
+DEF_DQ_ERR(DQERR_CDIR_ELCOND_AFTER_ELSE_PREVPOS,   "ECDirElCondAfterElse",    "$1 after previous #else at position $2");
+DEF_DQ_ERR(DQERR_CDIR_ENDIF_WITHOUT_IF,            "ECDirEndifWithoutIf",     "#endif without previous #if...!");
+DEF_DQ_ERR(DQERR_CDIR_ELSE_WITHOUT_IF,             "ECDirElseWithoutIf",      "#else without previous #if...!");
+DEF_DQ_ERR(DQERR_CDIR_MULTIPLE_ELSE_PREVPOS,       "ECDirMultipleElse",       "Multiple #else branches detected, previous position: $1");
+DEF_DQ_ERR(DQERR_CDIR_COND_WRONG_INC,              "ECDirCondWrongInc",       "$1 for $2 in a different include file!");
+DEF_DQ_ERR(DQERR_CDIR_INC_FN_MISSING,              "ECDirIncFileNameMissing", "#include error: file name is missing");
+DEF_DQ_ERR(DQERR_CDIR_INC_LOADING,                 "ECDirIncFileLoad",        "Error loading #include file \"$1\"");
 
 
 //-----------------------------------------------------------------------------

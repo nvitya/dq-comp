@@ -54,14 +54,14 @@ bool OValueBool::CalculateConstant(OExpr * expr)
       OValSymConst * vsconst = dynamic_cast<OValSymConst *>(ex->pvalsym);
       if (not vsconst)
       {
-        g_compiler->ExpressionError("Non-constant symbol in bool constant expression");
+        g_compiler->ExpressionError2(DQERR_CONSTEXPR_NONCONST_SYM, ex->pvalsym->name, "bool");
         return false;
       }
 
       OValueBool * vint = dynamic_cast<OValueBool *>(vsconst->pvalue);
       if (not vint)
       {
-        g_compiler->ExpressionError("Bool constant expression type error");
+        g_compiler->ExpressionError2(DQERR_TYPE_EXPECTED, "bool", ex->ResolvedType()->name);
         return false;
       }
 
@@ -137,6 +137,6 @@ bool OValueBool::CalculateConstant(OExpr * expr)
     }
   }
 
-  g_compiler->ExpressionError("Bool constant expression error");
+  g_compiler->ExpressionError2(DQERR_CONSTEXPR_ERROR, "bool");
   return false;
 }

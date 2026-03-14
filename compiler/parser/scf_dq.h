@@ -17,6 +17,7 @@
 #include <vector>
 #include "stdint.h"
 #include "scf_base.h"
+#include "errorcodes.h"
 
 using namespace std;
 
@@ -83,7 +84,11 @@ protected:
   bool                 directive_expr_mode = false;
 
   void ParseDirective();
-  void PreprocError(const string amsg, OScPosition * ascpos = nullptr, bool atryrecover = true);
+
+  void PreprocError2(const TDiagDefErr & adiag, string_view par1, string_view par2, string_view par3, OScPosition * ascpos = nullptr, bool atryrecover = true);
+  void PreprocError2(const TDiagDefErr & adiag, string_view par1, string_view par2, OScPosition * ascpos = nullptr, bool atryrecover = true);
+  void PreprocError2(const TDiagDefErr & adiag, string_view par1, OScPosition * ascpos = nullptr, bool atryrecover = true);
+  void PreprocError2(const TDiagDefErr & adiag, OScPosition * ascpos = nullptr, bool atryrecover = true);
 
   void ParseDirectiveInclude();
   void ParseDirectiveDefine();

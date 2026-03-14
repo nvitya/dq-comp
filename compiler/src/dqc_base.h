@@ -51,7 +51,7 @@ public:
   void Hint(const string amsg, OScPosition * ascpos = nullptr);
 
   // new error definition until the old-style is eliminated
-  void Error2(const TDiagDefErr & adiag, string_view par1, string_view par2, string_view par3, OScPosition * ascpos = nullptr);  // with two str params
+  void Error2(const TDiagDefErr & adiag, string_view par1, string_view par2, string_view par3, OScPosition * ascpos = nullptr);  // with three str params
   void Error2(const TDiagDefErr & adiag, string_view par1, string_view par2, OScPosition * ascpos = nullptr);  // with two str params
   void Error2(const TDiagDefErr & adiag, string_view par1, OScPosition * ascpos = nullptr);  // with one str param
   void Error2(const TDiagDefErr & adiag, OScPosition * ascpos = nullptr);  // with no str params

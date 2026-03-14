@@ -123,6 +123,6 @@ bool OValueCString::CalculateConstant(OExpr * expr)
     return true;
   }
 
-  g_compiler->ExpressionError("CString constant expression error: string literal expected");
+  g_compiler->ExpressionError2(DQERR_CSTR_CONSTEXPR);
   return false;
 }
