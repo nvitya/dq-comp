@@ -17,6 +17,45 @@
 #include "otype_cstring.h"
 #include <llvm/IR/Intrinsics.h>
 
+string GetBinopSymbol(EBinOp op)
+{
+  if (BINOP_ADD   == op)  return "+";
+  if (BINOP_SUB   == op)  return "-";
+  if (BINOP_MUL   == op)  return "*";
+  if (BINOP_DIV   == op)  return "/";
+  if (BINOP_IDIV  == op)  return "IDIV";
+  if (BINOP_IMOD  == op)  return "IMOD";
+
+  if (BINOP_IAND  == op)  return "AND";
+  if (BINOP_IOR   == op)  return "OR";
+  if (BINOP_IXOR  == op)  return "XOR";
+  if (BINOP_ISHL  == op)  return "<<";
+  if (BINOP_ISHR  == op)  return ">>";
+
+  return format("int({})", int(op));
+}
+
+string GetCompareSymbol(ECompareOp op)
+{
+  if (COMPOP_EQ == op)  return "==";
+  if (COMPOP_NE == op)  return "<>";
+  if (COMPOP_LT == op)  return "<";
+  if (COMPOP_LE == op)  return "<=";
+  if (COMPOP_GT == op)  return ">";
+  if (COMPOP_GE == op)  return ">=";
+
+  return format("int({})", int(op));
+}
+
+string GetLogiOpSymbol(ELogicalOp op)
+{
+  if (LOGIOP_OR  == op)  return "or";
+  if (LOGIOP_AND == op)  return "and";
+  if (LOGIOP_XOR == op)  return "xor";
+
+  return format("int({})", int(op));
+}
+
 /* ctor */ OExprTypeConv::OExprTypeConv(OType * dsttype, OExpr * asrc)
 {
   ptype = dsttype;
@@ -767,3 +806,4 @@ LlValue * OCStringLitToDescExpr::Generate(OScope * scope)
       1, "strlit.desc.size");
   return ll_desc;
 }
+

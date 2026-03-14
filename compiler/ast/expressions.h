@@ -120,6 +120,8 @@ enum EBinOp
   BINOP_ISHR
 };
 
+string GetBinopSymbol(EBinOp op);
+
 class OBinExpr : public OExpr
 {
 public:
@@ -142,6 +144,8 @@ enum ECompareOp
   COMPOP_GE
 };
 
+string GetCompareSymbol(ECompareOp op);
+
 class OCompareExpr : public OExpr
 {
 public:
@@ -160,6 +164,8 @@ enum ELogicalOp
   LOGIOP_XOR
 };
 // "not" implemented as an individual expression
+
+string GetLogiOpSymbol(ELogicalOp op);
 
 class OLogicalExpr : public OExpr
 {

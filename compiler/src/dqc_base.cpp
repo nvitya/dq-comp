@@ -50,7 +50,7 @@ bool ODqCompBase::ReservedWord(const string aname)
   }
 }
 
-string ODqCompBase::FormatDiagMsg(string_view atext, string_view par1, string_view par2)
+string ODqCompBase::FormatDiagMsg(string_view atext, string_view par1, string_view par2, string_view par3)
 {
   string msg(atext);
   size_t pos;
@@ -75,6 +75,16 @@ string ODqCompBase::FormatDiagMsg(string_view atext, string_view par1, string_vi
     }
   }
 
+  if (!par3.empty())
+  {
+    pos = 0;
+    while ((pos = msg.find("$3", pos)) != string::npos)
+    {
+      msg.replace(pos, 2, par3);
+      pos += par3.size();
+    }
+  }
+
   return msg;
 }
 
@@ -89,27 +99,31 @@ void ODqCompBase::Error(const string amsg, OScPosition * ascpos)
   ++errorcnt;
 }
 
-void ODqCompBase::Error2(const TDiagDefErr & adiag, string_view par1, string_view par2, OScPosition * ascpos)
+void ODqCompBase::Error2(const TDiagDefErr & adiag, string_view par1, string_view par2, string_view par3, OScPosition * ascpos)
 {
   OScPosition * epos = ascpos;
   if (!epos) epos = errorpos;
   if (!epos) epos = &scpos_statement_start;
 
-  print("{} ERROR({}): {}\n", epos->Format(), adiag.strid, FormatDiagMsg(adiag.text, par1, par2));
+  print("{} ERROR({}): {}\n", epos->Format(), adiag.strid, FormatDiagMsg(adiag.text, par1, par2, par3));
 
   ++errorcnt;
 }
 
-void ODqCompBase::Error2(const TDiagDefErr & adiag, OScPosition * ascpos)
+void ODqCompBase::Error2(const TDiagDefErr & adiag, string_view par1, string_view par2, OScPosition * ascpos)
 {
-  Error2(adiag, "", "", ascpos);
+  Error2(adiag, par1, par2, "", ascpos);
 }
 
 void ODqCompBase::Error2(const TDiagDefErr & adiag, string_view par1, OScPosition * ascpos)
 {
-  Error2(adiag, par1, "", ascpos);
+  Error2(adiag, par1, "", "", ascpos);
 }
 
+void ODqCompBase::Error2(const TDiagDefErr & adiag, OScPosition * ascpos)
+{
+  Error2(adiag, "", "", "", ascpos);
+}
 
 void ODqCompBase::StatementError(const string amsg, OScPosition * scpos, bool atryrecover)
 {
@@ -135,7 +149,7 @@ void ODqCompBase::StatementError(const string amsg, OScPosition * scpos, bool at
   scf->SkipWhite();
 }
 
-void ODqCompBase::StatementError2(const TDiagDefErr & adiag, string_view par1, string_view par2, OScPosition * scpos, bool atryrecover)
+void ODqCompBase::StatementError2(const TDiagDefErr & adiag, string_view par1, string_view par2, string_view par3, OScPosition * scpos, bool atryrecover)
 {
   OScPosition log_scpos(scf->curfile, scf->curp);
 
@@ -144,7 +158,7 @@ void ODqCompBase::StatementError2(const TDiagDefErr & adiag, string_view par1, s
     log_scpos.Assign(*scpos);
   }
 
-  Error2(adiag, par1, par2, &log_scpos);
+  Error2(adiag, par1, par2, par3, &log_scpos);
 
   // try to recover
   if (atryrecover)
@@ -158,14 +172,19 @@ void ODqCompBase::StatementError2(const TDiagDefErr & adiag, string_view par1, s
   scf->SkipWhite();
 }
 
-void ODqCompBase::StatementError2(const TDiagDefErr & adiag, OScPosition * scpos, bool atryrecover)
+void ODqCompBase::StatementError2(const TDiagDefErr & adiag, string_view par1, string_view par2, OScPosition * scpos, bool atryrecover)
 {
-  StatementError2(adiag, "", "", scpos, atryrecover);
+  StatementError2(adiag, par1, par2, "", scpos, atryrecover);
 }
 
 void ODqCompBase::StatementError2(const TDiagDefErr & adiag, string_view par1, OScPosition * scpos, bool atryrecover)
 {
-  StatementError2(adiag, par1, "", scpos, atryrecover);
+  StatementError2(adiag, par1, "", "", scpos, atryrecover);
+}
+
+void ODqCompBase::StatementError2(const TDiagDefErr & adiag, OScPosition * scpos, bool atryrecover)
+{
+  StatementError2(adiag, "", "", "", scpos, atryrecover);
 }
 
 

@@ -169,7 +169,7 @@ void ODqCompParser::ParseVarDecl()  // global var declaration (the local var is 
 
   if (g_module->ValSymDeclared(sid, &pvalsym))
   {
-    StatementError2(DQERR_VAR_ALREADY_DECLARED_WITH_TYPE, sid, pvalsym->ptype->name, &scf->prevpos);
+    StatementError2(DQERR_VS_ALREADY_DECL_TYPE, sid, pvalsym->ptype->name, &scf->prevpos);
     return;
   }
 
@@ -195,7 +195,7 @@ void ODqCompParser::ParseVarDecl()  // global var declaration (the local var is 
     {
       if (not vdecl->initvalue->CalculateConstant(initexpr))
       {
-        StatementError("Error in the initial value expression", &scf->prevpos);
+        StatementError2(DQERR_GLOBALVAR_INITVALUE, sid, &scf->prevpos);
       }
     }
     delete initexpr;
@@ -224,20 +224,20 @@ void ODqCompParser::ParseConstDecl()
   scf->SkipWhite();
   if (not scf->ReadIdentifier(sid))
   {
-    StatementError("Identifier is expected after \"var\". Syntax: \"const identifier : type = value;\"");
+    StatementError2(DQERR_ID_EXP_AFTER, "var");
     return;
   }
 
   if (g_module->ValSymDeclared(sid, &pvalsym))
   {
-    StatementError(format("Constant/Variable \"{}\" is already declared with the type \"{}\"", sid, pvalsym->ptype->name), &scf->prevpos);
+    StatementError2(DQERR_VS_ALREADY_DECL_TYPE, sid, pvalsym->ptype->name, &scf->prevpos);
     return;
   }
 
   scf->SkipWhite();
   if (not scf->CheckSymbol(":"))
   {
-    StatementError("Type specifier \":\" is expected after \"const\". Syntax: \"const identifier : type = value;\"");
+    StatementError2(DQERR_TYPE_SPECIFIER_EXP_AFTER, sid);
     return;
   }
 
@@ -250,7 +250,7 @@ void ODqCompParser::ParseConstDecl()
   scf->SkipWhite();
   if (not scf->CheckSymbol("="))  // variable initializer specified
   {
-    StatementError("Assignment \"=\" is expected after \"const\". Syntax: \"const identifier : type = value;\"");
+    StatementError2(DQERR_MISSING_ASSIGN_FOR, sid);
     return;
   }
 
@@ -260,14 +260,14 @@ void ODqCompParser::ParseConstDecl()
   if (not valueexpr)
   {
     delete valueexpr;
-    StatementError("Wrong value expression", &expos);
+    StatementError2(DQERR_EXPR_WRONG_VALUE_FOR, sid, &expos);
     return;
   }
 
   OValue * pvalue = ptype->CreateValue();
   if (not pvalue->CalculateConstant(valueexpr))
   {
-    StatementError("Error evaluating value expression", &expos);
+    StatementError2(DQERR_CONSTEXPR_INVALID_FOR, sid, &expos);
 
     delete valueexpr;
     delete pvalue;
@@ -297,20 +297,20 @@ void ODqCompParser::ParseTypeDecl()
   scf->SkipWhite();
   if (not scf->ReadIdentifier(sid))
   {
-    StatementError("Identifier is expected after \"type\". Syntax: \"type identifier = type;\"");
+    StatementError2(DQERR_ID_EXP_AFTER, "type");
     return;
   }
 
   if (g_module->TypeDeclared(sid, &foundtype))
   {
-    StatementError(format("Type \"{}\" is already declared", sid), &scf->prevpos);
+    StatementError2(DQERR_TYPE_ALREADY_DEFINED, sid, &scf->prevpos);
     return;
   }
 
   scf->SkipWhite();
   if (not scf->CheckSymbol("="))
   {
-    StatementError("Assignment \"=\" is expected after type name. Syntax: \"type identifier = type;\"");
+    StatementError2(DQERR_TYPEDEF_ASSIGN_FOR, sid);
     return;
   }
 
@@ -334,7 +334,7 @@ void ODqCompParser::ParseStructDecl()
   scf->SkipWhite();
   if (not scf->ReadIdentifier(sname))
   {
-    StatementError("Struct name expected after \"struct\"");
+    StatementError2(DQERR_ID_EXP_AFTER, "struct");
     return;
   }
 
@@ -356,14 +356,14 @@ void ODqCompParser::ParseStructDecl()
 
     if (not scf->ReadIdentifier(membername))
     {
-      StatementError("Member name or \"endstruct\" expected");
+      StatementError2(DQERR_STRUCT_MBID_EXPECTED);
       break;
     }
 
     scf->SkipWhite();
     if (not scf->CheckSymbol(":"))
     {
-      StatementError("\":\" expected after member name");
+      StatementError2(DQERR_TYPE_SPECIFIER_EXP_AFTER, membername);
       break;
     }
 
@@ -373,7 +373,7 @@ void ODqCompParser::ParseStructDecl()
     scf->SkipWhite();
     if (not scf->CheckSymbol(";"))
     {
-      StatementError("\";\" expected after member type");
+      StatementError2(DQERR_MISSING_SEMICOLON_AFTER, "member definition");
       break;
     }
 
@@ -567,7 +567,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
   }
   else
   {
-    StatementError("\":\" is missing for statement block start");
+    StatementError2(DQERR_STMTBLK_START_MISSING);
     block_closer = blockend;
   }
 
@@ -596,7 +596,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
     if (scf->Eof())
     {
       if (rendstr)  *rendstr = "";
-      StatementError(format("Statement block closer \"{}\" is missing", block_closer));
+      StatementError2(DQERR_STMTBLK_CLOSE_MISSING, block_closer);
       break;
     }
 
@@ -608,7 +608,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
       continue;
     }
 
-    if (scf->CheckSymbol("@"))
+    if (scf->CheckSymbol("@"))  // namespace reference
     {
       pvalsym = ResolveNamespaceValSym();
       if (!pvalsym)
@@ -631,14 +631,14 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
         continue;
       }
 
-      StatementError(format("Unknown statement/function \"{}\"", pvalsym->name));
+      StatementError2(DQERR_STMT_UNKNOWN, pvalsym->name);
       continue;
     }
 
     // there should be a normal statement
     if (!scf->ReadIdentifier(sid))
     {
-      StatementError("keyword or identifier is missing");
+      StatementError2(DQERR_KW_OR_ID_MISSING);
       continue;
     }
 
@@ -646,7 +646,6 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
     {
       if ("var" == sid)  // local variable declaration
       {
-        //StatementError("var statement parsing is not implemented");
         ParseStmtVar();
         continue;
       }
@@ -667,7 +666,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
       }
       else
       {
-        StatementError(format("Statement \"{}\" not implemented yet", sid));
+        StatementError2(DQERR_NOT_IMPLEMENTED_YET, format("Statement \"{}\"", sid));
         continue;
       }
     }
@@ -676,7 +675,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
       pvalsym = curscope->FindValSym(sid, nullptr, true);
       if (not pvalsym)
       {
-        StatementError(format("Unknown identifier \"{}\"", sid));
+        StatementError2(DQERR_VS_UNKNOWN, sid);
         continue;
       }
 
@@ -698,7 +697,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
 
       // unknown
 
-      StatementError(format("Unknown statement/function \"{}\"", sid));
+      StatementError2(DQERR_STMT_UNKNOWN, sid);
       continue;
     }
   }
@@ -777,7 +776,7 @@ OType * ODqCompParser::ParseTypeSpec()
   {
     if (is_pointer)
     {
-      Error("Pointer-to-array is not supported");
+      Error2(DQERR_NOT_SUPPORTED, "Pointer-to-array");
       return nullptr;
     }
 
@@ -789,7 +788,7 @@ OType * ODqCompParser::ParseTypeSpec()
     }
     else if (scf->CheckSymbol("..."))
     {
-      Error("Dynamic arrays (int[...]) are not yet implemented");
+      Error2(DQERR_NOT_IMPLEMENTED_YET, "Dynamic array (int[...])");
       scf->ReadTo("]");
       scf->CheckSymbol("]");
       return nullptr;
@@ -800,18 +799,18 @@ OType * ODqCompParser::ParseTypeSpec()
       int64_t arrlen;
       if (not scf->ReadInt64Value(arrlen))
       {
-        Error("Array size (integer) or \"]\" expected");
+        Error2(DQERR_ARRAY_SIZESPEC);
         return nullptr;
       }
       if (arrlen <= 0)
       {
-        Error("Array size must be a positive integer");
+        Error2(DQERR_SIZE_SPEC, "Array");
         return nullptr;
       }
       scf->SkipWhite();
       if (not scf->CheckSymbol("]"))
       {
-        Error("\"]\" expected after array size");
+        Error2(DQERR_SYM_EXPECTED_AFTER, "array size");
         return nullptr;
       }
       ptype = ptype->GetArrayType(uint32_t(arrlen));
@@ -833,7 +832,7 @@ void ODqCompParser::ParseStmtReturn()
 
   if (not curvsfunc->vsresult)
   {
-    Error(format("The function \"{}\" has no return value, \";\" expected after the return", curvsfunc->name));
+    Error2(DQERR_FUNC_RESULT_SPECIFIED, curvsfunc->name);
     return;
   }
 
@@ -841,7 +840,7 @@ void ODqCompParser::ParseStmtReturn()
   scf->SkipWhite();
   if (!scf->CheckSymbol(";"))
   {
-    Error("\";\" is missing after the return expression");
+    Error2(DQERR_MISSING_SEMICOLON_AFTER, "the return expression");
   }
   if (expr)
   {
@@ -860,7 +859,7 @@ void ODqCompParser::ParseStmtWhile()
   OExpr * cond = ParseExpression();
   if (!cond)
   {
-    StatementError("While condition is missing");
+    StatementError2(DQERR_CONDEXPR_MISSING_FOR, "while");
     return;
   }
 
@@ -881,7 +880,7 @@ void ODqCompParser::ParseStmtIf()
   OExpr * cond = ParseExpression();
   if (!cond)
   {
-    StatementError("if condition is missing");
+    StatementError2(DQERR_CONDEXPR_MISSING_FOR, "if");
     return;
   }
 
@@ -905,7 +904,7 @@ void ODqCompParser::ParseStmtIf()
       cond = ParseExpression();
       if (!cond)
       {
-        StatementError("elif condition is missing");
+        StatementError2(DQERR_CONDEXPR_MISSING_FOR, "elif");
         break;
       }
       branch = st->AddBranch(cond);
@@ -916,7 +915,7 @@ void ODqCompParser::ParseStmtIf()
     {
       if (st->else_present)
       {
-        StatementError("if: else branch was already presented.");
+        StatementError2(DQERR_MULTIPLE_ELSE);
         break;
       }
       st->else_present = true;
@@ -1191,7 +1190,7 @@ OLValueExpr * ODqCompParser::ParseAddressableExpr()
   OLValueExpr * lval = dynamic_cast<OLValueExpr *>(expr);
   if (!lval)
   {
-    Error("Address-of requires an lvalue expression");
+    Error2(DQERR_EXPR_INVALID_ADDROF);  // Address-of requires an lvalue expression;
     delete expr;
     return nullptr;
   }
@@ -1199,7 +1198,7 @@ OLValueExpr * ODqCompParser::ParseAddressableExpr()
   OValSym * varref = dynamic_cast<OLValueVar *>(lval) ? static_cast<OLValueVar *>(lval)->pvalsym : nullptr;
   if (varref and VSK_VARIABLE != varref->kind and VSK_PARAMETER != varref->kind)
   {
-    Error(format("\"{}\" is not a variable, cannot take its address", varref->name));
+    Error2(DQERR_EXPR_VS_NOT_ADDRESSABLE, varref->name);
     delete expr;
     return nullptr;
   }
@@ -1233,7 +1232,7 @@ OExpr * ODqCompParser::CreateBinExpr(EBinOp op, OExpr * left, OExpr * right)
   {
     if ((tkl != TK_INT) or (tkr != TK_INT))
     {
-      Error(format("Types mismatch for BinOp({}): \"{}\", \"{}\"", int(op), left->ptype->name, right->ptype->name));
+      Error2(DQERR_TYPEMISM_FOR_OP, left->ptype->name, GetBinopSymbol(op), right->ptype->name);
       return nullptr;
     }
   }
@@ -1265,7 +1264,7 @@ OExpr * ODqCompParser::CreateBinExpr(EBinOp op, OExpr * left, OExpr * right)
     }
     else
     {
-      Error(format("Types mismatch for BinOp({}): \"{}\", \"{}\"", int(op), left->ptype->name, right->ptype->name));
+      Error2(DQERR_TYPEMISM_FOR_OP, left->ptype->name, GetBinopSymbol(op), right->ptype->name);
       return nullptr;
     }
   }
