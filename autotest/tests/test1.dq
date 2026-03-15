@@ -1,0 +1,18 @@
+// dq auto-test file
+
+//#define ERRORTEST
+
+#ifdef ERRORTEST
+
+var i = 1; //?error(TypeSpecExpected)
+
+#else
+
+[[external]] function printf(fmt : ^cchar, ...) -> int;
+
+function main() -> int:
+  printf("Hello\n");      //?stdout-cap("Hello\n")
+  return 0;
+endfunc
+
+#endif
