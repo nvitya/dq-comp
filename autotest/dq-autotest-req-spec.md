@@ -429,6 +429,50 @@ Recommended naming:
 - `file.dq:error`
 - `file.dq:run`
 
+For single-file execution, if a file contains both an error variant and a runtime variant, the runner shall execute the error variant first and the runtime variant second.
+
+### 7.7 Single-file error-test console format
+
+For single-file execution, the error variant shall use a sparse console format that prints only failures.
+
+Successful diagnostic matches shall not be printed.
+
+The section header shall be:
+
+```text
+Error test: "test1.dq"
+```
+
+Failure detail lines shall use the first column as the status marker.
+
+The initial markers shall be:
+
+- `-` for a missing expected diagnostic
+- `?` for an unexpected reported diagnostic
+
+For a missing expected diagnostic, the runner shall print:
+
+```text
+- test1.dq(7) missing ERROR(TypeUnknown)
+```
+
+For an unexpected reported diagnostic, the runner shall print the compiler diagnostic line prefixed with `?`:
+
+```text
+? test1.dq(10,1) ERROR(ModStatementUnknown): Unknown module statement "asdf"
+```
+
+If at least one failure detail line is printed, the runner shall print separator lines before and after the detail block.
+
+The final status line shall use one of the following exact forms:
+
+```text
+Error test PASSED.
+Error test FAILED: 2 failures detected.
+```
+
+In the failed form, the failure count shall equal the number of reported error-test mismatches, not the number of compiler diagnostics.
+
 For failed runtime variants, the preserved artifacts and console report shall include the full stdout stream, the full stderr stream, and the subset of output lines that remained unchecked after expectation matching.
 
 ---

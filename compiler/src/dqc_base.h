@@ -65,7 +65,7 @@ public:
   // same as Error2() + calls SkipCurStatement()
   void StatementError2(const TDiagDefErr & adiag, string_view par1, string_view par2, string_view par3, OScPosition * scpos = nullptr, bool atryrecover = true);
   void StatementError2(const TDiagDefErr & adiag, string_view par1, string_view par2, OScPosition * scpos = nullptr, bool atryrecover = true);
-  void StatementError2(const TDiagDefErr & adiag, string_view par1, OScPosition * scpos = nullptr, bool atryrecover = true);
+  void StatementError(const TDiagDefErr & adiag, string_view par1, OScPosition * scpos = nullptr, bool atryrecover = true);
   void StatementError2(const TDiagDefErr & adiag, OScPosition * scpos = nullptr, bool atryrecover = true);
 
   // Error recovery utilities

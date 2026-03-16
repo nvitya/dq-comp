@@ -11,10 +11,13 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.6.2"
+#define DQ_COMPILER_VERSION  "0.6.3"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.6.3:
+  - Improved statement error recovery
+  - quoted string escape sequences parsing fix
 v0.6.2:
   - Error system migration finished, all errors/warnings/hints produce short text identifiers
 v0.6.1:

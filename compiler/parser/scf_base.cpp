@@ -763,10 +763,11 @@ bool OScFeederBase::ReadQuotedString(string & rvalue)
   char    stopchars[5] = {startquote, '\\', '\n', '\r', 0};
 
   ++curp;  // skip "
-  prevp = curp;
 
   while (true)
   {
+    prevp = curp;
+
     if (not ReadTo(&stopchars[0]))  // should not happen
     {
       curp = savedpos;

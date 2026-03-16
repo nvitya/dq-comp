@@ -141,7 +141,7 @@ void ODqCompParser::ParseModule()
     }
     else  // unknown
     {
-      StatementError2(DQERR_MODULE_STATEMENT_UNKNOWN, sid, &scpos_statement_start);
+      StatementError(DQERR_MODULE_STATEMENT_UNKNOWN, sid, &scpos_statement_start);
     }
   }
 
@@ -164,7 +164,7 @@ void ODqCompParser::ParseVarDecl()  // global var declaration (the local var is 
   scf->SkipWhite();
   if (not scf->ReadIdentifier(sid))
   {
-    StatementError2(DQERR_ID_EXP_AFTER, "var");
+    StatementError(DQERR_ID_EXP_AFTER, "var");
     return;
   }
 
@@ -177,12 +177,16 @@ void ODqCompParser::ParseVarDecl()  // global var declaration (the local var is 
   scf->SkipWhite();
   if (not scf->CheckSymbol(":"))
   {
-    StatementError2(DQERR_TYPE_SPECIFIER_EXP_AFTER, sid);
+    StatementError(DQERR_TYPE_SPECIFIER_EXP_AFTER, sid);
     return;
   }
 
   ptype = ParseTypeSpec();
-  if (not ptype)  return;
+  if (not ptype)
+  {
+    SkipCurStatement();
+    return;
+  }
 
   ODecl * vdecl = AddDeclVar(scpos_statement_start, sid, ptype);
 
@@ -196,7 +200,7 @@ void ODqCompParser::ParseVarDecl()  // global var declaration (the local var is 
     {
       if (not vdecl->initvalue->CalculateConstant(initexpr))
       {
-        StatementError2(DQERR_GLOBALVAR_INITVALUE, sid, &scf->prevpos);
+        StatementError(DQERR_GLOBALVAR_INITVALUE, sid, &scf->prevpos);
       }
     }
     delete initexpr;
@@ -225,7 +229,7 @@ void ODqCompParser::ParseConstDecl()
   scf->SkipWhite();
   if (not scf->ReadIdentifier(sid))
   {
-    StatementError2(DQERR_ID_EXP_AFTER, "var");
+    StatementError(DQERR_ID_EXP_AFTER, "var");
     return;
   }
 
@@ -238,7 +242,7 @@ void ODqCompParser::ParseConstDecl()
   scf->SkipWhite();
   if (not scf->CheckSymbol(":"))
   {
-    StatementError2(DQERR_TYPE_SPECIFIER_EXP_AFTER, sid);
+    StatementError(DQERR_TYPE_SPECIFIER_EXP_AFTER, sid);
     return;
   }
 
@@ -251,7 +255,7 @@ void ODqCompParser::ParseConstDecl()
   scf->SkipWhite();
   if (not scf->CheckSymbol("="))  // variable initializer specified
   {
-    StatementError2(DQERR_MISSING_ASSIGN_FOR, sid);
+    StatementError(DQERR_MISSING_ASSIGN_FOR, sid);
     return;
   }
 
@@ -261,14 +265,14 @@ void ODqCompParser::ParseConstDecl()
   if (not valueexpr)
   {
     delete valueexpr;
-    StatementError2(DQERR_EXPR_WRONG_VALUE_FOR, sid, &expos);
+    StatementError(DQERR_EXPR_WRONG_VALUE_FOR, sid, &expos);
     return;
   }
 
   OValue * pvalue = ptype->CreateValue();
   if (not pvalue->CalculateConstant(valueexpr))
   {
-    StatementError2(DQERR_CONSTEXPR_INVALID_FOR, sid, &expos);
+    StatementError(DQERR_CONSTEXPR_INVALID_FOR, sid, &expos);
 
     delete valueexpr;
     delete pvalue;
@@ -298,20 +302,20 @@ void ODqCompParser::ParseTypeDecl()
   scf->SkipWhite();
   if (not scf->ReadIdentifier(sid))
   {
-    StatementError2(DQERR_ID_EXP_AFTER, "type");
+    StatementError(DQERR_ID_EXP_AFTER, "type");
     return;
   }
 
   if (g_module->TypeDeclared(sid, &foundtype))
   {
-    StatementError2(DQERR_TYPE_ALREADY_DEFINED, sid, &scf->prevpos);
+    StatementError(DQERR_TYPE_ALREADY_DEFINED, sid, &scf->prevpos);
     return;
   }
 
   scf->SkipWhite();
   if (not scf->CheckSymbol("="))
   {
-    StatementError2(DQERR_MISSING_ASSIGN_FOR, sid);
+    StatementError(DQERR_MISSING_ASSIGN_FOR, sid);
     return;
   }
 
@@ -335,7 +339,7 @@ void ODqCompParser::ParseStructDecl()
   scf->SkipWhite();
   if (not scf->ReadIdentifier(sname))
   {
-    StatementError2(DQERR_ID_EXP_AFTER, "struct");
+    StatementError(DQERR_ID_EXP_AFTER, "struct");
     return;
   }
 
@@ -364,7 +368,7 @@ void ODqCompParser::ParseStructDecl()
     scf->SkipWhite();
     if (not scf->CheckSymbol(":"))
     {
-      StatementError2(DQERR_TYPE_SPECIFIER_EXP_AFTER, membername);
+      StatementError(DQERR_TYPE_SPECIFIER_EXP_AFTER, membername);
       break;
     }
 
@@ -374,7 +378,7 @@ void ODqCompParser::ParseStructDecl()
     scf->SkipWhite();
     if (not scf->CheckSymbol(";"))
     {
-      StatementError2(DQERR_MISSING_SEMICOLON_AFTER, "member definition");
+      StatementError(DQERR_MISSING_SEMICOLON_AFTER, "member definition");
       break;
     }
 
@@ -597,7 +601,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
     if (scf->Eof())
     {
       if (rendstr)  *rendstr = "";
-      StatementError2(DQERR_STMTBLK_CLOSE_MISSING, block_closer);
+      StatementError(DQERR_STMTBLK_CLOSE_MISSING, block_closer);
       break;
     }
 
@@ -632,7 +636,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
         continue;
       }
 
-      StatementError2(DQERR_STMT_UNKNOWN, pvalsym->name);
+      StatementError(DQERR_STMT_UNKNOWN, pvalsym->name);
       continue;
     }
 
@@ -667,7 +671,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
       }
       else
       {
-        StatementError2(DQERR_NOT_IMPLEMENTED_YET, format("Statement \"{}\"", sid));
+        StatementError(DQERR_NOT_IMPLEMENTED_YET, format("Statement \"{}\"", sid));
         continue;
       }
     }
@@ -676,7 +680,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
       pvalsym = curscope->FindValSym(sid, nullptr, true);
       if (not pvalsym)
       {
-        StatementError2(DQERR_VS_UNKNOWN, sid);
+        StatementError(DQERR_VS_UNKNOWN, sid);
         continue;
       }
 
@@ -698,7 +702,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
 
       // unknown
 
-      StatementError2(DQERR_STMT_UNKNOWN, sid);
+      StatementError(DQERR_STMT_UNKNOWN, sid);
       continue;
     }
   }
@@ -860,7 +864,7 @@ void ODqCompParser::ParseStmtWhile()
   OExpr * cond = ParseExpression();
   if (!cond)
   {
-    StatementError2(DQERR_CONDEXPR_MISSING_FOR, "while");
+    StatementError(DQERR_CONDEXPR_MISSING_FOR, "while");
     return;
   }
 
@@ -881,7 +885,7 @@ void ODqCompParser::ParseStmtIf()
   OExpr * cond = ParseExpression();
   if (!cond)
   {
-    StatementError2(DQERR_CONDEXPR_MISSING_FOR, "if");
+    StatementError(DQERR_CONDEXPR_MISSING_FOR, "if");
     return;
   }
 
@@ -905,7 +909,7 @@ void ODqCompParser::ParseStmtIf()
       cond = ParseExpression();
       if (!cond)
       {
-        StatementError2(DQERR_CONDEXPR_MISSING_FOR, "elif");
+        StatementError(DQERR_CONDEXPR_MISSING_FOR, "elif");
         break;
       }
       branch = st->AddBranch(cond);
@@ -1848,7 +1852,7 @@ void ODqCompParser::ParseStmtVar()
   scf->SkipWhite();
   if (not scf->ReadIdentifier(sid))
   {
-    StatementError2(DQERR_ID_EXP_AFTER, "var");
+    StatementError(DQERR_ID_EXP_AFTER, "var");
     return;
   }
 
@@ -1862,7 +1866,7 @@ void ODqCompParser::ParseStmtVar()
   scf->SkipWhite();
   if (not scf->CheckSymbol(":"))
   {
-    StatementError2(DQERR_TYPE_SPECIFIER_EXP_AFTER, sid);
+    StatementError(DQERR_TYPE_SPECIFIER_EXP_AFTER, sid);
     return;
   }
 
@@ -1895,7 +1899,7 @@ void ODqCompParser::ParseStmtVar()
   scf->SkipWhite();
   if (!scf->CheckSymbol(";"))
   {
-    StatementError2(DQERR_MISSING_SEMICOLON_TO_CLOSE, "variable declaration");
+    StatementError(DQERR_MISSING_SEMICOLON_TO_CLOSE, "variable declaration");
   }
 
   if (initexpr and (not CheckAssignType(ptype, &initexpr, "Assignment")))  // might add implicit conversion
@@ -1964,7 +1968,7 @@ bool ODqCompParser::ParseStmtAssign(OValSym * pvalsym)
   {
     OScPosition scpos;
     scf->SaveCurPos(scpos);
-    StatementError2(DQERR_MISSING_SEMICOLON_TO_CLOSE, "assignment statement", &scpos);
+    StatementError(DQERR_MISSING_SEMICOLON_TO_CLOSE, "assignment statement", &scpos);
   }
 
   if (!expr)
@@ -2028,7 +2032,7 @@ void ODqCompParser::ParseStmtVoidCall(OValSymFunc * vsfunc)
   scf->SkipWhite();
   if (not scf->CheckSymbol("("))
   {
-    StatementError2(DQERR_FUNC_CALL_PARENTH, vsfunc->name);
+    StatementError(DQERR_FUNC_CALL_PARENTH, vsfunc->name);
     return;
   }
 
@@ -2178,7 +2182,7 @@ bool ODqCompParser::CheckStatementClose()
   scf->SkipWhite();
   if (not scf->CheckSymbol(";"))
   {
-    StatementError2(DQERR_MISSING_SEMICOLON_TO_CLOSE, "previous statement");
+    StatementError(DQERR_MISSING_SEMICOLON_TO_CLOSE, "previous statement");
     return false;
   }
   return true;

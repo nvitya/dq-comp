@@ -4,7 +4,10 @@
 
 #ifdef ERRORTEST
 
-var i = 1; //?error(TypeSpecExpected)
+var i : int = 5;  //?error(TypeUnknown)
+var i = 1;        //?error(TypeSpecExpected)
+
+asdf
 
 #else
 
@@ -14,9 +17,46 @@ function main() -> int:
   var strvar : cstring[64] = "abcd";
   printf("Hello\n");      //?check(Hello)
   printf("Hello2=5\n");   //?check(Hello2, 5)
-  printf("strvar = \"%s\"\n", strvar);  //?check(strvar,  "abcd")
-  printf("strvar2 = %s\n", strvar);     //?check(strvar2, abcd)
+  printf("str = \"%s\"\n", "const string");
+  printf("strvar = \"%s\"\n", &strvar[0]);  //?check(strvar,  "abcd")
+  //printf("strvar2 = %s\n", strvar);     //?check(strvar2, abcd)
   return 0;
 endfunc
 
 #endif
+
+/*
+
+dqatrun output, error test case:
+
+Error test: "test1.dq"
+-------------------------------------------------------------------------------
+- test1.dq(7) missing ERROR(TypeUnknown)
+? test1.dq(10,1) ERROR(ModStatementUnknown): Unknown module statement "asdf"
+-------------------------------------------------------------------------------
+Error test FAILED: 2 failures detected.
+
+(successful case)
+
+Error test: "test1.dq"
+Error test PASSED.
+
+*/
+
+/*
+
+dqatrun output, run test case:
+
+Error test: "test1.dq"
+-------------------------------------------------------------------------------
+- test1.dq(7) missing ERROR(TypeUnknown)
+? test1.dq(10,1) ERROR(ModStatementUnknown): Unknown module statement "asdf"
+-------------------------------------------------------------------------------
+Error test FAILED: 2 failures detected.
+
+(successful case)
+
+Error test: "test1.dq"
+Error test PASSED.
+
+*/

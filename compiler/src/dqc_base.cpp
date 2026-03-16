@@ -161,12 +161,11 @@ void ODqCompBase::SkipToStatementEnd()
 void ODqCompBase::SkipCurStatement()
 {
   // usually called for error recovery, to find the next statement
-  if (!scf->SearchPattern(";", true))  // TODO: improve to handle #{} and strings
+  if (scf->ReadTo("#;"))  // TODO: improve to handle #{} and strings
   {
+    scf->CheckSymbol(";"); // consume the ";"
     return;
   }
-
-  scf->CheckSymbol(";"); // consume the ";"
 }
 
 void ODqCompBase::SkipToSymbol(const char * asym)
@@ -190,7 +189,7 @@ void ODqCompBase::StatementError2(const TDiagDefErr & adiag, string_view par1, s
   StatementError2(adiag, par1, par2, "", scpos, atryrecover);
 }
 
-void ODqCompBase::StatementError2(const TDiagDefErr & adiag, string_view par1, OScPosition * scpos, bool atryrecover)
+void ODqCompBase::StatementError(const TDiagDefErr & adiag, string_view par1, OScPosition * scpos, bool atryrecover)
 {
   StatementError2(adiag, par1, "", "", scpos, atryrecover);
 }
