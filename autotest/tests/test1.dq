@@ -17,9 +17,7 @@ function main() -> int:
   var strvar : cstring[64] = "abcd";
   printf("Hello\n");      //?check(Hello)
   printf("Hello2=5\n");   //?check(Hello2, 5)
-  printf("str = \"%s\"\n", "const string");
-  printf("strvar = \"%s\"\n", &strvar[0]);  //?check(strvar,  "abcd")
-  //printf("strvar2 = %s\n", strvar);     //?check(strvar2, abcd)
+  printf("strvar = \"%s\"\n", &strvar);  //?check(strvar,  "abcd")
   return 0;
 endfunc
 
@@ -47,16 +45,22 @@ Error test PASSED.
 
 dqatrun output, run test case:
 
-Error test: "test1.dq"
+Run test: "test1.dq"
 -------------------------------------------------------------------------------
-- test1.dq(7) missing ERROR(TypeUnknown)
-? test1.dq(10,1) ERROR(ModStatementUnknown): Unknown module statement "asdf"
+Hello                                           [ok]
+Hello2=5                                        [ok]
+strvar = "abcd"                                 [ok]
 -------------------------------------------------------------------------------
-Error test FAILED: 2 failures detected.
+Run test FAILED: 2 failures detected.
 
 (successful case)
 
-Error test: "test1.dq"
-Error test PASSED.
+Run test: "test1.dq"
+-------------------------------------------------------------------------------
+Hello                                           [ok]
+Hello2=5                                        [ok]
+strvar = "abcd"                                 [ok]
+-------------------------------------------------------------------------------
+Run test PASSED.
 
 */
