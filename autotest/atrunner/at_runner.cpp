@@ -12,7 +12,9 @@
  */
 
 #include <print>
+#include <filesystem>
 #include <string>
+#include <algorithm>
 #include <vector>
 
 #include "at_runner.h"
@@ -21,8 +23,9 @@
 #include "processrunner.h"
 
 using namespace std;
+namespace fs = std::filesystem;
 
-ODqAtRunner *  g_atr = nullptr;
+OAtRunner *  g_atr = nullptr;
 
 static string TrimLineEnd(string s)
 {
@@ -70,15 +73,68 @@ static void PrintBatchHeader()
   print("\n");
 }
 
-ODqAtRunner::ODqAtRunner()
+OAtRunner::OAtRunner()
 {
 }
 
-ODqAtRunner::~ODqAtRunner()
+OAtRunner::~OAtRunner()
 {
+  for (OTestFile * tf : testfiles)
+  {
+    delete tf;
+  }
 }
 
-int ODqAtRunner::Run()
+void OAtRunner::CollectTestFiles()
+{
+  for (OTestFile * tf : testfiles)
+  {
+    delete tf;
+  }
+  testfiles.clear();
+
+  fs::path rootpath(g_atropt->test_root);
+  if (!fs::exists(rootpath))
+  {
+    return;
+  }
+
+  vector<fs::path> foundfiles;
+
+  for (const fs::directory_entry & de : fs::recursive_directory_iterator(rootpath))
+  {
+    if (!de.is_regular_file())
+    {
+      continue;
+    }
+
+    fs::path p = de.path();
+    if (".dq" != p.extension().string())
+    {
+      continue;
+    }
+
+    foundfiles.push_back(fs::relative(p, rootpath));
+  }
+
+  sort(foundfiles.begin(), foundfiles.end());
+
+  for (const fs::path & rp : foundfiles)
+  {
+    OTestFile * tf = new OTestFile(rp.generic_string());
+    testfiles.push_back(tf);
+  }
+}
+
+void OAtRunner::DebugPrintCollectedFiles()
+{
+  for (OTestFile * tf : testfiles)
+  {
+    print("{}\n", tf->filename);
+  }
+}
+
+int OAtRunner::Run()
 {
   if (!g_atropt)
   {
@@ -93,14 +149,15 @@ int ODqAtRunner::Run()
   return RunSingle();
 }
 
-int ODqAtRunner::RunBatch()
+int OAtRunner::RunBatch()
 {
   PrintBatchHeader();
+  CollectTestFiles();
+  DebugPrintCollectedFiles();
   return 0;
 }
 
-int ODqAtRunner::RunSingle()
+int OAtRunner::RunSingle()
 {
   return 0;
 }
-

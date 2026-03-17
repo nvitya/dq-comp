@@ -124,7 +124,7 @@ int main(int argc, char ** argv)
     return g_atropt->arg_error_count;
   }
 
-  g_atr = new ODqAtRunner();
+  g_atr = new OAtRunner();
 
   return g_atr->Run();
 }

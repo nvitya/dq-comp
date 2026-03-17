@@ -5,35 +5,25 @@
  * This source code is licensed under the MIT License.
  * See the LICENSE file in the project root for the full license text.
  * ---------------------------------------------------------------------------------
- * file:    at_runner.h
+ * file:    testfile.h
  * authors: Codex
  * created: 2026-03-17
- * brief:   dq autotest runner main coordinator
+ * brief:   autotest file object
  */
 
 #pragma once
 
 #include <string>
-#include <vector>
 
-#include "testfile.h"
+using namespace std;
 
-class OAtRunner
+class OTestFile
 {
 public:
-  std::vector<OTestFile *>   testfiles;
+  string            filename;
+  string            text;
 
-  OAtRunner();
-  virtual ~OAtRunner();
-
-  int Run();
-
-protected:
-  void CollectTestFiles();
-  void DebugPrintCollectedFiles();
-
-  int RunBatch();
-  int RunSingle();
+public:
+  OTestFile(const string & afilename);
+  virtual ~OTestFile();
 };
-
-extern OAtRunner *  g_atr;

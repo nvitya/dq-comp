@@ -13,6 +13,8 @@
 
 #pragma once
 
+#error "DO NOT USE THIS FILE FOR COMPILATION !!!"
+
 #include <cstdint>
 #include <string>
 #include <vector>
