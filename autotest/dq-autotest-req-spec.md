@@ -473,6 +473,62 @@ Error test FAILED: 2 failures detected.
 
 In the failed form, the failure count shall equal the number of reported error-test mismatches, not the number of compiler diagnostics.
 
+### 7.8 Single-file run-test console format
+
+For single-file execution, the runtime variant shall print every produced runtime output line.
+
+The runtime report shall use a two-column presentation:
+
+- the left side shall contain the original runtime output line
+- the right side shall contain the matching result, introduced by a backtick character: `` ` ``
+
+The runner should align the backtick to a preferred report column such as column 40 when practical, but the backtick itself shall be the actual delimiter.
+
+The section header shall be:
+
+```text
+Run test: "test1.dq"
+```
+
+The output block produced from the tested program's stdout or stderr lines shall be enclosed by separator lines consisting of exactly 80 `-` characters.
+
+For a runtime output line that is successfully matched by `check(...)`, `checkerr(...)`, `ignore(...)`, or `ignoreerr(...)`, the runner shall print the line followed only by the backtick delimiter:
+
+```text
+Hello                                  `
+```
+
+Ignored lines shall use the same empty result form.
+
+For a runtime output line that matches the key part of a `check(Key, Value)` or `checkerr(Key, Value)` expectation, but whose value does not match, the runner shall print:
+
+```text
+Hello2=5                               ` != 6
+```
+
+For a runtime output line that is not matched by any `check(...)`, `checkerr(...)`, `ignore(...)`, or `ignoreerr(...)` directive, the runner shall print:
+
+```text
+strvar = "abcd"                        ` unchecked
+```
+
+For an expected runtime check that has no matching output line at all, the runner shall print a line with an empty output field and the report text after the backtick delimiter:
+
+```text
+                                       ` missing strvar2 = "efg"
+```
+
+If at least one runtime output line or missing-check line is printed, the runner shall print the 80-character separator line before and after the detail block.
+
+The final status line shall use one of the following exact forms:
+
+```text
+Run test PASSED.
+Run test FAILED: 3 failures detected.
+```
+
+In the failed form, the failure count shall equal the number of reported run-test mismatches.
+
 For failed runtime variants, the preserved artifacts and console report shall include the full stdout stream, the full stderr stream, and the subset of output lines that remained unchecked after expectation matching.
 
 ---
