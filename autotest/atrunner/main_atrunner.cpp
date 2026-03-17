@@ -22,17 +22,11 @@
 #include <stacktrace>
 
 #include <iostream>
-#include <vector>
 #include <string>
 #include <print>
 
-#include <fstream>
-#include <sstream>
-#include <string_view>
-
-#include "atr_version.h"
+#include "at_runner.h"
 #include "atr_options.h"
-#include "processrunner.h"
 
 using namespace std;
 
@@ -112,54 +106,6 @@ void signal_handler(int signal)
   exit(signal);
 }
 
-//--------------------------------------------------------------------
-
-static string TrimLineEnd(string s)
-{
-  while (!s.empty() and ((s.back() == '\n') or (s.back() == '\r')))
-  {
-    s.pop_back();
-  }
-
-  return s;
-}
-
-static string QueryCompilerVersion()
-{
-  OProcessRunner procrunner;
-  SProcessResult procresult;
-
-  vector<string> args;
-  args.push_back(g_atropt->compiler_filename);
-  args.push_back("--version");
-
-  if (!procrunner.Run(args, &procresult))
-  {
-    return "?";
-  }
-
-  if (!procresult.stdout_text.empty())
-  {
-    return TrimLineEnd(procresult.stdout_text);
-  }
-
-  if (!procresult.stderr_text.empty())
-  {
-    return TrimLineEnd(procresult.stderr_text);
-  }
-
-  return "?";
-}
-
-static void PrintBatchHeader()
-{
-  print("DQ Autotest v{}\n", ATR_VERSION);
-  print("Compiler:  {}\n", g_atropt->compiler_filename);
-  print("C. ver.:   v{}\n", QueryCompilerVersion());
-  print("Test root: {}\n", g_atropt->test_root);
-  print("\n");
-}
-
 int main(int argc, char ** argv)
 {
   // Top level error handlers for stack tracing
@@ -173,15 +119,12 @@ int main(int argc, char ** argv)
     return 1;
   }
 
-  if (g_atropt->error_count)
+  if (g_atropt->arg_error_count)
   {
-    return g_atropt->error_count;
+    return g_atropt->arg_error_count;
   }
 
-  if (ATRMODE_BATCH == g_atropt->run_mode)
-  {
-    PrintBatchHeader();
-  }
+  g_atr = new ODqAtRunner();
 
-  return 0;
+  return g_atr->Run();
 }

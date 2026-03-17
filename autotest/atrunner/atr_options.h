@@ -35,7 +35,7 @@ public:
   int               worker_count = 0;
   bool              verbose = false;
 
-  int               error_count = 0;
+  int               arg_error_count = 0;
 
 public:
   OAtrOptions();

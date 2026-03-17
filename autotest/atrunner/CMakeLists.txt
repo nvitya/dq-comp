@@ -18,11 +18,5 @@ set_target_properties(dqatrun PROPERTIES ENABLE_EXPORTS ON)
 
 target_link_libraries(dqatrun PRIVATE stdc++exp)
 
-# for early runner development:
-add_custom_command(TARGET dqatrun POST_BUILD
-    COMMAND cp $<TARGET_FILE:dqatrun> /usr/local/bin/dqatrun
-    COMMENT "Copying dqatrun to /usr/local/bin..."
-)
-
 install(TARGETS dqatrun DESTINATION /usr/local/bin)
 

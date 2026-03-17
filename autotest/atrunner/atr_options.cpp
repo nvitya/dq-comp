@@ -70,7 +70,7 @@ void OAtrOptions::ParseCmdLineArgs(int argc, char ** argv)
         }
         else
         {
-          ++error_count;
+          ++arg_error_count;
           print("Missing compiler filename after -c\n");
           PrintUsage();
           return;
@@ -85,7 +85,7 @@ void OAtrOptions::ParseCmdLineArgs(int argc, char ** argv)
         }
         else
         {
-          ++error_count;
+          ++arg_error_count;
           print("Missing test root after -r\n");
           PrintUsage();
           return;
@@ -99,7 +99,7 @@ void OAtrOptions::ParseCmdLineArgs(int argc, char ** argv)
           string wn(argv[i]);
           if (!IsNumber(wn))
           {
-            ++error_count;
+            ++arg_error_count;
             print("Invalid worker count: {}\n", wn);
             PrintUsage();
             return;
@@ -108,7 +108,7 @@ void OAtrOptions::ParseCmdLineArgs(int argc, char ** argv)
           worker_count = stoi(wn);
           if (worker_count < 1)
           {
-            ++error_count;
+            ++arg_error_count;
             print("Worker count must be at least 1.\n");
             PrintUsage();
             return;
@@ -116,7 +116,7 @@ void OAtrOptions::ParseCmdLineArgs(int argc, char ** argv)
         }
         else
         {
-          ++error_count;
+          ++arg_error_count;
           print("Missing worker count after -j\n");
           PrintUsage();
           return;
@@ -124,7 +124,7 @@ void OAtrOptions::ParseCmdLineArgs(int argc, char ** argv)
       }
       else
       {
-        ++error_count;
+        ++arg_error_count;
         print("Unknown command line switch: {}\n", v);
         PrintUsage();
         return;
@@ -138,7 +138,7 @@ void OAtrOptions::ParseCmdLineArgs(int argc, char ** argv)
 
   if (posargs.size() > 1)
   {
-    ++error_count;
+    ++arg_error_count;
     print("Too many positional arguments.\n");
     PrintUsage();
     return;
