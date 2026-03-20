@@ -106,10 +106,10 @@ void OAtrOptions::ParseCmdLineArgs(int argc, char ** argv)
           }
 
           worker_count = stoi(wn);
-          if (worker_count < 1)
+          if (worker_count < 0)
           {
             ++arg_error_count;
-            print("Worker count must be at least 1.\n");
+            print("Worker count must be at least 0.\n");
             PrintUsage();
             return;
           }
@@ -147,11 +147,11 @@ void OAtrOptions::ParseCmdLineArgs(int argc, char ** argv)
   if (posargs.size() == 1)
   {
     single_test_filename = posargs[0];
-    run_mode = ATRMODE_SINGLE;
+    batchmode = false;
   }
   else
   {
-    run_mode = ATRMODE_BATCH;
+    batchmode = true;
   }
 }
 
@@ -163,7 +163,7 @@ void OAtrOptions::PrintUsage()
   print("Options:\n");
   print("  -c <file> : set compiler executable filename\n");
   print("  -r <dir>  : set batch test root directory\n");
-  print("  -j <n>    : set batch worker count\n");
+  print("  -j <n>    : set batch worker count, 0 = auto detect\n");
   print("  -v        : verbose output\n");
 }
 

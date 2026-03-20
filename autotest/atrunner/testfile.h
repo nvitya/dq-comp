@@ -14,9 +14,37 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include "strparse.h"
 
 using namespace std;
+
+class OErrCapture
+{
+public:
+  int               line;
+  string            errid;
+
+  OErrCapture(int aline, const string aerrid)
+  :
+    line(aline),
+    errid(aerrid)
+  {}
+};
+
+class ORunCapture
+{
+public:
+  string            strid;
+  string            checkvalue;
+
+  ORunCapture(const string astrid, const string acheckvalue)
+  :
+    strid(astrid),
+    checkvalue(acheckvalue)
+  {}
+};
+
 
 class OTestFile
 {
@@ -31,6 +59,14 @@ public:
 
   int               errorcnt_err = 0;
   int               errorcnt_run = 0;
+  int               errorcnt_tf  = 0;
+
+  vector<OErrCapture *>  err_captures;
+  vector<ORunCapture *>  run_captures;
+
+  vector<string>    msg_err;
+  vector<string>    msg_run;
+  vector<string>    msg_tf;
 
   TStrParseObj      sp;
 
@@ -38,5 +74,13 @@ public:
   OTestFile(const string & afilename);
   virtual ~OTestFile();
 
-  virtual void Process();
+  void Process();
+
+protected:
+  bool LoadText();
+  bool ParseText();
+  void ParseMarkerError();
+  void ParseMarkerCheck();
+
+  void AddTfError(const string astr);
 };

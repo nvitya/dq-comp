@@ -17,22 +17,16 @@
 
 using namespace std;
 
-enum EAtrunMode
-{
-  ATRMODE_SINGLE = 0,
-  ATRMODE_BATCH  = 1
-};
-
 class OAtrOptions
 {
 public:
-  EAtrunMode        run_mode = ATRMODE_SINGLE;
+  bool              batchmode = false;
 
   string            compiler_filename = "dq-comp";
   string            test_root = ".";
   string            single_test_filename;
 
-  int               worker_count = 16;
+  int               worker_count = 0;  // 0 = auto detect thread count
   bool              verbose = false;
 
   int               arg_error_count = 0;

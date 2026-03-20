@@ -58,6 +58,7 @@ class TStrParseObj
     bool ReadTo(const char * checkchars);  // sets prevptr, prevlen
     bool ReadToChar(char achar);     // sets prevptr, prevlen
     bool ReadAlphaNum();             // sets prevptr, prevlen
+    bool ReadIdentifier(string & rvalue);  // returns "" when invalid
     bool ReadDecimalNumbers();       // sets prevptr, prevlen
     bool ReadHexNumbers();           // sets prevptr, prevlen
     bool ReadFloatNum();             // sets prevptr, prevlen

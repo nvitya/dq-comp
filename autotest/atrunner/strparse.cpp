@@ -269,6 +269,38 @@ bool TStrParseObj::ReadAlphaNum()
   return result;
 }
 
+bool TStrParseObj::ReadIdentifier(string & rvalue)
+{
+  char *   p = readptr;
+  prevptr = readptr;
+  while (p < bufend)
+  {
+    char c = *p;
+
+    if (
+        ((c >= 'A') and (c <= 'Z')) or ((c >= 'a') and (c <= 'z')) or (c == '_')  // allowed anywhere
+        or ((p != readptr) and (c >= '0') and (c <= '9'))  // numbers can not be the first one
+       )
+    {
+      ++p;
+    }
+    else
+    {
+      break;
+    }
+  }
+
+  prevlen = p - readptr;
+  if (prevlen > 0)
+  {
+    readptr = p;
+    rvalue.assign(prevptr, prevlen);
+    return true;
+  }
+
+  return false;
+}
+
 bool TStrParseObj::ReadDecimalNumbers()
 {
   char * cp = readptr;

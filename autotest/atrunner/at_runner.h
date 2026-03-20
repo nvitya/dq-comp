@@ -30,11 +30,14 @@ public:
 public: // stats
   int                        testcnt_run = 0;
   int                        testcnt_err = 0;
+  int                        invalid_tf_cnt = 0;
 
   int                        errorcnt_run = 0;
   int                        errorcnt_run_files = 0;
   int                        errorcnt_err = 0;
   int                        errorcnt_err_files = 0;
+
+  int                        used_worker_count = 1;
 
   OAtRunner();
   virtual ~OAtRunner();
@@ -48,7 +51,8 @@ protected:
   void DebugPrintCollectedFiles();
   void StartWorkers();
   void StopWorkers();
-  void ProcessBatchFiles();
+  void ProcessBatchFilesParallel();
+  void ProcessBatchFilesSequential();
   void ProcessResults();
 
   int RunBatch();

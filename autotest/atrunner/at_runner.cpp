@@ -73,6 +73,17 @@ static void PrintBatchHeader()
   print("\n");
 }
 
+static int DetectWorkerCount()
+{
+  unsigned thread_count = thread::hardware_concurrency();
+  if (thread_count < 1)
+  {
+    return 1;
+  }
+
+  return static_cast<int>(thread_count);
+}
+
 OAtRunner::OAtRunner()
 {
 }
@@ -144,13 +155,7 @@ void OAtRunner::StartWorkers()
 {
   StopWorkers();
 
-  int worker_count = g_atropt->worker_count;
-  if (worker_count < 1)
-  {
-    worker_count = 1;
-  }
-
-  for (int i = 0; i < worker_count; ++i)
+  for (int i = 0; i < used_worker_count; ++i)
   {
     OTestFileWorker * worker = new OTestFileWorker();
     workers.push_back(worker);
@@ -169,7 +174,7 @@ void OAtRunner::StopWorkers()
   workers.clear();
 }
 
-void OAtRunner::ProcessBatchFiles()
+void OAtRunner::ProcessBatchFilesParallel()
 {
   StartWorkers();
 
@@ -227,12 +232,26 @@ void OAtRunner::ProcessBatchFiles()
   StopWorkers();
 }
 
+void OAtRunner::ProcessBatchFilesSequential()
+{
+  for (OTestFile * tf : testfiles)
+  {
+    tf->Process();
+    tf->processed = true;
+  }
+}
+
 void OAtRunner::ProcessResults()
 {
   // collect the results
 
   for (OTestFile * tf : testfiles)
   {
+    if (tf->errorcnt_tf)
+    {
+      ++invalid_tf_cnt;
+    }
+
     if (tf->exec_err)
     {
       ++testcnt_err;
@@ -264,6 +283,10 @@ void OAtRunner::ProcessResults()
   if (errorcnt_err) print(" ({} files)",  errorcnt_run_files);
   print("\n");
 
+  if (invalid_tf_cnt > 0)
+  {
+    print("Invalid test files:   {:3}\n",   invalid_tf_cnt);
+  }
 }
 
 int OAtRunner::Run()
@@ -273,25 +296,62 @@ int OAtRunner::Run()
     return 1;
   }
 
-  if (ATRMODE_BATCH == g_atropt->run_mode)
+  if (g_atropt->batchmode)
   {
     return RunBatch();
   }
-
-  return RunSingle();
+  else
+  {
+    return RunSingle();
+  }
 }
 
 int OAtRunner::RunBatch()
 {
   PrintBatchHeader();
   CollectTestFiles();
-  ProcessBatchFiles();
+
+  used_worker_count = g_atropt->worker_count;
+  if (used_worker_count < 1)
+  {
+    used_worker_count = DetectWorkerCount();
+  }
+
+  if (used_worker_count > 1)
+  {
+    ProcessBatchFilesParallel();
+  }
+  else
+  {
+    ProcessBatchFilesSequential();
+  }
+
   ProcessResults();
 
-  return errorcnt_run + errorcnt_err;
+  return errorcnt_run + errorcnt_err + invalid_tf_cnt;
 }
 
 int OAtRunner::RunSingle()
 {
-  return 0;
+  for (OTestFile * tf : testfiles)
+  {
+    delete tf;
+  }
+  testfiles.clear();
+
+  if (!fs::exists(g_atropt->single_test_filename))
+  {
+    print("The test file \"{}\" does not exist\n", g_atropt->single_test_filename);
+    return 1;
+  }
+
+  OTestFile * tf = new OTestFile(g_atropt->single_test_filename);
+  tf->Process();
+  tf->processed = true;
+  int result = tf->errorcnt_err + tf->errorcnt_run + tf->errorcnt_tf;
+
+  
+
+  delete tf;
+  return result;
 }
