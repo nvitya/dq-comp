@@ -6,7 +6,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}",
-            "args": ["tests/test1.dq", "-v"],
+            "args": ["tests/basic/dq_float.dq", "-v"],
             "stopAtEntry": false,
 
             "cwd": "${workspaceFolder}",

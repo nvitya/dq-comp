@@ -38,7 +38,7 @@ void OTestFile::Process()
 {
   procrunner.exec_timeout_ms = 5000; // compile or run should finish in 5s
 
-  if (!g_atropt->batchmode and g_atropt->verblevel >= VERBLEVEL_STATUS)
+  if (!g_atropt->batchmode and g_atropt->verblevel >= VERBLEVEL_DEBUG)
   {
     print("Processing \"{}\"...\n", filename);
   }
@@ -52,6 +52,7 @@ void OTestFile::Process()
 
   if (not ParseText())
   {
+    ShowTestFileErrors();
     processed = true;
     return;
   }
@@ -77,7 +78,7 @@ void OTestFile::ExecRunTest()
 {
   if (!g_atropt->batchmode and g_atropt->verblevel >= VERBLEVEL_STATUS)
   {
-    print("Executing run test...\n");
+    print("Run test \"{}\"\n", filename);
   }
 
   // 1. Compile the test file: dq-comp <filename>, capture the compiler output to comp_output
@@ -99,9 +100,9 @@ void OTestFile::ExecRunTest()
     exename += ".exe";
   #endif
 
-  if (!g_atropt->batchmode and g_atropt->verblevel >= VERBLEVEL_STATUS)
+  if (!g_atropt->batchmode and g_atropt->verblevel >= VERBLEVEL_DEBUG)
   {
-    print("Running {}...\n", exename);
+    print("Executing \"{}\"\n", exename);
   }
   procrunner.args = { exename };
   if (not procrunner.Run())
@@ -110,29 +111,133 @@ void OTestFile::ExecRunTest()
     return;
   }
 
-  if (!g_atropt->batchmode and g_atropt->verblevel >= VERBLEVEL_INFO)
+  run_output = procrunner.stdout_text;
+
+  if (!g_atropt->batchmode and g_atropt->verblevel >= VERBLEVEL_DEBUG)
   {
-    print("Run output:\n{}\n", procrunner.stdout_text);
+    print("Run output:\n{}\n", run_output);
   }
 
+  AnalyzeRunOutput();
+}
+
+void OTestFile::AnalyzeRunOutput()
+{
+  PrintSeparator();
+
+  sp.SkipSpaces(); // go to the first non-space
+  sp.Init(run_output.data(), run_output.size());
+
+  string errstr;
+  string outline;
+
+  while (sp.readptr < sp.bufend)
+  {
+    if (not sp.ReadLine())
+    {
+      break;
+    }
+
+    curline = sp.PrevStr();
+    spl.Init(curline.data(), curline.size());
+
+    bool waschecked = false;
+    errstr = "";
+
+    if (not curline.empty())
+    {
+      // run checks
+      for (ORunCapture * cap : run_captures)
+      {
+        if (spl.CheckSymbol(cap->strid.c_str()))
+        {
+          waschecked = true;
+
+          if (cap->checkvalue.empty())  // empty value or ignore
+          {
+            break;
+          }
+
+          if (cap->captured)
+          {
+            errstr = "already captured";
+            break;
+          }
+
+          spl.SkipSpaces(false);
+          if (spl.CheckSymbol("="))
+          {
+            spl.SkipSpaces(false);
+          }
+
+          cap->captured = true;
+
+          // check against the value
+          if (not spl.CheckSymbol(cap->checkvalue.c_str()))
+          {
+            errstr = format("!= {}", cap->checkvalue);
+          }
+
+          break;
+        }
+      }
+
+      if (not waschecked)
+      {
+        errstr = "unchecked";
+      }
+    }
+
+    outline = format("{:<40} ` {}", curline, errstr);
+    print("{}\n", outline);
+    if (not errstr.empty())
+    {
+      AddRunError(outline);
+    }
+
+  } // while all lines
+
+  // write missing captures
+  for (ORunCapture * cap : run_captures)
+  {
+    if (not cap->captured and not cap->checkvalue.empty())
+    {
+      outline = format("{:<40} ` missing {} = {}", "", cap->strid, cap->checkvalue);
+      print("{}\n", outline);
+      AddRunError(outline);
+    }
+  }
+
+  PrintSeparator();
 }
 
 void OTestFile::ShowRunResults()
 {
+#if 0
   for (string s : msg_run)
   {
     print("RUNERR: {}\n", s);
   }
+#endif
+
 
   if (0 == errorcnt_run)
   {
-    print("Run test result: OK\n");
+    print("Run test PASSED.\n");
   }
   else
   {
-    print("Run test result: FAILED\n");
+    print("Run test FAILED: {} failures detected.\n", msg_run.size());
   }
   print("\n");
+}
+
+void OTestFile::ShowTestFileErrors()
+{
+  for (string s : msg_tf)
+  {
+    print("TF_ERROR: {}\n", s);
+  }
 }
 
 void OTestFile::ExecErrorTest()
@@ -157,10 +262,20 @@ void OTestFile::ExecErrorTest()
 
 }
 
+void OTestFile::PrintSeparator()
+{
+  print("-------------------------------------------------------------------------------\n");
+}
+
 void OTestFile::AddRunError(const string astr)
 {
   msg_run.push_back(astr);
   ++errorcnt_run;
+}
+
+void OTestFile::AddRunLineError(const string astr)
+{
+  AddRunError(format("{} ` {}", curline, astr));
 }
 
 void OTestFile::AddEtError(const string astr)
@@ -216,7 +331,11 @@ bool OTestFile::ParseText()
     }
     else if ("check" == sid)
     {
-      ParseMarkerCheck();
+      ParseMarkerCheck(false);
+    }
+    else if ("ignore" == sid)
+    {
+      ParseMarkerCheck(true);
     }
     else
     {
@@ -259,22 +378,29 @@ void OTestFile::ParseMarkerError()
 
 }
 
-void OTestFile::ParseMarkerCheck()
+void OTestFile::ParseMarkerCheck(bool aignore)
 {
   // sample: printf("Hello2=5\n");   //?check(Hello2, 5)
   // note "//?check" is already consumed
 
+  string cmd = (aignore ? "ignore" : "check");
+
+
   sp.SkipSpaces();
   if (not sp.CheckSymbol("("))
   {
-    AddTfError(format("\"(\" is missing after \"//?check\""));
+    AddTfError(format("\"(\" is missing after \"//?{}\"", cmd));
     return;
   }
   sp.SkipSpaces();
   string strid;
-  if (not sp.ReadIdentifier(strid))
+  if (sp.ReadQuotedString())
   {
-    AddTfError(format("Id is missing after \"//?check\""));
+    strid = sp.PrevStr();
+  }
+  else if (not sp.ReadIdentifier(strid))
+  {
+    AddTfError(format("Id is missing after \"//?{}\"", cmd));
     return;
   }
 
@@ -291,7 +417,7 @@ void OTestFile::ParseMarkerCheck()
     {
       if (not sp.ReadToChar(')'))
       {
-        AddTfError(format("\")\" is missing after \"//?check\""));
+        AddTfError(format("\")\" is missing after \"//?{}\"", cmd));
         return;
       }
 
@@ -305,7 +431,7 @@ void OTestFile::ParseMarkerCheck()
   {
     if (not sp.CheckSymbol(")"))
     {
-      AddTfError(format("\")\" is missing after \"//?check\""));
+      AddTfError(format("\")\" is missing after \"//?{}\"", cmd));
       return;
     }
   }

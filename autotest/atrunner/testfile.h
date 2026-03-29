@@ -38,6 +38,7 @@ class ORunCapture
 public:
   string            strid;
   string            checkvalue;
+  bool              captured = false;
 
   ORunCapture(const string astrid, const string acheckvalue)
   :
@@ -58,6 +59,7 @@ public:
   int               comp_result;
 
   string            run_output;
+  string            curline;
 
   bool              processed  = false;
 
@@ -76,6 +78,7 @@ public:
   vector<string>    msg_tf;
 
   TStrParseObj      sp;
+  TStrParseObj      spl;  // line parser
 
   OProcessRunner    procrunner;
 
@@ -85,17 +88,23 @@ public:
 
   void Process();
   void ExecRunTest();
+  void AnalyzeRunOutput();
   void ShowRunResults();
+
+  void ShowTestFileErrors();
   void ExecErrorTest();  // check the expected compiler errors
 
+  void PrintSeparator();
   void AddRunError(const string astr);
+  void AddRunLineError(const string astr);
+
   void AddEtError(const string astr);
 
 protected:
   bool LoadText();
   bool ParseText();
   void ParseMarkerError();
-  void ParseMarkerCheck();
+  void ParseMarkerCheck(bool aignore);
 
   void AddTfError(const string astr);
 

@@ -399,16 +399,26 @@ bool TStrParseObj::ReadQuotedString()
     return false;
   }
 
-  if (*readptr != '"')
+  char qchar;
+
+  if (*readptr == '"')
+  {
+    qchar = '"';
+  }
+  else if (*readptr == '\'')
+  {
+    qchar = '\'';
+  }
+  else
   {
     return false;
   }
 
   ++readptr;  // skip "
 
-  ReadToChar('"'); // read to line end
+  ReadToChar(qchar); // read to line end
 
-  if ((readptr < bufend) && (*readptr == '"'))
+  if ((readptr < bufend) && (*readptr == qchar))
   {
     ++readptr;
   }
