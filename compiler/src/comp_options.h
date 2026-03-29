@@ -18,6 +18,14 @@
 
 using namespace std;
 
+enum EVerboseLevel
+{
+  VERBLEVEL_NONE   = 0,   // -v0 (default)
+  VERBLEVEL_STATUS = 1,   // -v or -v1
+  VERBLEVEL_INFO   = 2,   // -vv or -v2
+  VERBLEVEL_DEBUG  = 3,   // -vvv or -v3
+};
+
 class OCmdLineDefine
 {
 public:
@@ -32,7 +40,8 @@ class OCompOptions
 {
 public:
   bool     print_version = false;  // --version
-  bool     verbose = false;   // -v
+  int      verblevel = VERBLEVEL_NONE;
+
   bool     dbg_info = false;  // -g
 
   bool     ir_print = false;  // -ir

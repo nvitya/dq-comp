@@ -31,7 +31,7 @@ ODecl * ODqCompAst::AddDeclVar(OScPosition & scpos, string aid, OType * atype)
 
   ODecl * result = g_module->DeclareValSym(section_public, pvalsym);
 
-  if (g_opt.verbose)
+  if (g_opt.verblevel >= VERBLEVEL_DEBUG)
   {
     print("{}: ", scpos.Format());
     print("AddVarDecl(): var {} : {}", aid, atype->name);
@@ -48,7 +48,7 @@ ODecl * ODqCompAst::AddDeclConst(OScPosition & scpos, string aid, OType * atype,
 
   ODecl * result = g_module->DeclareValSym(section_public, pvalsym);
 
-  if (g_opt.verbose)
+  if (g_opt.verblevel >= VERBLEVEL_DEBUG)
   {
     print("{}: ", scpos.Format());
     print("AddConstDecl(): var {} : {}", aid, atype->name);
@@ -62,7 +62,7 @@ ODecl * ODqCompAst::AddDeclFunc(OScPosition & scpos, OValSymFunc * avsfunc)
 {
   ODecl * result = g_module->DeclareValSym(section_public, avsfunc);
 
-  if (g_opt.verbose)
+  if (g_opt.verblevel >= VERBLEVEL_DEBUG)
   {
     print("{}: ", scpos.Format());
     print("AddDeclFunc(): {}", avsfunc->name);
@@ -88,7 +88,7 @@ ODecl * ODqCompAst::AddDeclFunc(OScPosition & scpos, OValSymFunc * avsfunc)
     avsfunc->body->scope->DefineValSym(avsfunc->vsresult);
   }
 
-  if (g_opt.verbose)
+  if (g_opt.verblevel >= VERBLEVEL_DEBUG)
   {
     print("\n");
   }

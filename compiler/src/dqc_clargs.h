@@ -38,7 +38,11 @@ public:
   virtual ~ODqCompClargs();
 
   void ParseCmdLineArgs(int argc, char ** argv);
+  void ParseCmdLineArgsVerblevel(int argc, char ** argv);
 
   void PrintUsage();
+
+protected:
+  bool VerblevelSwitch(const string & aswitch);
 
 };

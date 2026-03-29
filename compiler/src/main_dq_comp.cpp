@@ -140,8 +140,6 @@ int main(int argc, char ** argv)
     return 0;
   }
 
-  print("DQ Compiler - v{}\n", DQ_COMPILER_VERSION);
-
   // Top level error handlers for stack tracing
   set_terminate(my_crash_handler);  // uncaught exception handler with stacktrace
   signal(SIGSEGV, signal_handler);  // separate method for segfaults for stacktrace

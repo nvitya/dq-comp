@@ -102,7 +102,7 @@ OScFile * OScFeederDq::LoadFile(const string afilename)
     return nullptr;
   }
 
-  if (g_opt.verbose)
+  if (g_opt.verblevel >= VERBLEVEL_INFO)
   {
     print("File \"{}\" loaded: {} bytes\n", fullname, f->length);
   }
@@ -299,7 +299,7 @@ void OScFeederDq::ParseDirective()
       // skip to the end
       curp = bufend;
 
-      if (g_opt.verbose)
+      if (g_opt.verblevel >= VERBLEVEL_DEBUG)
       {
         print("{}: ", scpos_start_directive.Format());
         print("include_once found, returning from the include now\n");
@@ -379,7 +379,7 @@ void OScFeederDq::ParseDirectiveInclude()
     return;
   }
 
-  if (g_opt.verbose)
+  if (g_opt.verblevel >= VERBLEVEL_INFO)
   {
     print("{}: ", scpos_start_directive.Format());
     print("Including ({})\n", sfname);
@@ -491,7 +491,7 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
       }
     }
 
-    if (g_opt.verbose)
+    if (g_opt.verblevel >= VERBLEVEL_DEBUG)
     {
       print("{}: #{} \"{}\" {}\n", scpos_start_directive.Format(), aid, sid, (inactive_code ? "(inactive)" : ""));
     }
@@ -513,7 +513,7 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
       }
     }
 
-    if (g_opt.verbose)
+    if (g_opt.verblevel >= VERBLEVEL_DEBUG)
     {
       print("{}: #if = {} {}\n", scpos_start_directive.Format(), (condval ? "true" : "false"), (inactive_code ? "(inactive)" : ""));
     }
@@ -535,7 +535,7 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
       }
       inactive_code = curcond->parent_inactive;
       curcond = curcond->parent;
-      if (g_opt.verbose)
+      if (g_opt.verblevel >= VERBLEVEL_DEBUG)
       {
         print("{}: #endif {}\n", scpos_start_directive.Format(), (inactive_code ? "(inactive)" : ""));
       }
@@ -573,7 +573,7 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
         inactive_code = true;
       }
 
-      if (g_opt.verbose)
+      if (g_opt.verblevel >= VERBLEVEL_DEBUG)
       {
         print("{}: #else {}\n", scpos_start_directive.Format(), (inactive_code ? "(inactive)" : ""));
       }
@@ -625,7 +625,7 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
       }
     }
 
-    if (g_opt.verbose)
+    if (g_opt.verblevel >= VERBLEVEL_DEBUG)
     {
       print("{}: #{} \"{}\" {}\n", scpos_start_directive.Format(), aid, sid, (inactive_code ? "(inactive)" : ""));
     }
@@ -668,7 +668,7 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
       }
     }
 
-    if (g_opt.verbose)
+    if (g_opt.verblevel >= VERBLEVEL_DEBUG)
     {
       print("{}: #elif = {} {}\n", scpos_start_directive.Format(), (condval ? "true" : "false"), (inactive_code ? "(inactive)" : ""));
     }

@@ -145,7 +145,7 @@ void ODqCompParser::ParseModule()
     }
   }
 
-  if (g_opt.verbose)
+  if (g_opt.verblevel >= VERBLEVEL_DEBUG)
   {
     printf("ParseModule finished.");
   }

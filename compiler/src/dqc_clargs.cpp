@@ -136,7 +136,37 @@ ODqCompClargs::~ODqCompClargs()
 {
 }
 
-void ODqCompClargs::ParseCmdLineArgs(int argc, char **argv)
+bool ODqCompClargs::VerblevelSwitch(const string & aswitch)
+{
+  if      ("-v"   == aswitch)   g_opt.verblevel = VERBLEVEL_STATUS;
+  else if ("-vv"  == aswitch)   g_opt.verblevel = VERBLEVEL_INFO;
+  else if ("-vvv" == aswitch)   g_opt.verblevel = VERBLEVEL_DEBUG;
+  else if ("-v0"  == aswitch)   g_opt.verblevel = VERBLEVEL_NONE;
+  else if ("-v1"  == aswitch)   g_opt.verblevel = VERBLEVEL_STATUS;
+  else if ("-v2"  == aswitch)   g_opt.verblevel = VERBLEVEL_INFO;
+  else if ("-v3"  == aswitch)   g_opt.verblevel = VERBLEVEL_DEBUG;
+  else                          return false;
+
+  return true;
+}
+
+void ODqCompClargs::ParseCmdLineArgsVerblevel(int argc, char ** argv)
+{
+  for (int i = 1; i < argc; i++)
+  {
+    string v(argv[i]);
+
+    if ('-' == v[0])  // some compiler switch
+    {
+      if (VerblevelSwitch(v))
+      {
+        // already handled in the function
+      }
+    }
+  }
+}
+
+void ODqCompClargs::ParseCmdLineArgs(int argc, char ** argv)
 {
   string explicit_output;
 
@@ -147,7 +177,7 @@ void ODqCompClargs::ParseCmdLineArgs(int argc, char **argv)
     if ('-' == v[0])  // some compiler switch
     {
       if      ("--version" == v)  g_opt.print_version = true;
-      else if ("-v"  == v)    g_opt.verbose = true;
+      else if (VerblevelSwitch(v))  { /* already handled in the function */ }
       else if ("-g"  == v)    g_opt.dbg_info = true;
       else if ("-ir" == v)    g_opt.ir_print = true;
       else if ("-c"  == v)    g_opt.compile_only = true;
@@ -278,9 +308,9 @@ void ODqCompClargs::ParseCmdLineArgs(int argc, char **argv)
     link_output = has_dash_o ? explicit_output : base_name;
   }
 
-  print("Compiling: \"{}\"...\n", in_filename);
   return;
 }
+
 
 void ODqCompClargs::PrintUsage()
 {
@@ -294,6 +324,9 @@ void ODqCompClargs::PrintUsage()
   print("  -D<name>=<value> : defines the <name> symbol with the <value> (int/bool)\n");
   print("  -On       : optimization level, n=0-3\n");
   print("  -g        : generate debug info\n");
-  print("  -v        : print compiler internal trace messages\n");
+  print("  -v,-v1    : print compile status messages\n");
+  print("  -vv,-v2   : print detailed compiler information\n");
+  print("  -vvv,-v3  : print compiler internal trace messages\n");
+  print("  -v0       : no extra output (default)\n");
   print("  -ir       : print LLVM IR code\n");
 }

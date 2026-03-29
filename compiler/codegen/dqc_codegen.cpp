@@ -34,7 +34,7 @@ using namespace std;
 
 void ODqCompCodegen::GenerateIr()
 {
-  if (g_opt.verbose)
+  if (g_opt.verblevel >= VERBLEVEL_INFO)
   {
     print("Generating IR...\n");
   }
@@ -142,7 +142,10 @@ void ODqCompCodegen::OptimizeIr(int aoptlevel)
 
 void ODqCompCodegen::EmitObject(const string afilename)
 {
-  print("Writing object file \"{}\"...\n", afilename);
+  if (g_opt.verblevel >= VERBLEVEL_STATUS)
+  {
+    print("Writing object file \"{}\"...\n", afilename);
+  }
 
   error_code ec;
   llvm::raw_fd_ostream out(afilename, ec, llvm::sys::fs::OF_None);

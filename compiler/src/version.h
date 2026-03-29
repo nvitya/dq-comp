@@ -11,10 +11,13 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.6.5"
+#define DQ_COMPILER_VERSION  "0.6.6"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.6.6:
+  - verbosity switches
+  - Default compiler verbosity changed to NONE (gcc like behaviour)
 v0.6.5:
   - Printing compiler version with --version switch
 v0.6.4:

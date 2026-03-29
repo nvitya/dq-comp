@@ -23,6 +23,7 @@
 
 #include "dqc.h"
 #include "dq_module.h"
+#include "version.h"
 
 ODqCompiler *  g_compiler = nullptr;
 
@@ -39,15 +40,27 @@ void ODqCompiler::Run(int argc, char ** argv)
   errorcnt = 0;
   OScPosition scpos;
 
+  ParseCmdLineArgsVerblevel(argc, argv);
+  if (g_opt.verblevel >= VERBLEVEL_STATUS)
+  {
+    print("DQ Compiler - v{}\n", DQ_COMPILER_VERSION);
+  }
+
   ParseCmdLineArgs(argc, argv);
   if (errorcnt)
   {
     return;
   }
 
-  if (g_opt.print_version)
+  if (g_opt.print_version) // print only the version
   {
+    print("{}\n", DQ_COMPILER_VERSION);
     return;
+  }
+
+  if ((g_opt.verblevel >= VERBLEVEL_STATUS) and not in_filename.empty())
+  {
+    print("Compiling: \"{}\"...\n", in_filename);
   }
 
   for (const OCmdLineDefine & def : g_opt.cmdline_defines)
@@ -82,7 +95,10 @@ void ODqCompiler::Run(int argc, char ** argv)
   ParseModule();
   if (errorcnt)
   {
-    print("Compile error.\n");
+    if (g_opt.verblevel >= VERBLEVEL_STATUS)
+    {
+      print("Compile error.\n");
+    }
     return;
   }
 
@@ -113,8 +129,15 @@ void ODqCompiler::Run(int argc, char ** argv)
     if (has_main)
     {
       string link_cmd = format("gcc {} -o {}", out_filename, link_output);
-      if (g_opt.verbose)  print("Linking: {}\n", link_cmd);
-      print("Linking: \"{}\"...\n", link_output);
+      if (g_opt.verblevel >= VERBLEVEL_STATUS)
+      {
+        print("Linking: \"{}\"...\n", link_output);
+      }
+      if (g_opt.verblevel >= VERBLEVEL_INFO)
+      {
+        print("Link cmd: {}\n", link_cmd);
+      }
+
 
       int rc = system(link_cmd.c_str());
       if (rc != 0)
@@ -133,7 +156,7 @@ void ODqCompiler::Run(int argc, char ** argv)
     }
   }
 
-  if (0 == errorcnt)
+  if ((0 == errorcnt) and (g_opt.verblevel >= VERBLEVEL_STATUS))
   {
     print("OK.\n");
   }
