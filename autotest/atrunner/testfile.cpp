@@ -122,6 +122,12 @@ void OTestFile::ExecRunTest()
   string exename = fs::path(filename).replace_extension("").generic_string();
   #ifdef _WIN32
     exename += ".exe";
+  #else
+    // adding "./" to the front for local files
+    if (not exename.empty() and exename[0] != '/' and exename.find('/') == string::npos)
+    {
+      exename.insert(0, "./");
+    }
   #endif
 
   if (!g_atropt->batchmode and g_atropt->verblevel >= VERBLEVEL_DEBUG)
@@ -131,7 +137,11 @@ void OTestFile::ExecRunTest()
   procrunner.args = { exename };
   if (not procrunner.Run())
   {
-    AddRunError(format("Error executing {}", exename));
+    AddRunError(format("Error executing \"{}\"", exename));
+    if (!g_atropt->batchmode)
+    {
+      print("{}\n", msg_run.back());
+    }
     return;
   }
 

@@ -57,34 +57,17 @@ void OAtrOptions::ParseCmdLineArgs(int argc, char ** argv)
 
     if ('-' == v[0])
     {
-      if ("-v" == v)
-      {
-        verblevel = VERBLEVEL_STATUS;
-      }
-      else if ("-vv" == v)
-      {
-        verblevel = VERBLEVEL_INFO;
-      }
-      else if ("-vvv" == v)
-      {
-        verblevel = VERBLEVEL_DEBUG;
-      }
-      else if ("-v0" == v)
-      {
-        verblevel = VERBLEVEL_NONE;
-      }
-      else if ("-v1" == v)
-      {
-        verblevel = VERBLEVEL_STATUS;
-      }
-      else if ("-v2" == v)
-      {
-        verblevel = VERBLEVEL_INFO;
-      }
-      else if ("-v3" == v)
-      {
-        verblevel = VERBLEVEL_DEBUG;
-      }
+      if ("--version" == v)  print_version = true;
+
+      else if ("-v" == v)    verblevel = VERBLEVEL_STATUS;
+      else if ("-vv" == v)   verblevel = VERBLEVEL_INFO;
+      else if ("-vvv" == v)  verblevel = VERBLEVEL_DEBUG;
+
+      else if ("-v0" == v)   verblevel = VERBLEVEL_NONE;
+      else if ("-v1" == v)   verblevel = VERBLEVEL_STATUS;
+      else if ("-v2" == v)   verblevel = VERBLEVEL_INFO;
+      else if ("-v3" == v)   verblevel = VERBLEVEL_DEBUG;
+
       else if ("-c" == v)
       {
         if (i + 1 < argc)

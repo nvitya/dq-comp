@@ -27,6 +27,7 @@
 
 #include "at_runner.h"
 #include "atr_options.h"
+#include "atr_version.h"
 
 using namespace std;
 
@@ -113,7 +114,6 @@ int main(int argc, char ** argv)
   signal(SIGSEGV, signal_handler);  // separate method for segfaults for stacktrace
 
   init_atr_options(argc, argv);
-
   if (!g_atropt)
   {
     return 1;
@@ -122,6 +122,12 @@ int main(int argc, char ** argv)
   if (g_atropt->arg_error_count)
   {
     return g_atropt->arg_error_count;
+  }
+
+  if (g_atropt->print_version) // print only the version
+  {
+    print("{}\n", ATR_VERSION);
+    return 0;
   }
 
   g_atr = new OAtRunner();

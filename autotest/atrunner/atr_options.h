@@ -35,6 +35,7 @@ public:
   string            single_test_filename;
 
   int               worker_count = 0;  // 0 = auto detect thread count
+  bool              print_version = false;  // --version
   int               verblevel = VERBLEVEL_NONE;
 
   int               arg_error_count = 0;
