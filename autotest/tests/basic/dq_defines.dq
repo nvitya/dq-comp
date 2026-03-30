@@ -14,14 +14,14 @@ var g_var : int = 555;
 [[external]] function printf(fmt : ^cchar, ...) -> int;
 
 function main() -> int:
-  printf('Testing defines...\n');
+  printf('Testing defines...\n');  //?check('Testing defines...')
 
   #ifdef BOOLVAL
-    printf('BOOLVAL is defined.\n');
+    printf('BOOLVAL is defined.\n');  //?check('BOOLVAL is defined.')
     #if BOOLVAL
-      printf('  BOOLVAL is true\n');
+      printf('  BOOLVAL = true\n');
     #else
-      printf('  BOOLVAL is false\n');
+      printf('  BOOLVAL = false\n');  //?check('BOOLVAL', 'false')
     #endif
   #else
     printf('BOOLVAL is not defined.\n');
@@ -29,9 +29,9 @@ function main() -> int:
 
   #ifdef BOOLVAL
     if @def.BOOLVAL:
-      printf('  BOOLVAL (from normal source) is true\n');
+      printf('  BOOLVAL_src = true\n');
     else:
-      printf('  BOOLVAL (from normal source) is false\n');
+      printf('  BOOLVAL_src = false\n');  //?check('BOOLVAL_src', 'false')
     endif
   #endif
 
@@ -50,15 +50,16 @@ function main() -> int:
   #elif MAXVAL >= 1000
     printf('MAXVAL >= 1000\n');
   #else
-    printf('MAXVAL < 1000\n');
+    printf('MAXVAL < 1000\n');            //?check('MAXVAL < 1000')
   #endif
 
   printf('MAXVAL = %ld\n', @def.MAXVAL);  // @ is used for namespace (scope) access.
                                           // The @def namespace points to the g_defines scope
 
+                                          //?check('MAXVAL', 524)
   g_var = 123;
   @.g_var = 444;
-  printf('g_var = %ld\n', @.g_var);
+  printf('g_var = %ld\n', @.g_var);       //?check('g_var', 444)
 
   // @def.MAXVAL = 123;   // this should fail
 

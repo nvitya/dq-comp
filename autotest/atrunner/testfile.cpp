@@ -201,6 +201,7 @@ void OTestFile::AnalyzeRunOutput()
 
   string errstr;
   string outline;
+  string sid;
 
   while (sp.readptr < sp.bufend)
   {
@@ -211,44 +212,67 @@ void OTestFile::AnalyzeRunOutput()
 
     curline = sp.PrevStr();
     spl.Init(curline.data(), curline.size());
+    spl.SkipSpaces();
 
     bool waschecked = false;
     errstr = "";
 
     if (not curline.empty())
     {
+
+      // 1. identifier = value ?
+
+      bool id_and_value = false;
+      char * idstart = spl.readptr;
+      if (spl.ReadToChar('='))
+      {
+        sid = spl.PrevStr();
+
+        spl.CheckSymbol("="); // consume
+        spl.SkipSpaces();
+
+        // remove the trailing spaces
+        while (not sid.empty() and ((sid.back() == ' ') or (sid.back() == '\t')))
+        {
+          sid.pop_back();
+        }
+
+        if (not sid.empty())
+        {
+          id_and_value = true;
+        }
+      }
+
+      if (not id_and_value) // rewind the line parser
+      {
+        spl.readptr = spl.bufstart;
+        spl.SkipSpaces();
+      }
+
       // run checks
       for (ORunCapture * cap : run_captures)
       {
-        if (spl.CheckSymbol(cap->strid.c_str()))
+        if (id_and_value)
+        {
+          if (cap->strid == sid)
+          {
+            if (cap->captured)
+            {
+              errstr = "already captured";
+            }
+            else if (not spl.CheckSymbol(cap->checkvalue.c_str()))
+            {
+              errstr = format("!= {}", cap->checkvalue);
+            }
+
+            cap->captured = true;
+            waschecked = true;
+            break;
+          }
+        }
+        else if (cap->checkvalue.empty() and spl.CheckSymbol(cap->strid.c_str()))
         {
           waschecked = true;
-
-          if (cap->checkvalue.empty())  // empty value or ignore
-          {
-            break;
-          }
-
-          if (cap->captured)
-          {
-            errstr = "already captured";
-            break;
-          }
-
-          spl.SkipSpaces(false);
-          if (spl.CheckSymbol("="))
-          {
-            spl.SkipSpaces(false);
-          }
-
-          cap->captured = true;
-
-          // check against the value
-          if (not spl.CheckSymbol(cap->checkvalue.c_str()))
-          {
-            errstr = format("!= {}", cap->checkvalue);
-          }
-
           break;
         }
       }
