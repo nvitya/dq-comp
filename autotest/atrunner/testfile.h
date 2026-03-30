@@ -88,6 +88,7 @@ public:
 
   void Process();
   void ExecRunTest();
+  void AddRunTestCompileErrors(string & astr);
   void AnalyzeRunOutput();
   void ShowRunResults();
 

@@ -76,7 +76,7 @@ void OTestFile::Process()
 
 void OTestFile::ExecRunTest()
 {
-  if (!g_atropt->batchmode and g_atropt->verblevel >= VERBLEVEL_STATUS)
+  if (!g_atropt->batchmode)
   {
     print("Run test \"{}\"\n", filename);
   }
@@ -86,6 +86,30 @@ void OTestFile::ExecRunTest()
   {
     // error executing the compiler
     AddRunError(format("Error executing the compiler {}", g_atropt->compiler_filename));
+    return;
+  }
+
+  if (comp_result != 0)
+  {
+    if (!g_atropt->batchmode and g_atropt->verblevel >= VERBLEVEL_STATUS)
+    {
+      print("Compile error:\n");
+      if (not comp_stdout.empty())
+      {
+        print("{}\n", comp_stdout);
+      }
+      if (not comp_stderr.empty())
+      {
+        print("{}\n", comp_stderr);
+      }
+    }
+
+    AddRunTestCompileErrors(comp_stdout);
+    AddRunTestCompileErrors(comp_stderr);
+    if (0 == errorcnt_run)
+    {
+      AddRunError(format("COMPERR: Compile error {}", comp_result));
+    }
     return;
   }
 
@@ -121,12 +145,35 @@ void OTestFile::ExecRunTest()
   AnalyzeRunOutput();
 }
 
+void OTestFile::AddRunTestCompileErrors(string & astr)
+{
+  // add the compile errors to the msg_run
+
+  sp.Init(astr.data(), astr.size());
+  sp.SkipSpaces(); // go to the first non-space
+
+  while (sp.readptr < sp.bufend)
+  {
+    if (not sp.ReadLine())
+    {
+      break;
+    }
+
+    curline = sp.PrevStr();
+    if (not curline.empty())
+    {
+      AddRunError("COMPERR: "+curline);
+    }
+  }
+
+}
+
 void OTestFile::AnalyzeRunOutput()
 {
   PrintSeparator();
 
-  sp.SkipSpaces(); // go to the first non-space
   sp.Init(run_output.data(), run_output.size());
+  sp.SkipSpaces(); // go to the first non-space
 
   string errstr;
   string outline;
@@ -202,7 +249,7 @@ void OTestFile::AnalyzeRunOutput()
   {
     if (not cap->captured and not cap->checkvalue.empty())
     {
-      outline = format("{:<40} ` missing {} = {}", "", cap->strid, cap->checkvalue);
+      outline = format("{:<40} ` missing: {} = {}", "", cap->strid, cap->checkvalue);
       print("{}\n", outline);
       AddRunError(outline);
     }
