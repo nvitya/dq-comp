@@ -10,9 +10,9 @@
             "xargs": ["basic/dq_float.dq"],
             "xargs": ["basic/dq_defines.dq"],
             "xargs": ["sample_combined.dq", "-v"],
-            "args": ["basic/dq_array.dq", "-v3"],
+            "xargs": ["basic/dq_array.dq"],
 
-            "xargs": ["-r", "basic", "-j", "1"],
+            "args": ["-r", "basic", "-j", "1"],
 
             "stopAtEntry": false,
 

@@ -382,16 +382,26 @@ void OTestFile::AnalyzeErrOutput()
 {
   PrintSeparator();
 
+  // examples:
+  //   dq_array.dq(64,38) ERROR(ArrSize): Array size mismatch: expected 3, got 4
+  //   dq_array.dq(64,38) ERROR(Semicolon): ";" is missing to close the assignment statement
+  //   dq_array.dq(65,1) ERROR(FuncResultNotSet): Function "dq_arr_fixed_test_error" result is not set
+
   sp.Init(comp_out.data(), comp_out.size());
-  sp.SkipSpaces(); // go to the first non-space
 
   string errstr;
   string outline;
-  string sid;
 
-#if 0
+  string sid;
+  string errid;
+
+  string fname;
+  int    linenum;
+  int    colnum;
+
   while (sp.readptr < sp.bufend)
   {
+    sp.SkipSpaces();
     if (not sp.ReadLine())
     {
       break;
@@ -404,61 +414,77 @@ void OTestFile::AnalyzeErrOutput()
     bool waschecked = false;
     errstr = "";
 
-    if (not curline.empty())
+    if (curline.empty())
     {
+      continue;
+    }
 
-      // 1. identifier = value ?
+    // capture the file name, linenum, colnum first
 
-      bool id_and_value = false;
-      char * idstart = spl.readptr;
-      if (spl.ReadToChar('='))
+    bool bok = false;
+    if (spl.ReadToChar('('))
+    {
+      fname = spl.PrevStr();
+      spl.CheckSymbol("("); // consume
+      if (spl.ReadDecimalNumbers())
       {
-        sid = spl.PrevStr();
-
-        spl.CheckSymbol("="); // consume
-        spl.SkipSpaces();
-
-        // remove the trailing spaces
-        while (not sid.empty() and ((sid.back() == ' ') or (sid.back() == '\t')))
+        linenum = spl.PrevToInt();
+        if (spl.CheckSymbol(","))
         {
-          sid.pop_back();
-        }
-
-        if (not sid.empty())
-        {
-          id_and_value = true;
-        }
-      }
-
-      if (not id_and_value) // rewind the line parser
-      {
-        spl.readptr = spl.bufstart;
-        spl.SkipSpaces();
-      }
-
-      // run checks
-      for (ORunCapture * cap : run_captures)
-      {
-        if (id_and_value)
-        {
-          if (cap->strid == sid)
+          if (spl.ReadDecimalNumbers())
           {
-            if (cap->captured)
+            colnum = spl.PrevToInt();
+            if (spl.CheckSymbol(")"))
             {
-              errstr = "already captured";
+              bok = true;
             }
-            else if (not spl.CheckSymbol(cap->checkvalue.c_str()))
-            {
-              errstr = format("!= {}", cap->checkvalue);
-            }
-
-            cap->captured = true;
-            waschecked = true;
-            break;
           }
         }
-        else if (cap->checkvalue.empty() and spl.CheckSymbol(cap->strid.c_str()))
+      }
+    }
+
+    if (bok) // filename, linenum, colnum captured properly ?
+    {
+      bok = false;
+
+      spl.SkipSpaces();
+
+      // ERROR, WARNING, HINT
+      if (spl.ReadIdentifier(sid))
+      {
+        if (spl.CheckSymbol("("))
         {
+          if (spl.ReadIdentifier(errid))
+          {
+            if (spl.CheckSymbol("):"))
+            {
+              bok = true;
+            }
+          }
+        }
+      }
+    }
+
+    if (not bok)
+    {
+      // invalid compiler output line
+      AddEtError(format("INVALID_COMP_OUT: {}", curline));
+      if (!g_atropt->batchmode)
+      {
+        print("{}\n", msg_err.back());
+      }
+    }
+    else
+    {
+      PrintMissingErrors(linenum);
+
+      // check the error message for matches
+
+      for (OErrCapture * cap : err_captures)
+      {
+        if ((sid == cap->msgtype) and (cap->errid == errid) and (cap->line == linenum))
+        {
+          cap->captured = true;
           waschecked = true;
           break;
         }
@@ -466,39 +492,35 @@ void OTestFile::AnalyzeErrOutput()
 
       if (not waschecked)
       {
-        errstr = "unchecked";
+        AddEtError(format("UNCHECKED: {}", curline));
+        if (!g_atropt->batchmode)
+        {
+          print("{}\n", msg_err.back());
+        }
       }
     }
-
-    outline = format("{:<40} ` {}", curline, errstr);
-    if (!g_atropt->batchmode)
-    {
-      print("{}\n", outline);
-    }
-    if (not errstr.empty())
-    {
-      AddRunError(outline);
-    }
-
   } // while all lines
 
-  // write missing captures
-  for (ORunCapture * cap : run_captures)
-  {
-    if (not cap->captured and not cap->checkvalue.empty())
-    {
-      outline = format("{:<40} ` missing: {} = {}", "", cap->strid, cap->checkvalue);
-      if (!g_atropt->batchmode)
-      {
-        print("{}\n", outline);
-      }
-      AddRunError(outline);
-    }
-  }
-
-#endif
+  PrintMissingErrors(1000000);
 
   PrintSeparator();
+}
+
+void OTestFile::PrintMissingErrors(int alinenum)
+{
+  // write missing captures
+  for (OErrCapture * cap : err_captures)
+  {
+    if (not cap->captured and not cap->missing_printed and cap->line < alinenum)
+    {
+      AddEtError(format("MISSING: {}({}): {}({})", filename, cap->line, cap->msgtype, cap->errid));
+      if (!g_atropt->batchmode)
+      {
+        print("{}\n", msg_err.back());
+      }
+      cap->missing_printed = true;
+    }
+  }
 }
 
 void OTestFile::ShowErrResults()
@@ -583,33 +605,52 @@ bool OTestFile::ParseText()
     sp.CheckSymbol("//?"); // the searchpatten does not consume the pattern itself, so do it now
     sp.SkipSpaces(false);
 
-    if (!sp.ReadIdentifier(sid))
+    while (sp.ReadIdentifier(sid))
     {
-      AddTfError("Identifier expected after \"//?\"");
-    }
+      // error test markers
+      if ("error" == sid)
+      {
+        ParseMarkerError("ERROR");
+      }
+      else if ("warning" == sid)
+      {
+        ParseMarkerError("WARNING");
+      }
+      else if ("hint" == sid)
+      {
+        ParseMarkerError("HINT");
+      }
 
-    if ("error" == sid)
-    {
-      ParseMarkerError();
-    }
-    else if ("check" == sid)
-    {
-      ParseMarkerCheck(false);
-    }
-    else if ("ignore" == sid)
-    {
-      ParseMarkerCheck(true);
-    }
-    else
-    {
-      AddTfError(format("Unknown marker \"{}\"", sid));
+      // run test markers
+      else if ("check" == sid)
+      {
+        ParseMarkerCheck(false);
+      }
+      else if ("ignore" == sid)
+      {
+        ParseMarkerCheck(true);
+      }
+      else
+      {
+        AddTfError(format("Unknown marker \"{}\"", sid));
+        break;
+      }
+
+      sp.SkipSpaces(false);
+      if (sp.CheckSymbol(","))
+      {
+        sp.SkipSpaces(false);
+        continue;
+      }
+
+      break;
     }
   }
 
   return (0 == errorcnt_tf);
 }
 
-void OTestFile::ParseMarkerError()
+void OTestFile::ParseMarkerError(const string amsgid)
 {
   // sample: //?error(TypeSpecExpected)
   // note the "//?error" is already consumed
@@ -637,7 +678,7 @@ void OTestFile::ParseMarkerError()
     return;
   }
 
-  err_captures.push_back(new OErrCapture(errline, errid));
+  err_captures.push_back(new OErrCapture(errline, amsgid, errid));
 
 }
 

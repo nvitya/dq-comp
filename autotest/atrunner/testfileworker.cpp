@@ -11,9 +11,9 @@
  * brief:
  */
 
-#include "testfileworker.h"
-
 #include <print>
+#include "testfileworker.h"
+#include "atr_options.h"
 
 using namespace std;
 
@@ -81,10 +81,16 @@ void OTestFileWorker::ThreadFunc()
 
     if (testfile and !testfile->processed)
     {
-      print("W{}: {} starting\n", worker_id, testfile->filename);
+      if (g_atropt->verblevel >= VERBLEVEL_DEBUG)
+      {
+        print("W{}: {} starting\n", worker_id, testfile->filename);
+      }
       testfile->Process();
-      testfile->processed = true;  // ensure 
-      print("W{}: {} finished\n", worker_id, testfile->filename);
+      testfile->processed = true;  // ensure
+      if (g_atropt->verblevel >= VERBLEVEL_DEBUG)
+      {
+        print("W{}: {} finished\n", worker_id, testfile->filename);
+      }
     }
 
     busy = false;

@@ -24,11 +24,15 @@ class OErrCapture
 {
 public:
   int               line;
+  string            msgtype;  // ERROR/WARNING/HINT
   string            errid;
+  bool              captured = false;
+  bool              missing_printed = false;
 
-  OErrCapture(int aline, const string aerrid)
+  OErrCapture(int aline, const string amsgtype, const string aerrid)
   :
     line(aline),
+    msgtype(amsgtype),
     errid(aerrid)
   {}
 };
@@ -94,6 +98,7 @@ public:
   void ShowTestFileErrors();
   void ExecErrorTest();  // check the expected compiler errors
   void AnalyzeErrOutput();
+  void PrintMissingErrors(int alinenum);
   void ShowErrResults();
 
   void PrintSeparator();
@@ -105,7 +110,7 @@ public:
 protected:
   bool LoadText();
   bool ParseText();
-  void ParseMarkerError();
+  void ParseMarkerError(const string amsgid);
   void ParseMarkerCheck(bool aignore);
 
   void AddTfError(const string astr);
