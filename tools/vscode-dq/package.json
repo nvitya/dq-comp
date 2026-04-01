@@ -1,0 +1,52 @@
+{
+  "name": "dq-syntax",
+  "displayName": "DQ Syntax",
+  "description": "Syntax highlighting and basic editor support for DQ files.",
+  "version": "0.0.1",
+  "publisher": "local",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:nvitya/dq-comp.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "files": [
+    "language-configuration.json",
+    "package.json",
+    "README.md",
+    "LICENSE.txt",
+    "syntaxes/**"
+  ],
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "dq",
+    "syntax",
+    "highlighting"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "dq",
+        "aliases": [
+          "DQ",
+          "dq"
+        ],
+        "extensions": [
+          ".dq"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "dq",
+        "scopeName": "source.dq",
+        "path": "./syntaxes/dq.tmLanguage.json"
+      }
+    ]
+  }
+}

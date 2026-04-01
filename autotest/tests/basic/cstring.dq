@@ -26,7 +26,7 @@ function cstr_add(dst : cstring, src : cstring):  // later this will be a DQ lib
   pd += len(dst);
   var pdstart : ^cchar = pd;
 
-  while pd < pdend and ps < psend and ps^ <> 0:
+  while pd < pdend  and ps < psend  and ps^ <> 0:
     pd^ = ps^;
     pd += 1;
     ps += 1;
