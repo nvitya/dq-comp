@@ -7,13 +7,13 @@
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}",
 
-            "xargs": ["basic/dq_float.dq"],
+            "args": ["basic/dq_float.dq"],
             "xargs": ["basic/dq_defines.dq"],
             "xargs": ["sample_combined.dq", "-v"],
             "xargs": ["basic/dq_array.dq"],
             "xargs": ["preprocessor/dq_preproc_test1.dq"],
 
-            "args": ["-r", "basic", "-j", "1"],
+            "xargs": ["-r", "basic", "-j", "1"],
 
             "stopAtEntry": false,
 
