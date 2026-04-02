@@ -13,7 +13,7 @@
             "xargs": ["basic/dq_array.dq"],
             "xargs": ["preprocessor/dq_preproc_test1.dq"],
 
-            "xargs": ["-r", "basic", "-j", "1"],
+            "args": ["-r", ".", "-j", "1"],
 
             "stopAtEntry": false,
 
