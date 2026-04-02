@@ -46,6 +46,21 @@
     "comments": {
       "patterns": [
         {
+          "name": "comment.block.dq",
+          "begin": "/\\*",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.comment.begin.dq"
+            }
+          },
+          "end": "\\*/",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.comment.end.dq"
+            }
+          }
+        },
+        {
           "name": "comment.line.double-slash.dq",
           "match": "//.*$"
         }
