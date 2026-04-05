@@ -1031,6 +1031,7 @@ OExpr * ODqCompParser::ParseExprAnd()
 
 OExpr * ODqCompParser::ParseExprNot()
 {
+  scf->SkipWhite();
   if (scf->CheckSymbol("not"))
   {
     OExpr *  val = ParseExprNot();

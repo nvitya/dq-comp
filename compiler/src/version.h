@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.6.8"
+#define DQ_COMPILER_VERSION  "0.6.9"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.6.9:
+  - bool not parsing fix
 v0.6.8:
   - fixed code generation error at floating point negation
   - fixed linking adding -lm option for the possible math functions
