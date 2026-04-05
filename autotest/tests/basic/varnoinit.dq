@@ -1,15 +1,15 @@
 // test for not initialized variables
 
-var g_cnt : int;  // error, globals must be initialized.
+var g_cnt : int;  // globals are initialized with zero, when not specified
 var g_var : int = 100;
 
 function dq_noresult(a : int) -> int:
   // error missing result / return
-endfunc
+endfunc  //?error(FuncResultNotSet)
 
 function dq_localvar_noinit(a : int) -> int:
   var i : int;
-  result = a * i;
+  result = a * i;  //?error(VarNotInit)
 endfunc
 
 
@@ -36,7 +36,7 @@ function dq_localvar_noinit_if(a : int) -> int:
   elif a < 10:
     i = 3;
   endif
-  result = a * i;
+  result = a * i;  //?error(VarNotInit)
 endfunc
 
 function dq_result(a : int) -> int:

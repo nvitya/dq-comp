@@ -12,8 +12,12 @@
             "xargs": ["sample_combined.dq", "-v"],
             "xargs": ["basic/dq_array.dq"],
             "xargs": ["preprocessor/dq_preproc_test1.dq"],
+            "xargs": ["basic/intexpr.dq"],
+            "xargs": ["basic/varnoinit.dq"],
 
-            "args": ["-r", ".", "-j", "1"],
+            "args": ["basic/boolean.dq"],
+
+            "xargs": ["-r", ".", "-j", "1"],
 
             "stopAtEntry": false,
 

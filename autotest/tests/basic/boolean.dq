@@ -1,0 +1,40 @@
+// boolean tests
+
+const GVBOOL1  : bool = false;
+const GVBOOL2  : bool = true;
+
+var g_bool : bool = GVBOOL1 or GVBOOL2;
+
+#ifdef ERRORTEST
+
+#else
+
+[[external]] function printf(fmt : ^cchar, ...) -> int;
+
+function printbool(astr : ^cchar, abool : bool):
+  printf("%s = ", astr);
+  if abool:
+    printf("true");
+  else:
+    printf("false");
+  endif
+  printf("\n");
+endfunc
+
+function main() -> int:
+  printf("DQ bool test\n");  //?check('DQ bool test')
+
+  printbool("GVBOOL1", GVBOOL1);
+  printbool("GVBOOL2", GVBOOL2);
+  printbool("g_bool", g_bool);
+
+  var b0 : bool = false;
+  var b1 : bool = true;
+
+  printbool("false or false", b0 or b0);
+  printbool("false or not false", b0 or not b0);
+
+  return 0;
+endfunc
+
+#endif

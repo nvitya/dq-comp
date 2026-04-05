@@ -9,10 +9,10 @@ var f64 : float = 5.5;
 [[external]] function printf(fmt : ^cchar, ...) -> int;
 
 function main() -> int:
-  printf('DQ Typedef test\n');
+  printf('DQ Typedef test\n');    //?check('DQ Typedef test')
   var f : TFloat = f1;
-  printf('float = %f\n', 0.1);
-  printf('f64 = %f\n', f64);
-  printf('f = %f\n', f);
+  printf('float = %.3f\n', 0.1);  //?check(float, 0.100)
+  printf('f64 = %.3f\n', f64);    //?check(f64,   5.500)
+  printf('f = %.3f\n', f);        //?check(f,     1.000)
   return 0;
 endfunc
