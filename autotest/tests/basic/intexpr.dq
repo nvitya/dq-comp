@@ -56,24 +56,28 @@ function mask_bit(a : int, bitnum : int) -> int:
   result = a AND 1 << bitnum;
 endfunc
 
+
 function main() -> int:
   var i : int;
 
   printf("DQ Integer expression test\n");  //?ignore('DQ Integer expression test')
 
-  i = 2 + 3 + 4 - 1 - 2;
-  printf("intexpr1 = %d\n", i);        //?check(intexpr1, 6)
+  var i_initial : int = 2 + 3 + 4 - 1 - 2;    // constant evaluation
+  printf("i_initial = %d\n", i_initial);        //?check(i_initial, 6)
 
-  var i1 : int = 2;
-  var i2 : int = 3;
-  var i3 : int = 4;
-  var i4 : int = 1;
-  var i5 : int = 2;
-  i = i1 + i2 + i3 - i4 - i5;
-  printf("intexpr2 = %d\n", i);        //?check(intexpr2, 6)
+  var iv1 : int = 1;
+  var iv2 : int = 2;
+  var iv3 : int = 3;
+  var iv4 : int = 4;
 
-  i = i1 + i2 * i3 IDIV i5 - i4;
-  printf("intexpr3 = %d\n", i);        //?check(intexpr3, 7)
+  i = iv2 + iv3 + iv4 - iv1 - iv2;
+  printf("2 + 3 + 4 - 1 - 2 = %d\n", i);        //?check('2 + 3 + 4 - 1 - 2', 6)
+
+  i = 4 + 2 * 4 IDIV 2 - 1;
+  printf("4 + 2 * 4 IDIV 2 - 1 = %d\n", i);        //?check('4 + 2 * 4 IDIV 2 - 1', 7)
+
+  i = 1234 IMOD 10;
+  printf("1234 IMOD 10 = %d\n", i);        //?check('1234 IMOD 10', 4)
 
   printf("compare_ints(1, 1)   = %d\n", compare_ints(1, 1)   ); //?check('compare_ints(1, 1)'  , 0)
   printf("compare_ints(1, 0)   = %d\n", compare_ints(1, 0)   ); //?check('compare_ints(1, 0)'  , 1)
