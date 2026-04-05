@@ -102,6 +102,9 @@ function main() -> int:
   i = ((1 << 1) OR (1 << 0)) AND 0x0001;
   printf("bitwise2 = %d\n", i);              //?check(bitwise2, 1)
 
+  i = 0x3333 AND  NOT 0xF;
+  printf("0x3333 AND  NOT 0xF = 0x%04X\n", i);              //?check('0x3333 AND  NOT 0xF', 0x3330)
+
   i = 0xFF00 XOR 0x0FF0;
   printf("0xFF00 XOR 0x0FF00 = 0x%08X\n", i);  //?check('0xFF00 XOR 0x0FF00', 0x0000F0F0)
 

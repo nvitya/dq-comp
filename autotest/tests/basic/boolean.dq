@@ -30,6 +30,7 @@ function main() -> int:
 
   var b0 : bool = false;
   var b1 : bool = true;
+  var bexpr : bool;
 
   printbool("not false", not b0);    //?check('not false', true)
 
@@ -37,7 +38,11 @@ function main() -> int:
   printbool("true or true", b1 or b1);    //?check('true or true', true)
   printbool("true or false", b1 or b0);   //?check('true or false', true)
 
-  //printbool("false or not false", b0 or not b0);
+  printbool("false or not false", b0 or not b0);  //?check('false or not false', true)
+  printbool("false and not false", b0 and not b0);  //?check('false and not false', false)
+
+  bexpr = b0  or b1 and not b1;
+  printbool("bexpr1", bexpr);  //?check('bexpr1', false)
 
   return 0;
 endfunc
