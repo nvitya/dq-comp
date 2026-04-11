@@ -50,6 +50,26 @@ bool ODqCompBase::ReservedWord(const string aname)
   }
 }
 
+const string dq_root_statement_words =
+   "|var|const|type"
+   "|function|use|implementation|initialization|finalization"
+   "|struct|object"
+   "|"
+;
+
+bool ODqCompBase::RootStatementWord(const string aname)
+{
+  string search_target = "|" + aname + "|";
+  if (dq_root_statement_words.find(search_target) != string::npos)
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+
 string ODqCompBase::FormatDiagMsg(string_view atext, string_view par1, string_view par2, string_view par3)
 {
   string msg(atext);
@@ -178,25 +198,96 @@ void ODqCompBase::SkipToSymbol(const char * asym)
   }
 }
 
-void ODqCompBase::StatementError2(const TDiagDefErr & adiag, string_view par1, string_view par2, string_view par3, OScPosition * scpos, bool atryrecover)
+void ODqCompBase::SkipToModuleStatementStart()
+{
+  while (not scf->Eof())
+  {
+    scf->SkipWhite();
+    if (scf->Eof())
+    {
+      return;
+    }
+
+    if (scf->CheckSymbol(";"))
+    {
+      return;
+    }
+
+    OScPosition scpos;
+    scf->SaveCurPos(scpos);
+
+    string sid;
+    if (scf->ReadIdentifier(sid))
+    {
+      if (RootStatementWord(sid))
+      {
+        scf->SetCurPos(scpos);  // restore the module keyword starting position
+        return;
+      }
+
+      continue;
+    }
+
+    // if not an identifier
+    if (scf->CheckSymbol("[[", false))
+    {
+      return;
+    }
+
+    // some other symbol
+
+    if (scf->ReadQuotedString(sid))  // string ?
+    {
+      continue;
+    }
+
+    // skip this char
+    ++scf->curp;
+    scf->RecalcCurCol();
+  }
+}
+
+void ODqCompBase::RootStatementError(const TDiagDefErr & adiag, string_view par1, string_view par2, string_view par3, OScPosition * scpos, bool atryrecover)
+{
+  Error(adiag, par1, par2, par3, scpos);
+  SkipToModuleStatementStart();
+}
+
+void ODqCompBase::RootStatementError(const TDiagDefErr & adiag, string_view par1, string_view par2, OScPosition * scpos, bool atryrecover)
+{
+  RootStatementError(adiag, par1, par2, "", scpos, atryrecover);
+}
+
+void ODqCompBase::RootStatementError(const TDiagDefErr & adiag, string_view par1, OScPosition * scpos, bool atryrecover)
+{
+  RootStatementError(adiag, par1, "", "", scpos, atryrecover);
+}
+
+void ODqCompBase::RootStatementError(const TDiagDefErr & adiag, OScPosition * scpos, bool atryrecover)
+{
+  RootStatementError(adiag, "", "", "", scpos, atryrecover);
+}
+
+
+void ODqCompBase::StatementError(const TDiagDefErr & adiag, string_view par1, string_view par2, string_view par3, OScPosition * scpos, bool atryrecover)
 {
   Error(adiag, par1, par2, par3, scpos);
   SkipCurStatement();
 }
 
-void ODqCompBase::StatementError2(const TDiagDefErr & adiag, string_view par1, string_view par2, OScPosition * scpos, bool atryrecover)
+void ODqCompBase::StatementError(const TDiagDefErr & adiag, string_view par1, string_view par2, OScPosition * scpos, bool atryrecover)
 {
-  StatementError2(adiag, par1, par2, "", scpos, atryrecover);
+  StatementError(adiag, par1, par2, "", scpos, atryrecover);
 }
 
 void ODqCompBase::StatementError(const TDiagDefErr & adiag, string_view par1, OScPosition * scpos, bool atryrecover)
 {
-  StatementError2(adiag, par1, "", "", scpos, atryrecover);
+  StatementError(adiag, par1, "", "", scpos, atryrecover);
 }
 
-void ODqCompBase::StatementError2(const TDiagDefErr & adiag, OScPosition * scpos, bool atryrecover)
+void ODqCompBase::StatementError(const TDiagDefErr & adiag, OScPosition * scpos, bool atryrecover)
 {
-  StatementError2(adiag, "", "", "", scpos, atryrecover);
+  StatementError(adiag, "", "", "", scpos, atryrecover);
 }
 
 void ODqCompBase::Warning(const TDiagDefWarn & adiag, string_view par1, string_view par2, string_view par3, OScPosition * ascpos)

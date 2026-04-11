@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.6.11"
+#define DQ_COMPILER_VERSION  "0.6.12"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.6.12:
+  - Better compiler error recovery to find the next root statements
 v0.6.11:
   - Fixed float32 handling
 v0.6.10:

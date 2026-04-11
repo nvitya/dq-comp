@@ -120,7 +120,7 @@ public: // parsing functions
   bool CheckSymbol(const char * checkstring, bool aconsume = true);
   bool SearchPattern(const char * checkchars, bool aconsume = true);  // sets prevptr, prevlen
 
-  bool ReadIdentifier(string & rvalue);  // returns "" when invalid
+  bool ReadIdentifier(string & rvalue, bool aconsume = true);  // returns "" when invalid
   bool ReadInt64Value(int64_t & rvalue);
   bool ReadHex64Value(uint64_t & rvalue);
   bool ReadQuotedString(string & rvalue);

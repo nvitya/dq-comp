@@ -35,10 +35,10 @@ public:
 
   void ParseModule();
 
-public: // top level items
-  void ParseVarDecl();
-  void ParseConstDecl();
-  void ParseTypeDecl();
+public: // root level items
+  void ParseRootVarDecl();
+  void ParseRootConstDecl();
+  void ParseRootTypeDecl();
   void ParseFunction(bool aexternal = false);
   void ParseStructDecl();
 

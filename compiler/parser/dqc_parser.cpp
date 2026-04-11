@@ -110,7 +110,7 @@ void ODqCompParser::ParseModule()
     // module root starters
     if (not scf->ReadIdentifier(sid))
     {
-      StatementError2(DQERR_MODULE_STATEMENT_EXPECTED, &scpos_statement_start);
+      RootStatementError(DQERR_MODULE_STATEMENT_EXPECTED, &scpos_statement_start);
       continue;
     }
 
@@ -119,15 +119,15 @@ void ODqCompParser::ParseModule()
 
     if ("var" == sid) // global variable definition
     {
-      ParseVarDecl();
+      ParseRootVarDecl();
     }
     else if ("const" == sid) // global constant definition
     {
-      ParseConstDecl();
+      ParseRootConstDecl();
     }
     else if ("type" == sid)
     {
-      ParseTypeDecl();
+      ParseRootTypeDecl();
     }
     else if ("function" == sid)
     {
@@ -141,7 +141,7 @@ void ODqCompParser::ParseModule()
     }
     else  // unknown
     {
-      StatementError(DQERR_MODULE_STATEMENT_UNKNOWN, sid, &scpos_statement_start);
+      RootStatementError(DQERR_MODULE_STATEMENT_UNKNOWN, sid, &scpos_statement_start);
     }
   }
 
@@ -151,7 +151,7 @@ void ODqCompParser::ParseModule()
   }
 }
 
-void ODqCompParser::ParseVarDecl()  // global var declaration (the local var is a statement)
+void ODqCompParser::ParseRootVarDecl()  // global var declaration (the local var is a statement)
 {
   // syntax form: "var identifier : type [ = initial value];"
   // note: "var" is already consumed
@@ -164,27 +164,27 @@ void ODqCompParser::ParseVarDecl()  // global var declaration (the local var is 
   scf->SkipWhite();
   if (not scf->ReadIdentifier(sid))
   {
-    StatementError(DQERR_ID_EXP_AFTER, "var");
+    RootStatementError(DQERR_ID_EXP_AFTER, "var");
     return;
   }
 
   if (g_module->ValSymDeclared(sid, &pvalsym))
   {
-    StatementError2(DQERR_VS_ALREADY_DECL_TYPE, sid, pvalsym->ptype->name, &scf->prevpos);
+    RootStatementError(DQERR_VS_ALREADY_DECL_TYPE, sid, pvalsym->ptype->name, &scf->prevpos);
     return;
   }
 
   scf->SkipWhite();
   if (not scf->CheckSymbol(":"))
   {
-    StatementError(DQERR_TYPE_SPECIFIER_EXP_AFTER, sid);
+    RootStatementError(DQERR_TYPE_SPECIFIER_EXP_AFTER, sid);
     return;
   }
 
   ptype = ParseTypeSpec();
   if (not ptype)
   {
-    SkipCurStatement();
+    SkipToModuleStatementStart();
     return;
   }
 
@@ -216,7 +216,7 @@ void ODqCompParser::ParseVarDecl()  // global var declaration (the local var is 
   }
 }
 
-void ODqCompParser::ParseConstDecl()
+void ODqCompParser::ParseRootConstDecl()
 {
   // syntax form: "const identifier : type [ = initial value];"
   // note: "const" is already consumed
@@ -229,20 +229,20 @@ void ODqCompParser::ParseConstDecl()
   scf->SkipWhite();
   if (not scf->ReadIdentifier(sid))
   {
-    StatementError(DQERR_ID_EXP_AFTER, "var");
+    RootStatementError(DQERR_ID_EXP_AFTER, "var");
     return;
   }
 
   if (g_module->ValSymDeclared(sid, &pvalsym))
   {
-    StatementError2(DQERR_VS_ALREADY_DECL_TYPE, sid, pvalsym->ptype->name, &scf->prevpos);
+    RootStatementError(DQERR_VS_ALREADY_DECL_TYPE, sid, pvalsym->ptype->name, &scf->prevpos);
     return;
   }
 
   scf->SkipWhite();
   if (not scf->CheckSymbol(":"))
   {
-    StatementError(DQERR_TYPE_SPECIFIER_EXP_AFTER, sid);
+    RootStatementError(DQERR_TYPE_SPECIFIER_EXP_AFTER, sid);
     return;
   }
 
@@ -255,7 +255,7 @@ void ODqCompParser::ParseConstDecl()
   scf->SkipWhite();
   if (not scf->CheckSymbol("="))  // variable initializer specified
   {
-    StatementError(DQERR_MISSING_ASSIGN_FOR, sid);
+    RootStatementError(DQERR_MISSING_ASSIGN_FOR, sid);
     return;
   }
 
@@ -265,14 +265,14 @@ void ODqCompParser::ParseConstDecl()
   if (not valueexpr)
   {
     delete valueexpr;
-    StatementError(DQERR_EXPR_WRONG_VALUE_FOR, sid, &expos);
+    RootStatementError(DQERR_EXPR_WRONG_VALUE_FOR, sid, &expos);
     return;
   }
 
   OValue * pvalue = ptype->CreateValue();
   if (not pvalue->CalculateConstant(valueexpr))
   {
-    StatementError(DQERR_CONSTEXPR_INVALID_FOR, sid, &expos);
+    RootStatementError(DQERR_CONSTEXPR_INVALID_FOR, sid, &expos);
 
     delete valueexpr;
     delete pvalue;
@@ -290,7 +290,7 @@ void ODqCompParser::ParseConstDecl()
   }
 }
 
-void ODqCompParser::ParseTypeDecl()
+void ODqCompParser::ParseRootTypeDecl()
 {
   // syntax form: "type identifier = type;"
   // note: "type" is already consumed
@@ -302,20 +302,20 @@ void ODqCompParser::ParseTypeDecl()
   scf->SkipWhite();
   if (not scf->ReadIdentifier(sid))
   {
-    StatementError(DQERR_ID_EXP_AFTER, "type");
+    RootStatementError(DQERR_ID_EXP_AFTER, "type");
     return;
   }
 
   if (g_module->TypeDeclared(sid, &foundtype))
   {
-    StatementError(DQERR_TYPE_ALREADY_DEFINED, sid, &scf->prevpos);
+    RootStatementError(DQERR_TYPE_ALREADY_DEFINED, sid, &scf->prevpos);
     return;
   }
 
   scf->SkipWhite();
   if (not scf->CheckSymbol("="))
   {
-    StatementError(DQERR_MISSING_ASSIGN_FOR, sid);
+    RootStatementError(DQERR_MISSING_ASSIGN_FOR, sid);
     return;
   }
 
@@ -339,7 +339,7 @@ void ODqCompParser::ParseStructDecl()
   scf->SkipWhite();
   if (not scf->ReadIdentifier(sname))
   {
-    StatementError(DQERR_ID_EXP_AFTER, "struct");
+    RootStatementError(DQERR_ID_EXP_AFTER, "struct");
     return;
   }
 
@@ -361,7 +361,7 @@ void ODqCompParser::ParseStructDecl()
 
     if (not scf->ReadIdentifier(membername))
     {
-      StatementError2(DQERR_STRUCT_MBID_EXPECTED);
+      StatementError(DQERR_STRUCT_MBID_EXPECTED);
       break;
     }
 
@@ -572,7 +572,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
   }
   else
   {
-    StatementError2(DQERR_STMTBLK_START_MISSING);
+    StatementError(DQERR_STMTBLK_START_MISSING);
     block_closer = blockend;
   }
 
@@ -643,7 +643,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
     // there should be a normal statement
     if (!scf->ReadIdentifier(sid))
     {
-      StatementError2(DQERR_KW_OR_ID_MISSING);
+      StatementError(DQERR_KW_OR_ID_MISSING);
       continue;
     }
 
@@ -932,7 +932,7 @@ void ODqCompParser::ParseStmtIf()
     {
       if (st->else_present)
       {
-        StatementError2(DQERR_MULTIPLE_ELSE);
+        StatementError(DQERR_MULTIPLE_ELSE);
         break;
       }
       st->else_present = true;
@@ -1904,7 +1904,7 @@ void ODqCompParser::ParseStmtVar()
   pvalsym = curscope->FindValSym(sid, nullptr, false);  // do not search in the parent scopes this time !
   if (pvalsym)
   {
-    StatementError2(DQERR_VS_ALREADY_DECL_TYPE, sid, pvalsym->ptype->name, &scf->prevpos);
+    StatementError(DQERR_VS_ALREADY_DECL_TYPE, sid, pvalsym->ptype->name, &scf->prevpos);
     return;
   }
 

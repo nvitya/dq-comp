@@ -43,6 +43,7 @@ public:
   virtual ~ODqCompBase();
 
   bool ReservedWord(const string aname);
+  bool RootStatementWord(const string aname);
 
   string FormatDiagMsg(string_view atext, string_view par1, string_view par2, string_view par3);
 
@@ -62,15 +63,22 @@ public:
   void ErrorTxt(const TDiagDefErr & adiag, string_view atext, string_view par1, OScPosition * ascpos = nullptr);
   void ErrorTxt(const TDiagDefErr & adiag, string_view atext, OScPosition * ascpos = nullptr);
 
-  // same as Error2() + calls SkipCurStatement()
-  void StatementError2(const TDiagDefErr & adiag, string_view par1, string_view par2, string_view par3, OScPosition * scpos = nullptr, bool atryrecover = true);
-  void StatementError2(const TDiagDefErr & adiag, string_view par1, string_view par2, OScPosition * scpos = nullptr, bool atryrecover = true);
+  // same as Error() + calls SkipCurStatement()
+  void RootStatementError(const TDiagDefErr & adiag, string_view par1, string_view par2, string_view par3, OScPosition * scpos = nullptr, bool atryrecover = true);
+  void RootStatementError(const TDiagDefErr & adiag, string_view par1, string_view par2, OScPosition * scpos = nullptr, bool atryrecover = true);
+  void RootStatementError(const TDiagDefErr & adiag, string_view par1, OScPosition * scpos = nullptr, bool atryrecover = true);
+  void RootStatementError(const TDiagDefErr & adiag, OScPosition * scpos = nullptr, bool atryrecover = true);
+
+  // same as Error() + calls SkipCurStatement()
+  void StatementError(const TDiagDefErr & adiag, string_view par1, string_view par2, string_view par3, OScPosition * scpos = nullptr, bool atryrecover = true);
+  void StatementError(const TDiagDefErr & adiag, string_view par1, string_view par2, OScPosition * scpos = nullptr, bool atryrecover = true);
   void StatementError(const TDiagDefErr & adiag, string_view par1, OScPosition * scpos = nullptr, bool atryrecover = true);
-  void StatementError2(const TDiagDefErr & adiag, OScPosition * scpos = nullptr, bool atryrecover = true);
+  void StatementError(const TDiagDefErr & adiag, OScPosition * scpos = nullptr, bool atryrecover = true);
 
   // Error recovery utilities
   void SkipToStatementEnd();
   void SkipCurStatement();
+  void SkipToModuleStatementStart();
   void SkipToSymbol(const char * asym);
 
   // Warnings

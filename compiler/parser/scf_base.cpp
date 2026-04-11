@@ -603,7 +603,7 @@ bool OScFeederBase::CheckSymbol(const char * checkstring, bool aconsume)
   return true;
 }
 
-bool OScFeederBase::ReadIdentifier(string & rvalue)
+bool OScFeederBase::ReadIdentifier(string & rvalue, bool aconsume)
 {
   char *   p = curp;
 
@@ -629,8 +629,11 @@ bool OScFeederBase::ReadIdentifier(string & rvalue)
   prevlen = p - curp;
   if (prevlen > 0)
   {
-    curp = p;
-    curcol = (curp - clstart) + 1;
+    if (aconsume)
+    {
+      curp = p;
+      curcol = (curp - clstart) + 1;
+    }
     rvalue.assign(prevp, prevlen);
     return true;
   }
