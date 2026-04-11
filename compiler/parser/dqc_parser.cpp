@@ -1340,6 +1340,248 @@ OExpr * ODqCompParser::CreateBinExpr(EBinOp op, OExpr * left, OExpr * right)
   return new OBinExpr(op, newleft, newright);
 }
 
+bool ODqCompParser::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rout, uint32_t aflags)
+{
+  *rout = nullptr;
+  if (!dsttype || !src || !src->ptype)
+  {
+    if (aflags & EXPCF_GENERATE_ERRORS)
+    {
+      Error(DQERR_TYPEMISM, (!dsttype ? "?" : dsttype->name), (!src || !src->ptype ? "?" : src->ptype->name));
+    }
+    return false;
+  }
+
+  OType * resolved_dst = dsttype->ResolveAlias();
+  OType * resolved_src = src->ResolvedType();
+  if (!resolved_dst || !resolved_src)
+  {
+    if (aflags & EXPCF_GENERATE_ERRORS)
+    {
+      Error(DQERR_TYPEMISM, (!resolved_dst ? "?" : resolved_dst->name), (!resolved_src ? "?" : resolved_src->name));
+    }
+    return false;
+  }
+
+  ETypeKind tkd = resolved_dst->kind;
+  ETypeKind tks = resolved_src->kind;
+
+  if (tkd != tks)
+  {
+    if ((TK_FLOAT == tkd) and (TK_INT == tks))
+    {
+      *rout = FoldExprTree(new OExprTypeConv(dsttype, src));
+      return true;
+    }
+
+    if ((TK_ARRAY_SLICE == tkd) and (TK_ARRAY == tks))
+    {
+      // Implicit conversion: fixed array -> slice
+      OTypeArraySlice * slicedst = static_cast<OTypeArraySlice *>(resolved_dst);
+      OTypeArray * arrsrc = static_cast<OTypeArray *>(resolved_src);
+      if (slicedst->elemtype->ResolveAlias()->kind != arrsrc->elemtype->ResolveAlias()->kind)
+      {
+        if (aflags & EXPCF_GENERATE_ERRORS)
+        {
+          Error(DQERR_ARR_ELEM_TYPE_MISM, slicedst->elemtype->ResolveAlias()->name, arrsrc->elemtype->ResolveAlias()->name);
+        }
+        return false;
+      }
+
+      // The source expression must be a variable reference so we can get its alloca
+      OLValueVar * varref = dynamic_cast<OLValueVar *>(src);
+      if (!varref)
+      {
+        if (aflags & EXPCF_GENERATE_ERRORS)
+        {
+          Error(DQERR_ARR_SLICE_CONVERSION);
+        }
+        return false;
+      }
+
+      *rout = FoldExprTree(new OArrayToSliceExpr(varref->pvalsym, dsttype));
+      delete src;
+      return true;
+    }
+
+    if ((TK_STRING == tkd) and (TK_POINTER == tks))
+    {
+      // String literal (^cchar) assigned to cstring
+      OTypeCString * cstrdst = static_cast<OTypeCString *>(resolved_dst);
+      OCStringLit * strlit = dynamic_cast<OCStringLit *>(src);
+      if (cstrdst->maxlen != 0)
+      {
+        if (strlit && (aflags & EXPCF_ALLOW_LAZY_CSTRING))
+        {
+          *rout = FoldExprTree(src);
+          return true;
+        }
+
+        if (aflags & EXPCF_GENERATE_ERRORS)
+        {
+          ErrorTxt(DQERR_CSTR_CONVERSION, "cannot convert pointer to cstring descriptor");
+        }
+        return false;
+      }
+
+      if (!strlit)
+      {
+        if (aflags & EXPCF_GENERATE_ERRORS)
+        {
+          ErrorTxt(DQERR_CSTR_CONVERSION, "cannot convert pointer to cstring descriptor");
+        }
+        return false;
+      }
+
+      *rout = FoldExprTree(new OCStringLitToDescExpr(src, strlit->value.size() + 1, dsttype));
+      return true;
+    }
+
+    if (aflags & EXPCF_GENERATE_ERRORS)
+    {
+      Error(DQERR_TYPEMISM_STMT_ASSIGN, "Assignment", resolved_dst->name, resolved_src->name);
+    }
+    return false;
+  }
+
+  // if tkd == tks (source and destination kind match)
+
+  if (TK_INT == tkd)
+  {
+    OTypeInt * intdst = static_cast<OTypeInt *>(resolved_dst);
+    OTypeInt * intsrc = static_cast<OTypeInt *>(resolved_src);
+    if ((intdst->bitlength != intsrc->bitlength) or (intdst->issigned != intsrc->issigned))
+    {
+      *rout = FoldExprTree(new OExprTypeConv(dsttype, src));
+    }
+    else
+    {
+      *rout = FoldExprTree(src);
+    }
+    return true;
+  }
+
+  if (TK_FLOAT == tkd)
+  {
+    OTypeFloat * floatdst = static_cast<OTypeFloat *>(resolved_dst);
+    OTypeFloat * floatsrc = static_cast<OTypeFloat *>(resolved_src);
+    if (floatdst->bitlength != floatsrc->bitlength)
+    {
+      *rout = FoldExprTree(new OExprTypeConv(dsttype, src));
+    }
+    else
+    {
+      *rout = FoldExprTree(src);
+    }
+    return true;
+  }
+
+  if (TK_POINTER == tkd)
+  {
+    // both are pointers: allow null (basetype == nullptr) or matching base types
+    OTypePointer * ptrdst = static_cast<OTypePointer *>(resolved_dst);
+    OTypePointer * ptrsrc = static_cast<OTypePointer *>(resolved_src);
+    if (ptrsrc->basetype && ptrdst->basetype
+        && (ptrsrc->basetype->ResolveAlias()->kind != ptrdst->basetype->ResolveAlias()->kind))
+    {
+      if (aflags & EXPCF_GENERATE_ERRORS)
+      {
+        Error(DQERR_PTR_TYPEMISM, ptrdst->name, ptrsrc->name);
+      }
+      return false;
+    }
+
+    *rout = FoldExprTree(src);
+    return true;
+  }
+
+  if (TK_ARRAY_SLICE == tkd)
+  {
+    OTypeArraySlice * slicedst = static_cast<OTypeArraySlice *>(resolved_dst);
+    OTypeArraySlice * slicesrc = static_cast<OTypeArraySlice *>(resolved_src);
+    if (slicedst->elemtype->ResolveAlias()->kind != slicesrc->elemtype->ResolveAlias()->kind)
+    {
+      if (aflags & EXPCF_GENERATE_ERRORS)
+      {
+        Error(DQERR_ARR_ELEM_TYPE_MISM, slicedst->elemtype->ResolveAlias()->name, slicesrc->elemtype->ResolveAlias()->name);
+      }
+      return false;
+    }
+
+    *rout = FoldExprTree(src);
+    return true;
+  }
+
+  if (TK_ARRAY == tkd)
+  {
+    OTypeArray * arrdst = static_cast<OTypeArray *>(resolved_dst);
+    OTypeArray * arrsrc = static_cast<OTypeArray *>(resolved_src);
+    if (arrdst->elemtype->ResolveAlias()->kind != arrsrc->elemtype->ResolveAlias()->kind)
+    {
+      if (aflags & EXPCF_GENERATE_ERRORS)
+      {
+        Error(DQERR_ARR_ELEM_TYPE_MISM, arrdst->elemtype->ResolveAlias()->name, arrsrc->elemtype->ResolveAlias()->name);
+      }
+      return false;
+    }
+    if (arrdst->arraylength != arrsrc->arraylength)
+    {
+      if (aflags & EXPCF_GENERATE_ERRORS)
+      {
+        Error(DQERR_ARR_SIZE_MISM, to_string(arrdst->arraylength), to_string(arrsrc->arraylength));
+      }
+      return false;
+    }
+
+    *rout = FoldExprTree(src);
+    return true;
+  }
+
+  if (TK_STRING == tkd)
+  {
+    // Both are TK_STRING: check if conversion needed (cstring[N] → unsized cstring)
+    OTypeCString * cstrdst = static_cast<OTypeCString *>(resolved_dst);
+    OTypeCString * cstrsrc = static_cast<OTypeCString *>(resolved_src);
+    if ((cstrdst->maxlen == 0) and (cstrsrc->maxlen > 0))
+    {
+      OLValueVar * varref = dynamic_cast<OLValueVar *>(src);
+      if (!varref)
+      {
+        if (aflags & EXPCF_GENERATE_ERRORS)
+        {
+          ErrorTxt(DQERR_CSTR_CONVERSION, "cannot convert non-variable cstring to descriptor");
+        }
+        return false;
+      }
+
+      *rout = FoldExprTree(new OCStringToDescExpr(varref->pvalsym, dsttype));
+      delete src;
+      return true;
+    }
+
+    if ((cstrdst->maxlen > 0) && (aflags & EXPCF_ALLOW_LAZY_CSTRING))
+    {
+      *rout = FoldExprTree(src);
+      return true;
+    }
+
+    if (cstrdst->maxlen != cstrsrc->maxlen)
+    {
+      if (aflags & EXPCF_GENERATE_ERRORS)
+      {
+        ErrorTxt(DQERR_CSTR_CONVERSION, "cstring sizes do not match");
+      }
+      return false;
+    }
+
+    *rout = FoldExprTree(src);
+    return true;
+  }
+
+  *rout = FoldExprTree(src);
+  return true;
+}
+
 OExpr * ODqCompParser::ParseExprPostfix()
 {
   OExpr * result = ParseExprPrimary();
@@ -2222,171 +2464,6 @@ void ODqCompParser::ParseStmtVoidCall(OValSymFunc * vsfunc)
   curblock->AddStatement(new OStmtVoidCall(scpos_statement_start, callexpr));
 }
 
-bool ODqCompParser::TryConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rout)
-{
-  *rout = nullptr;
-  if (!dsttype || !src || !src->ptype)
-  {
-    return false;
-  }
-
-  OType * resolved_dst = dsttype->ResolveAlias();
-  OType * resolved_src = src->ResolvedType();
-  if (!resolved_dst || !resolved_src)
-  {
-    return false;
-  }
-
-  ETypeKind tkd = resolved_dst->kind;
-  ETypeKind tks = resolved_src->kind;
-  OExpr * result = src;
-
-  if (resolved_dst == resolved_src)
-  {
-    if (TK_STRING == tkd)
-    {
-      OTypeCString * cstrdst = static_cast<OTypeCString *>(dsttype);
-      OTypeCString * cstrsrc = static_cast<OTypeCString *>(src->ptype);
-      if (cstrdst->maxlen == 0 and cstrsrc->maxlen > 0)
-      {
-        OLValueVar * varref = dynamic_cast<OLValueVar *>(src);
-        if (!varref)
-        {
-          return false;
-        }
-        result = new OCStringToDescExpr(varref->pvalsym, dsttype);
-      }
-      else if (cstrdst->maxlen != cstrsrc->maxlen)
-      {
-        return false;
-      }
-    }
-
-    *rout = FoldExprTree(result);
-    return true;
-  }
-
-  if ((TK_FLOAT == tkd) and (TK_INT == tks))
-  {
-    *rout = FoldExprTree(new OExprTypeConv(dsttype, src));
-    return true;
-  }
-
-  if ((TK_INT == tkd) and (TK_INT == tks))
-  {
-    OTypeInt * intdst = static_cast<OTypeInt *>(resolved_dst);
-    OTypeInt * intsrc = static_cast<OTypeInt *>(resolved_src);
-    if (intdst->bitlength == intsrc->bitlength && intdst->issigned == intsrc->issigned)
-    {
-      *rout = FoldExprTree(src);
-    }
-    else
-    {
-      *rout = FoldExprTree(new OExprTypeConv(dsttype, src));
-    }
-    return true;
-  }
-
-  if ((TK_FLOAT == tkd) and (TK_FLOAT == tks))
-  {
-    OTypeFloat * floatdst = static_cast<OTypeFloat *>(resolved_dst);
-    OTypeFloat * floatsrc = static_cast<OTypeFloat *>(resolved_src);
-    if (floatdst->bitlength == floatsrc->bitlength)
-    {
-      *rout = FoldExprTree(src);
-    }
-    else
-    {
-      *rout = FoldExprTree(new OExprTypeConv(dsttype, src));
-    }
-    return true;
-  }
-
-  if ((TK_ARRAY_SLICE == tkd) and (TK_ARRAY == tks))
-  {
-    OTypeArraySlice * slicedst = static_cast<OTypeArraySlice *>(resolved_dst);
-    OTypeArray * arrsrc = static_cast<OTypeArray *>(resolved_src);
-    if (slicedst->elemtype->ResolveAlias() != arrsrc->elemtype->ResolveAlias())
-    {
-      return false;
-    }
-    OLValueVar * varref = dynamic_cast<OLValueVar *>(src);
-    if (!varref)
-    {
-      return false;
-    }
-    *rout = FoldExprTree(new OArrayToSliceExpr(varref->pvalsym, dsttype));
-    return true;
-  }
-
-  if ((TK_STRING == tkd) and (TK_POINTER == tks))
-  {
-    OTypeCString * cstrdst = static_cast<OTypeCString *>(dsttype);
-    if (cstrdst->maxlen != 0)
-    {
-      return false;
-    }
-
-    OCStringLit * strlit = dynamic_cast<OCStringLit *>(src);
-    if (!strlit)
-    {
-      return false;
-    }
-
-    *rout = FoldExprTree(new OCStringLitToDescExpr(src, strlit->value.size() + 1, dsttype));
-    return true;
-  }
-
-  if ((TK_POINTER == tkd) and (TK_POINTER == tks))
-  {
-    OTypePointer * ptrdst = static_cast<OTypePointer *>(resolved_dst);
-    OTypePointer * ptrsrc = static_cast<OTypePointer *>(resolved_src);
-    if (ptrsrc->basetype == nullptr || ptrdst->basetype == nullptr)
-    {
-      *rout = FoldExprTree(src);
-      return true;
-    }
-    if (ptrsrc->basetype->ResolveAlias() != ptrdst->basetype->ResolveAlias())
-    {
-      return false;
-    }
-
-    *rout = FoldExprTree(src);
-    return true;
-  }
-
-  if ((TK_ARRAY_SLICE == tkd) and (TK_ARRAY_SLICE == tks))
-  {
-    OTypeArraySlice * slicedst = static_cast<OTypeArraySlice *>(resolved_dst);
-    OTypeArraySlice * slicesrc = static_cast<OTypeArraySlice *>(resolved_src);
-    if (slicedst->elemtype->ResolveAlias() != slicesrc->elemtype->ResolveAlias())
-    {
-      return false;
-    }
-    *rout = FoldExprTree(src);
-    return true;
-  }
-
-  if ((TK_ARRAY == tkd) and (TK_ARRAY == tks))
-  {
-    OTypeArray * arrdst = static_cast<OTypeArray *>(resolved_dst);
-    OTypeArray * arrsrc = static_cast<OTypeArray *>(resolved_src);
-    if (arrdst->elemtype->ResolveAlias() != arrsrc->elemtype->ResolveAlias())
-    {
-      return false;
-    }
-    if (arrdst->arraylength != arrsrc->arraylength)
-    {
-      return false;
-    }
-    *rout = FoldExprTree(src);
-    return true;
-  }
-
-  *rout = nullptr;
-  return false;
-}
-
 bool ODqCompParser::ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OType ** rresulttype)
 {
   OExpr * trueexpr = *rtrueexpr;
@@ -2498,7 +2575,7 @@ bool ODqCompParser::ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OTyp
   }
 
   OExpr * converted_false = nullptr;
-  if (TryConvertExprToType(trueexpr->ptype, falseexpr, &converted_false))
+  if (ConvertExprToType(trueexpr->ptype, falseexpr, &converted_false, EXPCF_ALLOW_LAZY_CSTRING))
   {
     *rtrueexpr = FoldExprTree(trueexpr);
     *rfalseexpr = converted_false;
@@ -2507,7 +2584,7 @@ bool ODqCompParser::ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OTyp
   }
 
   OExpr * converted_true = nullptr;
-  if (TryConvertExprToType(falseexpr->ptype, trueexpr, &converted_true))
+  if (ConvertExprToType(falseexpr->ptype, trueexpr, &converted_true, EXPCF_ALLOW_LAZY_CSTRING))
   {
     *rtrueexpr = converted_true;
     *rfalseexpr = FoldExprTree(falseexpr);
@@ -2521,137 +2598,13 @@ bool ODqCompParser::ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OTyp
 
 bool ODqCompParser::CheckAssignType(OType * dsttype, OExpr ** rexpr, const string astmt)
 {
-  ETypeKind tkd = dsttype->kind;
-  ETypeKind tke = (*rexpr)->ptype->kind;
-
-  if (tkd != tke)
+  OExpr * converted = nullptr;
+  if (!ConvertExprToType(dsttype, *rexpr, &converted, EXPCF_GENERATE_ERRORS | EXPCF_ALLOW_LAZY_CSTRING))
   {
-    if ((TK_FLOAT == tkd) and (TK_INT == tke))
-    {
-      *rexpr = new OExprTypeConv(dsttype, *rexpr);
-    }
-    else if ((TK_ARRAY_SLICE == tkd) and (TK_ARRAY == tke))
-    {
-      // Implicit conversion: fixed array -> slice
-      OTypeArraySlice * slicedst = static_cast<OTypeArraySlice *>(dsttype);
-      OTypeArray * arrsrc = static_cast<OTypeArray *>((*rexpr)->ptype);
-      if (slicedst->elemtype->kind != arrsrc->elemtype->kind)
-      {
-        Error(DQERR_ARR_ELEM_TYPE_MISM, dsttype->name, (*rexpr)->ptype->name);
-        return false;
-      }
-      // The source expression must be a variable reference so we can get its alloca
-      OLValueVar * varref = dynamic_cast<OLValueVar *>(*rexpr);
-      if (!varref)
-      {
-        Error(DQERR_ARR_SLICE_CONVERSION);
-        return false;
-      }
-      *rexpr = new OArrayToSliceExpr(varref->pvalsym, dsttype);
-      delete varref;
-    }
-    else if ((TK_STRING == tkd) and (TK_POINTER == tke))
-    {
-      // String literal (^cchar) assigned to cstring
-      OTypeCString * cstrdst = static_cast<OTypeCString *>(dsttype);
-      if (cstrdst->maxlen == 0)
-      {
-        // Unsized cstring param: create descriptor from string literal
-        OCStringLit * strlit = dynamic_cast<OCStringLit *>(*rexpr);
-        if (strlit)
-        {
-          *rexpr = new OCStringLitToDescExpr(*rexpr, strlit->value.size() + 1, dsttype);
-        }
-        else
-        {
-          ErrorTxt(DQERR_CSTR_CONVERSION, "cannot convert pointer to cstring descriptor");
-          return false;
-        }
-      }
-      // Sized cstring[N]: assignment from literal handled in statement codegen
-    }
-    else if ((TK_INT == tkd) and (TK_INT == tke))
-    {
-      // Integer width conversion (e.g., cchar/int8 <-> int64)
-      OTypeInt * intdst = static_cast<OTypeInt *>(dsttype->ResolveAlias());
-      OTypeInt * intsrc = static_cast<OTypeInt *>((*rexpr)->ResolvedType());
-      if (intdst->bitlength != intsrc->bitlength)
-      {
-        *rexpr = new OExprTypeConv(dsttype, *rexpr);
-      }
-    }
-    else
-    {
-      Error(DQERR_TYPEMISM_STMT_ASSIGN, astmt, dsttype->name, (*rexpr)->ptype->name);
-      return false;
-    }
-  }
-  else if (TK_POINTER == tkd)
-  {
-    // both are pointers: allow null (basetype == nullptr) or matching base types
-    OTypePointer * ptrdst = static_cast<OTypePointer *>(dsttype);
-    OTypePointer * ptrsrc = static_cast<OTypePointer *>((*rexpr)->ptype);
-    if (ptrsrc->basetype and ptrdst->basetype and (ptrsrc->basetype->kind != ptrdst->basetype->kind))
-    {
-      Error(DQERR_PTR_TYPEMISM, dsttype->name, (*rexpr)->ptype->name);
-      return false;
-    }
-  }
-  else if (TK_FLOAT == tkd)
-  {
-    OTypeFloat * floatdst = static_cast<OTypeFloat *>(dsttype->ResolveAlias());
-    OTypeFloat * floatsrc = static_cast<OTypeFloat *>((*rexpr)->ResolvedType());
-    if (floatdst->bitlength != floatsrc->bitlength)
-    {
-      *rexpr = new OExprTypeConv(dsttype, *rexpr);
-    }
-  }
-  else if (TK_ARRAY_SLICE == tkd)
-  {
-    // both are slices: check element types match
-    OTypeArraySlice * slicedst = static_cast<OTypeArraySlice *>(dsttype);
-    OTypeArraySlice * slicesrc = static_cast<OTypeArraySlice *>((*rexpr)->ptype);
-    if (slicedst->elemtype->kind != slicesrc->elemtype->kind)
-    {
-      Error(DQERR_ARR_ELEM_TYPE_MISM, dsttype->name, (*rexpr)->ptype->name);
-      return false;
-    }
-  }
-  else if (TK_ARRAY == tkd)
-  {
-    OTypeArray * arrdst = static_cast<OTypeArray *>(dsttype);
-    OTypeArray * arrsrc = static_cast<OTypeArray *>((*rexpr)->ptype);
-    if (arrdst->elemtype->ResolveAlias() != arrsrc->elemtype->ResolveAlias())
-    {
-      Error(DQERR_ARR_ELEM_TYPE_MISM, dsttype->name, (*rexpr)->ptype->name);
-      return false;
-    }
-    if (arrdst->arraylength != arrsrc->arraylength)
-    {
-      Error(DQERR_ARR_SIZE_MISM, to_string(arrdst->arraylength), to_string(arrsrc->arraylength));
-      return false;
-    }
-  }
-  else if (TK_STRING == tkd)
-  {
-    // Both are TK_STRING: check if conversion needed (cstring[N] → unsized cstring)
-    OTypeCString * cstrdst = static_cast<OTypeCString *>(dsttype);
-    OTypeCString * cstrsrc = static_cast<OTypeCString *>((*rexpr)->ptype);
-    if (cstrdst->maxlen == 0 and cstrsrc->maxlen > 0)
-    {
-      // cstring[N] variable → unsized cstring descriptor conversion
-      OLValueVar * varref = dynamic_cast<OLValueVar *>(*rexpr);
-      if (!varref)
-      {
-        ErrorTxt(DQERR_CSTR_CONVERSION, "cannot convert non-variable cstring to descriptor");
-        return false;
-      }
-      *rexpr = new OCStringToDescExpr(varref->pvalsym, dsttype);
-      delete varref;
-    }
+    return false;
   }
 
-  *rexpr = FoldExprTree(*rexpr);
+  *rexpr = converted;
   return true;
 }
 

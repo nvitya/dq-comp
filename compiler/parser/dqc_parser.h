@@ -23,6 +23,26 @@
 
 using namespace std;
 
+enum EExprConvFlags
+{
+  EXPCF_GENERATE_ERRORS    = 1,
+  EXPCF_ALLOW_LAZY_CSTRING = 2
+};
+
+#if 0
+enum EExprConvError
+{
+  ECONVERR_NONE = 0,
+  ECONVERR_TYPE_MISMATCH,
+  ECONVERR_PTR_TYPE_MISMATCH,
+  ECONVERR_ARRELEM_TYPE_MISMATCH,
+  ECONVERR_ARRSIZE_MISMATCH,
+  ECONVERR_ArrayToSliceNeedsVariable,
+  ECONVERR_CStringPointerNeedsLiteral,
+  ECONVERR_CStringDescNeedsVariable
+};
+#endif
+
 class ODqCompParser : public ODqCompAst
 {
 private:
@@ -104,7 +124,7 @@ protected:
                           const BinOpEntry ops[], int nops);
 
   OExpr * CreateBinExpr(EBinOp op, OExpr * left, OExpr * right);  // handles implicit conversions
-  bool    TryConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rout);
+  bool    ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rout, uint32_t aflags = 0);
   bool    ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OType ** rresulttype);
   bool    CheckAssignType(OType * dsttype, OExpr ** rexpr,
                           const string astmt);                    // returns false when the assignment is not possible

@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.7.1"
+#define DQ_COMPILER_VERSION  "0.7.2"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.7.2:
+  - Unified type conversion function
 v0.7.1:
   - Added iif(cond, a, b) intrinsic with lazy evaluation
 v0.7.0:
