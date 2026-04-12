@@ -121,10 +121,15 @@ DEF_DQ_ERR(DQERR_TYPEMISM_STMT_ASSIGN,             "TypeMismatchAssign",     "$1
 DEF_DQ_ERR(DQERR_LVALUE_NOT_WRITEABLE,             "NotWriteable",           "The left side of the assignment \"=\" must be writable");
 DEF_DQ_ERR(DQERR_TYPE_EXPECTED,                    "TypeExpected",           "\"$1\" type expected, got \"$2\"");
 DEF_DQ_ERR(DQERR_TYPE_FLOAT_EXPECTED_FOR,          "TypeFloatExpected",      "float type expected for \"$1\", got \"$2\"");
+DEF_DQ_ERR(DQERR_CAST_INVALID,                     "CastInvalid",            "Invalid explicit cast: \"$2($1)\"");
+DEF_DQ_ERR(DQERR_CAST_FLOAT_TO_INT,                "CastFloatToInt",         "Invalid float-to-int cast: use round(), ceil(), or floor() instead of \"$2($1)\"");
+DEF_DQ_ERR(DQERR_CAST_PTR_WIDTH_MISM,              "CastPtrWidth",           "Pointer cast requires an exact pointer-width integer type, got \"$1\"");
+DEF_DQ_ERR(DQERR_CAST_PTR_CONST_RANGE,             "CastPtrConstRange",      "Integer constant \"$1\" does not fit the target pointer width");
 
 DEF_DQ_ERR(DQERR_LEN_INVALID_TYPE,                 "InvalidLenType",         "len() requires an array, slice, or cstring, got \"$1\"");
 
 DEF_DQ_ERR(DQERR_TYPE_NO_MEMBERS,                  "TypeNoMembers",          "Member access \".\" requires a compound value or a ^compound pointer");
+DEF_DQ_ERR(DQERR_PTR_OPAQUE_USAGE,                 "PointerOpaque",          "Opaque \"pointer\" must be cast to a typed pointer before $1");
 DEF_DQ_ERR(DQERR_MEMBER_NAME_EXPECTED,             "MemberNameExpected",     "Member name expected after \".\"");
 DEF_DQ_ERR(DQERR_MEMBER_UNKNOWN,                   "MemberUnknown",          "Unknown member \"$1\" in type \"$1\"");
 DEF_DQ_ERR(DQERR_STRUCT_MBID_EXPECTED,             "StructMemberId",         "Member id or \"enstruct\" expected");

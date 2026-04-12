@@ -11,10 +11,13 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.7.2"
+#define DQ_COMPILER_VERSION  "0.7.3"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.7.3:
+  - pointer type
+  - type casting
 v0.7.2:
   - Unified type conversion function
 v0.7.1:

@@ -274,13 +274,32 @@ private:
 
 public:
   OType *      basetype;
+  bool         is_opaque = false;
+  bool         is_null_literal = false;
 
-  OTypePointer(OType * abasetype)
+  OTypePointer(OType * abasetype, const string & aname = "", bool aopaque = false, bool anull_literal = false)
   :
-    super("^" + (abasetype ? abasetype->name : "void"), TK_POINTER),
-    basetype(abasetype)
+    super((aname.empty() ? "^" + (abasetype ? abasetype->name : "void") : aname), TK_POINTER),
+    basetype(abasetype),
+    is_opaque(aopaque),
+    is_null_literal(anull_literal)
   {
     bytesize = TARGET_PTRSIZE;
+  }
+
+  bool IsTypedPointer() const
+  {
+    return (basetype != nullptr) && !is_opaque && !is_null_literal;
+  }
+
+  bool IsOpaquePointer() const
+  {
+    return is_opaque;
+  }
+
+  bool IsNullPointer() const
+  {
+    return is_null_literal;
   }
 
   LlType * CreateLlType() override
@@ -296,9 +315,11 @@ public:
     );
   }
 
+  LlValue * GenerateConversion(OScope * scope, OExpr * src) override;
+
   static OTypePointer * GetNullPtrType()
   {
-    static OTypePointer instance(nullptr);
+    static OTypePointer instance(nullptr, "null", false, true);
     return &instance;
   }
 };

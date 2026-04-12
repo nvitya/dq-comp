@@ -17,6 +17,7 @@
 
 #include "symbols.h"
 #include "otype_array.h"
+#include "otype_int.h"
 #include "dqc.h"
 #include "errorcodes.h"
 
@@ -178,6 +179,47 @@ OValSym * OType::CreateValSym(OScPosition & apos, const string aname)
 {
   OValSym * result = new OValSym(apos, aname, this);
   return result;
+}
+
+LlValue * OTypePointer::GenerateConversion(OScope * scope, OExpr * src)
+{
+  OType * srctype = src->ResolvedType();
+  if (!srctype)
+  {
+    throw logic_error("Pointer conversion requires a source type");
+  }
+
+  if (TK_POINTER == srctype->kind)
+  {
+    LlValue * ll_value = src->Generate(scope);
+    if (ll_value->getType() == GetLlType())
+    {
+      return ll_value;
+    }
+    return ll_builder.CreateBitCast(ll_value, GetLlType());
+  }
+
+  OTypeInt * srcint = dynamic_cast<OTypeInt *>(srctype);
+  if (srcint)
+  {
+    LlValue * ll_value = src->Generate(scope);
+    LlType * ll_ptrint = LlType::getIntNTy(ll_ctx, TARGET_PTRSIZE * 8);
+
+    if (srcint->bitlength < TARGET_PTRSIZE * 8)
+    {
+      ll_value = srcint->issigned
+          ? ll_builder.CreateSExt(ll_value, ll_ptrint)
+          : ll_builder.CreateZExt(ll_value, ll_ptrint);
+    }
+    else if (srcint->bitlength > TARGET_PTRSIZE * 8)
+    {
+      ll_value = ll_builder.CreateTrunc(ll_value, ll_ptrint);
+    }
+
+    return ll_builder.CreateIntToPtr(ll_value, GetLlType());
+  }
+
+  throw logic_error(format("Unsupported pointer conversion from \"{}\"", src->ptype->name));
 }
 
 void OCompoundType::AddMember(OValSym * amember)

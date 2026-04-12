@@ -50,6 +50,7 @@ public:
   OTypeFloat *  type_float32;
   OTypeFloat *  type_float64;
 
+  OTypePointer *  type_pointer;
   OTypeInt *      type_cchar;
   OTypeCString *  type_cstring;
 

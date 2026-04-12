@@ -26,7 +26,8 @@ using namespace std;
 enum EExprConvFlags
 {
   EXPCF_GENERATE_ERRORS    = 1,
-  EXPCF_ALLOW_LAZY_CSTRING = 2
+  EXPCF_ALLOW_LAZY_CSTRING = 2,
+  EXPCF_EXPLICIT_CAST      = 4
 };
 
 #if 0
@@ -67,6 +68,7 @@ public: // statement blocks
 
   void ParseStmtVar();
   bool ParseStmtAssign(OValSym * pvalsym);
+  bool ParseStmtAssignLValue(OLValueExpr * lval, OValSym * pvalsym = nullptr);
   void ParseStmtReturn();
   void ParseStmtWhile();
   void ParseStmtIf();
@@ -75,7 +77,7 @@ public: // statement blocks
   EBinOp ParseAssignOp();
 
 public: // type parsing
-  OType * ParseTypeSpec();  // parses type after ":" — handles ^, [N], []
+  OType * ParseTypeSpec(bool aemit_errors = true);  // parses type after ":" — handles ^, [N], []
 
 public: // utility
   bool CheckStatementClose();
@@ -110,6 +112,7 @@ public: // expressions
   OExpr * ParsePostfix(OExpr * base);
   OExpr * ParseExprPostfix();
   OExpr * ParseExprPrimary();
+  OExpr * ParseExplicitCastExpr(bool * rattempted = nullptr);
 
   OExpr * ParseExprFuncCall(OValSymFunc * vsfunc);
   OExpr * ParseBuiltinIif();

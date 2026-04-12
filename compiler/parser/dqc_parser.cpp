@@ -18,6 +18,7 @@
 #include "dq_module.h"
 #include "dqc_parser.h"
 #include "otype_func.h"
+#include "otype_int.h"
 #include "otype_array.h"
 #include "otype_cstring.h"
 #include "named_scopes.h"
@@ -48,6 +49,84 @@ static bool ResolveCompoundMemberBase(OLValueExpr * lval, OType * srctype, OLVal
   }
 
   return false;
+}
+
+static bool IsPointerWidthIntegerType(OType * type)
+{
+  OTypeInt * inttype = dynamic_cast<OTypeInt *>(type ? type->ResolveAlias() : nullptr);
+  return inttype && (inttype->bitlength == TARGET_PTRSIZE * 8);
+}
+
+static bool TryCalculateIntConstant(OExpr * expr, int64_t & rvalue)
+{
+  OTypeInt * exprtype = dynamic_cast<OTypeInt *>(expr ? expr->ResolvedType() : nullptr);
+  if (!exprtype)
+  {
+    return false;
+  }
+
+  OValueInt value(exprtype, 0);
+  if (!value.CalculateConstant(expr, false))
+  {
+    return false;
+  }
+
+  rvalue = value.value;
+  return true;
+}
+
+static bool FitsPointerWidthConstant(OTypeInt * srctype, int64_t value)
+{
+  uint32_t ptrbits = TARGET_PTRSIZE * 8;
+  if (!srctype)
+  {
+    return false;
+  }
+
+  if (ptrbits >= 64)
+  {
+    return true;
+  }
+
+  if (srctype->issigned)
+  {
+    int64_t minval = -(int64_t(1) << (ptrbits - 1));
+    int64_t maxval =  (int64_t(1) << (ptrbits - 1)) - 1;
+    return (value >= minval) && (value <= maxval);
+  }
+
+  uint64_t maxval = (uint64_t(1) << ptrbits) - 1;
+  return uint64_t(value) <= maxval;
+}
+
+static bool CanAssignPointerImplicitly(OTypePointer * dst, OTypePointer * src)
+{
+  if (!dst || !src)
+  {
+    return false;
+  }
+
+  if (src->IsNullPointer())
+  {
+    return true;
+  }
+
+  if (dst->IsOpaquePointer())
+  {
+    return true;
+  }
+
+  if (src->IsOpaquePointer())
+  {
+    return dst->IsOpaquePointer();
+  }
+
+  if (!dst->IsTypedPointer() || !src->IsTypedPointer())
+  {
+    return false;
+  }
+
+  return dst->basetype->ResolveAlias() == src->basetype->ResolveAlias();
 }
 
 ODqCompParser::ODqCompParser()
@@ -641,6 +720,24 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
     }
 
     // there should be a normal statement
+
+    if (*scf->curp == '^')  // pointer casting case
+    {
+      OLValueExpr * lval = ParseAddressableExpr();
+      if (!lval)
+      {
+        continue;
+      }
+
+      if (ParseStmtAssignLValue(lval))
+      {
+        continue;
+      }
+
+      StatementError(DQERR_STMT_UNKNOWN, "^");
+      continue;
+    }
+
     if (!scf->ReadIdentifier(sid))
     {
       StatementError(DQERR_KW_OR_ID_MISSING);
@@ -711,7 +808,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
   curblock = prev_block;
 }
 
-OType * ODqCompParser::ParseTypeSpec()
+OType * ODqCompParser::ParseTypeSpec(bool aemit_errors)
 {
   // Parses type specification after ":"
   // Handles: ^type (pointer), type[N] (fixed array), type[] (slice)
@@ -729,14 +826,20 @@ OType * ODqCompParser::ParseTypeSpec()
   scf->SkipWhite();
   if (not scf->ReadIdentifier(stype))
   {
-    Error(DQERR_TYPE_ID_EXP);
+    if (aemit_errors)
+    {
+      Error(DQERR_TYPE_ID_EXP);
+    }
     return nullptr;
   }
 
   OType * ptype = cur_mod_scope->FindType(stype);
   if (not ptype)
   {
-    Error(DQERR_TYPE_UNKNOWN, stype, &scf->prevpos);
+    if (aemit_errors)
+    {
+      Error(DQERR_TYPE_UNKNOWN, stype, &scf->prevpos);
+    }
     return nullptr;
   }
   ptype = ptype->ResolveAlias();
@@ -756,18 +859,27 @@ OType * ODqCompParser::ParseTypeSpec()
       int64_t maxlen;
       if (not scf->ReadInt64Value(maxlen))
       {
-        Error(DQERR_CSTR_SIZE_EXPECTED);
+        if (aemit_errors)
+        {
+          Error(DQERR_CSTR_SIZE_EXPECTED);
+        }
         return nullptr;
       }
       if (maxlen <= 0)
       {
-        Error(DQERR_CSTR_SIZE_EXPECTED);
+        if (aemit_errors)
+        {
+          Error(DQERR_CSTR_SIZE_EXPECTED);
+        }
         return nullptr;
       }
       scf->SkipWhite();
       if (not scf->CheckSymbol("]"))
       {
-        Error(DQERR_MISSING_CLOSE_BRACKET_FOR, "cstring size");
+        if (aemit_errors)
+        {
+          Error(DQERR_MISSING_CLOSE_BRACKET_FOR, "cstring size");
+        }
         return nullptr;
       }
       return g_builtins->type_cstring->GetSizedType(uint32_t(maxlen));
@@ -781,7 +893,10 @@ OType * ODqCompParser::ParseTypeSpec()
   {
     if (is_pointer)
     {
-      Error(DQERR_NOT_SUPPORTED, "Pointer-to-array");
+      if (aemit_errors)
+      {
+        Error(DQERR_NOT_SUPPORTED, "Pointer-to-array");
+      }
       return nullptr;
     }
 
@@ -793,7 +908,10 @@ OType * ODqCompParser::ParseTypeSpec()
     }
     else if (scf->CheckSymbol("..."))
     {
-      Error(DQERR_NOT_IMPLEMENTED_YET, "Dynamic array (int[...])");
+      if (aemit_errors)
+      {
+        Error(DQERR_NOT_IMPLEMENTED_YET, "Dynamic array (int[...])");
+      }
       scf->ReadTo("]");
       scf->CheckSymbol("]");
       return nullptr;
@@ -804,18 +922,27 @@ OType * ODqCompParser::ParseTypeSpec()
       int64_t arrlen;
       if (not scf->ReadInt64Value(arrlen))
       {
-        Error(DQERR_ARRAY_SIZESPEC);
+        if (aemit_errors)
+        {
+          Error(DQERR_ARRAY_SIZESPEC);
+        }
         return nullptr;
       }
       if (arrlen <= 0)
       {
-        Error(DQERR_SIZE_SPEC, "Array");
+        if (aemit_errors)
+        {
+          Error(DQERR_SIZE_SPEC, "Array");
+        }
         return nullptr;
       }
       scf->SkipWhite();
       if (not scf->CheckSymbol("]"))
       {
-        Error(DQERR_MISSING_CLOSE_BRACKET_FOR, "array size");
+        if (aemit_errors)
+        {
+          Error(DQERR_MISSING_CLOSE_BRACKET_FOR, "array size");
+        }
         return nullptr;
       }
       ptype = ptype->GetArrayType(uint32_t(arrlen));
@@ -1288,7 +1415,12 @@ OExpr * ODqCompParser::CreateBinExpr(EBinOp op, OExpr * left, OExpr * right)
              and (BINOP_ADD == op or BINOP_SUB == op))
     {
       // Pointer arithmetic: ptr + int or ptr - int
-      // Handled directly in OBinExpr::Generate
+      OTypePointer * ptrtype = static_cast<OTypePointer *>(left->ResolvedType());
+      if (!ptrtype->IsTypedPointer())
+      {
+        Error(DQERR_PTR_OPAQUE_USAGE, "pointer arithmetic");
+        return nullptr;
+      }
     }
     else if ((TK_INT == tkl) and (TK_INT == tkr))
     {
@@ -1365,6 +1497,7 @@ bool ODqCompParser::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rou
 
   ETypeKind tkd = resolved_dst->kind;
   ETypeKind tks = resolved_src->kind;
+  bool is_explicit_cast = (aflags & EXPCF_EXPLICIT_CAST);
 
   if (tkd != tks)
   {
@@ -1374,12 +1507,81 @@ bool ODqCompParser::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rou
       return true;
     }
 
+    if (is_explicit_cast && (TK_INT == tkd) && (TK_BOOL == tks))
+    {
+      *rout = FoldExprTree(new OExprTypeConv(dsttype, src));
+      return true;
+    }
+
+    if (is_explicit_cast && (TK_INT == tkd) && (TK_FLOAT == tks))
+    {
+      if (aflags & EXPCF_GENERATE_ERRORS)
+      {
+        Error(DQERR_CAST_FLOAT_TO_INT, resolved_src->name, resolved_dst->name);
+      }
+      return false;
+    }
+
+    if (is_explicit_cast && (TK_POINTER == tkd) && (TK_INT == tks))
+    {
+      OTypeInt * intsrc = static_cast<OTypeInt *>(resolved_src);
+      int64_t const_value = 0;
+      bool is_const = TryCalculateIntConstant(src, const_value);
+      if (!IsPointerWidthIntegerType(resolved_src))
+      {
+        if (!is_const)
+        {
+          if (aflags & EXPCF_GENERATE_ERRORS)
+          {
+            Error(DQERR_CAST_PTR_WIDTH_MISM, resolved_src->name);
+          }
+          return false;
+        }
+
+        if (!FitsPointerWidthConstant(intsrc, const_value))
+        {
+          if (aflags & EXPCF_GENERATE_ERRORS)
+          {
+            ErrorTxt(DQERR_CAST_PTR_CONST_RANGE, to_string(const_value));
+          }
+          return false;
+        }
+      }
+
+      *rout = FoldExprTree(new OExprTypeConv(dsttype, src));
+      return true;
+    }
+
+    if (is_explicit_cast && (TK_INT == tkd) && (TK_POINTER == tks))
+    {
+      if (!IsPointerWidthIntegerType(resolved_dst))
+      {
+        if (aflags & EXPCF_GENERATE_ERRORS)
+        {
+          Error(DQERR_CAST_PTR_WIDTH_MISM, resolved_dst->name);
+        }
+        return false;
+      }
+
+      *rout = FoldExprTree(new OExprTypeConv(dsttype, src));
+      return true;
+    }
+
     if ((TK_ARRAY_SLICE == tkd) and (TK_ARRAY == tks))
     {
+      if (is_explicit_cast)
+      {
+        if (aflags & EXPCF_GENERATE_ERRORS)
+        {
+          Error(DQERR_CAST_INVALID, resolved_src->name, resolved_dst->name);
+        }
+        return false;
+      }
+
       // Implicit conversion: fixed array -> slice
       OTypeArraySlice * slicedst = static_cast<OTypeArraySlice *>(resolved_dst);
       OTypeArray * arrsrc = static_cast<OTypeArray *>(resolved_src);
-      if (slicedst->elemtype->ResolveAlias()->kind != arrsrc->elemtype->ResolveAlias()->kind)
+      if (slicedst->elemtype->ResolveAlias() != arrsrc->elemtype->ResolveAlias())
       {
         if (aflags & EXPCF_GENERATE_ERRORS)
         {
@@ -1406,6 +1608,15 @@ bool ODqCompParser::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rou
 
     if ((TK_STRING == tkd) and (TK_POINTER == tks))
     {
+      if (is_explicit_cast)
+      {
+        if (aflags & EXPCF_GENERATE_ERRORS)
+        {
+          Error(DQERR_CAST_INVALID, resolved_src->name, resolved_dst->name);
+        }
+        return false;
+      }
+
       // String literal (^cchar) assigned to cstring
       OTypeCString * cstrdst = static_cast<OTypeCString *>(resolved_dst);
       OCStringLit * strlit = dynamic_cast<OCStringLit *>(src);
@@ -1439,7 +1650,14 @@ bool ODqCompParser::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rou
 
     if (aflags & EXPCF_GENERATE_ERRORS)
     {
-      Error(DQERR_TYPEMISM_STMT_ASSIGN, "Assignment", resolved_dst->name, resolved_src->name);
+      if (is_explicit_cast)
+      {
+        Error(DQERR_CAST_INVALID, resolved_src->name, resolved_dst->name);
+      }
+      else
+      {
+        Error(DQERR_TYPEMISM_STMT_ASSIGN, "Assignment", resolved_dst->name, resolved_src->name);
+      }
     }
     return false;
   }
@@ -1478,11 +1696,16 @@ bool ODqCompParser::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rou
 
   if (TK_POINTER == tkd)
   {
-    // both are pointers: allow null (basetype == nullptr) or matching base types
     OTypePointer * ptrdst = static_cast<OTypePointer *>(resolved_dst);
     OTypePointer * ptrsrc = static_cast<OTypePointer *>(resolved_src);
-    if (ptrsrc->basetype && ptrdst->basetype
-        && (ptrsrc->basetype->ResolveAlias()->kind != ptrdst->basetype->ResolveAlias()->kind))
+
+    if (is_explicit_cast)
+    {
+      *rout = FoldExprTree(new OExprTypeConv(dsttype, src));
+      return true;
+    }
+
+    if (!CanAssignPointerImplicitly(ptrdst, ptrsrc))
     {
       if (aflags & EXPCF_GENERATE_ERRORS)
       {
@@ -1497,9 +1720,18 @@ bool ODqCompParser::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rou
 
   if (TK_ARRAY_SLICE == tkd)
   {
+    if (is_explicit_cast)
+    {
+      if (aflags & EXPCF_GENERATE_ERRORS)
+      {
+        Error(DQERR_CAST_INVALID, resolved_src->name, resolved_dst->name);
+      }
+      return false;
+    }
+
     OTypeArraySlice * slicedst = static_cast<OTypeArraySlice *>(resolved_dst);
     OTypeArraySlice * slicesrc = static_cast<OTypeArraySlice *>(resolved_src);
-    if (slicedst->elemtype->ResolveAlias()->kind != slicesrc->elemtype->ResolveAlias()->kind)
+    if (slicedst->elemtype->ResolveAlias() != slicesrc->elemtype->ResolveAlias())
     {
       if (aflags & EXPCF_GENERATE_ERRORS)
       {
@@ -1514,9 +1746,18 @@ bool ODqCompParser::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rou
 
   if (TK_ARRAY == tkd)
   {
+    if (is_explicit_cast)
+    {
+      if (aflags & EXPCF_GENERATE_ERRORS)
+      {
+        Error(DQERR_CAST_INVALID, resolved_src->name, resolved_dst->name);
+      }
+      return false;
+    }
+
     OTypeArray * arrdst = static_cast<OTypeArray *>(resolved_dst);
     OTypeArray * arrsrc = static_cast<OTypeArray *>(resolved_src);
-    if (arrdst->elemtype->ResolveAlias()->kind != arrsrc->elemtype->ResolveAlias()->kind)
+    if (arrdst->elemtype->ResolveAlias() != arrsrc->elemtype->ResolveAlias())
     {
       if (aflags & EXPCF_GENERATE_ERRORS)
       {
@@ -1539,6 +1780,15 @@ bool ODqCompParser::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rou
 
   if (TK_STRING == tkd)
   {
+    if (is_explicit_cast)
+    {
+      if (aflags & EXPCF_GENERATE_ERRORS)
+      {
+        Error(DQERR_CAST_INVALID, resolved_src->name, resolved_dst->name);
+      }
+      return false;
+    }
+
     // Both are TK_STRING: check if conversion needed (cstring[N] → unsized cstring)
     OTypeCString * cstrdst = static_cast<OTypeCString *>(resolved_dst);
     OTypeCString * cstrsrc = static_cast<OTypeCString *>(resolved_src);
@@ -1589,6 +1839,59 @@ OExpr * ODqCompParser::ParseExprPostfix()
   return ParsePostfix(result);
 }
 
+OExpr * ODqCompParser::ParseExplicitCastExpr(bool * rattempted)
+{
+  if (rattempted)
+  {
+    *rattempted = false;
+  }
+
+  OScPosition saved_pos;
+  scf->SaveCurPos(saved_pos);
+
+  OType * dsttype = ParseTypeSpec(false);
+  if (!dsttype)
+  {
+    scf->SetCurPos(saved_pos);
+    return nullptr;
+  }
+
+  scf->SkipWhite();
+  if (!scf->CheckSymbol("("))
+  {
+    scf->SetCurPos(saved_pos);
+    return nullptr;
+  }
+
+  if (rattempted)
+  {
+    *rattempted = true;
+  }
+
+  OExpr * srcexpr = ParseExpression();
+  if (!srcexpr)
+  {
+    return nullptr;
+  }
+
+  scf->SkipWhite();
+  if (!scf->CheckSymbol(")"))
+  {
+    delete srcexpr;
+    Error(DQERR_MISSING_CLOSE_PAREN_FOR, "cast");
+    return nullptr;
+  }
+
+  OExpr * result = nullptr;
+  if (!ConvertExprToType(dsttype, srcexpr, &result, EXPCF_GENERATE_ERRORS | EXPCF_EXPLICIT_CAST))
+  {
+    delete srcexpr;
+    return nullptr;
+  }
+
+  return result;
+}
+
 OExpr * ODqCompParser::ParsePostfix(OExpr * base)
 {
   OExpr * result = base;
@@ -1610,7 +1913,17 @@ OExpr * ODqCompParser::ParsePostfix(OExpr * base)
         OCompoundType * ctype = nullptr;
         if (!ResolveCompoundMemberBase(lval, lval->ptype, memberbase, ctype))
         {
-          Error(DQERR_TYPE_NO_MEMBERS);
+          OTypePointer * ptrtype = dynamic_cast<OTypePointer *>(lval->ResolvedType());
+          if (ptrtype && ptrtype->IsOpaquePointer())
+          {
+            Error(DQERR_PTR_OPAQUE_USAGE, "member access");
+            delete result;
+            return nullptr;
+          }
+          else
+          {
+            Error(DQERR_TYPE_NO_MEMBERS);
+          }
           return result;
         }
 
@@ -1669,8 +1982,16 @@ OExpr * ODqCompParser::ParsePostfix(OExpr * base)
     // pointer operations — apply to any expression (not just lvalue)
     if (TK_POINTER == tk)
     {
+      OTypePointer * ptrtype = static_cast<OTypePointer *>(result->ResolvedType());
       if (scf->CheckSymbol("[")) // p[i]: pointer indexing, no dereference
       {
+        if (!ptrtype->IsTypedPointer())
+        {
+          Error(DQERR_PTR_OPAQUE_USAGE, "pointer indexing");
+          delete result;
+          return nullptr;
+        }
+
         OExpr * indexexpr = ParseExpression();
         scf->SkipWhite();
         if (not scf->CheckSymbol("]"))
@@ -1683,6 +2004,12 @@ OExpr * ODqCompParser::ParsePostfix(OExpr * base)
 
       if (scf->CheckSymbol("^")) // p^: dereference -> lvalue
       {
+        if (!ptrtype->IsTypedPointer())
+        {
+          Error(DQERR_PTR_OPAQUE_USAGE, "dereference");
+          delete result;
+          return nullptr;
+        }
         result = new OLValueDeref(result);
         continue;
       }
@@ -1699,6 +2026,23 @@ OExpr * ODqCompParser::ParseExprPrimary()
   OExpr * result = nullptr;
 
   scf->SkipWhite();
+
+  if (*scf->curp == '^'
+      || ((*scf->curp >= 'A' && *scf->curp <= 'Z')
+          || (*scf->curp >= 'a' && *scf->curp <= 'z')
+          || (*scf->curp == '_')))
+  {
+    bool attempted_cast = false;
+    result = ParseExplicitCastExpr(&attempted_cast);
+    if (result)
+    {
+      return result;
+    }
+    if (attempted_cast)
+    {
+      return nullptr;
+    }
+  }
 
   if (scf->CheckSymbol("("))
   {
@@ -2349,9 +2693,6 @@ EBinOp ODqCompParser::ParseAssignOp()
 
 bool ODqCompParser::ParseStmtAssign(OValSym * pvalsym)
 {
-  // Unified assignment parsing for all lvalue targets
-  // identifier is already consumed
-
   if (VSK_CONST == pvalsym->kind)
   {
     Error(DQERR_TYPE_ASSIGN_TO_CONST, pvalsym->name);
@@ -2364,6 +2705,16 @@ bool ODqCompParser::ParseStmtAssign(OValSym * pvalsym)
   {
     Error(DQERR_LVALUE_NOT_WRITEABLE);
     delete targetexpr;
+    return true;
+  }
+
+  return ParseStmtAssignLValue(lval, pvalsym);
+}
+
+bool ODqCompParser::ParseStmtAssignLValue(OLValueExpr * lval, OValSym * pvalsym)
+{
+  if (!lval)
+  {
     return true;
   }
 
@@ -2395,6 +2746,15 @@ bool ODqCompParser::ParseStmtAssign(OValSym * pvalsym)
   // Pointer arithmetic: p += int  or  p -= int
   if (TK_POINTER == targettype->kind and (BINOP_ADD == op or BINOP_SUB == op))
   {
+    OTypePointer * ptrtype = static_cast<OTypePointer *>(targettype->ResolveAlias());
+    if (!ptrtype->IsTypedPointer())
+    {
+      Error(DQERR_PTR_OPAQUE_USAGE, "pointer arithmetic");
+      delete expr;
+      delete lval;
+      return true;
+    }
+
     if (TK_INT != expr->ptype->kind)
     {
       Error(DQERR_PTRARITH_TYPE, expr->ptype->name);
@@ -2402,7 +2762,7 @@ bool ODqCompParser::ParseStmtAssign(OValSym * pvalsym)
       delete lval;
       return true;
     }
-    if (not pvalsym->initialized)
+    if (pvalsym && not pvalsym->initialized)
     {
       Error(DQERR_VAR_NOT_INITIALIZED, pvalsym->name);
     }
@@ -2423,11 +2783,14 @@ bool ODqCompParser::ParseStmtAssign(OValSym * pvalsym)
   if (BINOP_NONE == op)
   {
     curblock->AddStatement(new OStmtAssign(scpos_statement_start, lval, expr));
-    curblock->scope->SetVarInitialized(pvalsym);
+    if (pvalsym)
+    {
+      curblock->scope->SetVarInitialized(pvalsym);
+    }
   }
   else
   {
-    if (not pvalsym->initialized)
+    if (pvalsym && not pvalsym->initialized)
     {
       Error(DQERR_VAR_NOT_INITIALIZED, pvalsym->name);
     }
@@ -2545,7 +2908,7 @@ bool ODqCompParser::ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OTyp
     OTypePointer * trueptr = static_cast<OTypePointer *>(truetype);
     OTypePointer * falseptr = static_cast<OTypePointer *>(falsetype);
 
-    if (trueptr->basetype == nullptr and falseptr->basetype != nullptr)
+    if (trueptr->IsNullPointer() and !falseptr->IsNullPointer())
     {
       *rtrueexpr = FoldExprTree(trueexpr);
       *rfalseexpr = FoldExprTree(falseexpr);
@@ -2553,7 +2916,7 @@ bool ODqCompParser::ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OTyp
       return true;
     }
 
-    if (falseptr->basetype == nullptr and trueptr->basetype != nullptr)
+    if (falseptr->IsNullPointer() and !trueptr->IsNullPointer())
     {
       *rtrueexpr = FoldExprTree(trueexpr);
       *rfalseexpr = FoldExprTree(falseexpr);
@@ -2561,8 +2924,10 @@ bool ODqCompParser::ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OTyp
       return true;
     }
 
-    if (trueptr->basetype && falseptr->basetype
-        && (trueptr->basetype->ResolveAlias() == falseptr->basetype->ResolveAlias()))
+    if (trueexpr->ptype == falseexpr->ptype
+        || (trueptr->IsOpaquePointer() && falseptr->IsOpaquePointer())
+        || (trueptr->IsTypedPointer() && falseptr->IsTypedPointer()
+            && (trueptr->basetype->ResolveAlias() == falseptr->basetype->ResolveAlias())))
     {
       *rtrueexpr = FoldExprTree(trueexpr);
       *rfalseexpr = FoldExprTree(falseexpr);

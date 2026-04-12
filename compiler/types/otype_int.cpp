@@ -12,6 +12,7 @@
  */
 
 #include "otype_int.h"
+#include "otype_bool.h"
 #include "otype_float.h"
 #include "expressions.h"
 #include "dqc.h"
@@ -124,6 +125,18 @@ bool OValueInt::CalculateConstant(OExpr * expr, bool emit_errors)
         {
           value = NormalizeIntConstant(static_cast<OTypeInt *>(ResolvedType()), uint64_t(srcvalue.value));
         }
+        return true;
+      }
+
+      if (TK_BOOL == srctype->kind)
+      {
+        OValueBool srcvalue(srctype, false);
+        if (not srcvalue.CalculateConstant(ex->src, emit_errors))
+        {
+          return false;
+        }
+
+        value = ConvertIntConstant(static_cast<OTypeInt *>(ResolvedType()), srcvalue.value ? 1 : 0);
         return true;
       }
     }
@@ -250,6 +263,23 @@ LlValue * OTypeInt::GenerateConversion(OScope * scope, OExpr * src)
     return issigned
         ? ll_builder.CreateFPToSI(ll_value, GetLlType())
         : ll_builder.CreateFPToUI(ll_value, GetLlType());
+  }
+
+  OTypeBool * srcbool = dynamic_cast<OTypeBool *>(src->ResolvedType());
+  if (srcbool)
+  {
+    LlValue * ll_value = src->Generate(scope);
+    if (bitlength > 1)
+    {
+      return ll_builder.CreateZExt(ll_value, GetLlType());
+    }
+    return ll_value;
+  }
+
+  OTypePointer * srcptr = dynamic_cast<OTypePointer *>(src->ResolvedType());
+  if (srcptr)
+  {
+    return ll_builder.CreatePtrToInt(src->Generate(scope), GetLlType());
   }
 
   throw logic_error(format("Unsupported int conversion from \"{}\"", src->ptype->name));
