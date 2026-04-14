@@ -731,7 +731,9 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
     // Both start with an expression
 
     int prev_errorcnt = errorcnt;
+    supress_varinit_check = true;  // do not generate variable not initialized error for the left value
     OExpr * leftexpr = ParseExpression();
+    supress_varinit_check = false;
     if (!leftexpr)
     {
       if (prev_errorcnt == errorcnt)  // no error was generated yet ?
@@ -1201,7 +1203,7 @@ OExpr * ODqCompParser::ParseComparison()
   scf->SkipWhite();
 
   ECompareOp op = COMPOP_NONE;
-  
+
   // check first the ambigous expression terminators
   if (scf->CheckSymbol("<<=", false) or scf->CheckSymbol(">>=", false))
   {

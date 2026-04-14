@@ -88,8 +88,7 @@ public: // expressions
   OStmtBlock *  curblock = nullptr;
   OScope *      curscope = nullptr;
 
-  bool          supress_varinit_check = true;  // do not emit unititalized variable errors for now, TEST ONLY !!!!!!!
-  //bool          supress_varinit_check = false;  // do not emit unititalized variable errors (for left value expression parsing)
+  bool          supress_varinit_check = false;  // do not emit unititalized variable errors (for left value expression parsing)
 
   OExpr * ParseExpression(); // calls ParseExprOr()
 
