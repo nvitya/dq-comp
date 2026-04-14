@@ -67,12 +67,11 @@ public: // statement blocks
   void ReadStatementBlock(OStmtBlock * stblock, const string blockend, string * rendstr = nullptr);
 
   void ParseStmtVar();
-  bool ParseStmtAssign(OValSym * pvalsym);
-  bool ParseStmtAssignLValue(OLValueExpr * lval, OValSym * pvalsym = nullptr);
+  bool FinalizeStmtAssign(OLValueExpr * leftexpr, EBinOp op, OExpr * rightexpr);
   void ParseStmtReturn();
   void ParseStmtWhile();
   void ParseStmtIf();
-  void ParseStmtVoidCall(OValSymFunc * vsfunc);
+  void FinalizeStmtVoidCall(OCallExpr * callexpr);
 
   EBinOp ParseAssignOp();
 
@@ -88,6 +87,10 @@ public: // utility
 public: // expressions
   OStmtBlock *  curblock = nullptr;
   OScope *      curscope = nullptr;
+
+  bool          supress_varinit_check = true;  // do not emit unititalized variable errors for now, TEST ONLY !!!!!!!
+  //bool          supress_varinit_check = false;  // do not emit unititalized variable errors (for left value expression parsing)
+  bool          stop_before_assignop = false;   // parser mode for statement-head expressions
 
   OExpr * ParseExpression(); // calls ParseExprOr()
 
@@ -132,5 +135,6 @@ protected:
   bool    CheckAssignType(OType * dsttype, OExpr ** rexpr,
                           const string astmt);                    // returns false when the assignment is not possible
                                                                   // adds implicit conversion if necessary
+  OValSym * GetAssignRootValSym(OLValueExpr * leftexpr);
   OExpr * FreeLeftRight(OExpr * left, OExpr * right);
 };

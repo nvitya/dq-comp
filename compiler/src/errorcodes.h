@@ -86,6 +86,8 @@ DEF_DQ_ERR(DQERR_OP_UNHANDLED_FOR,                 "OpUnhandled",            "Un
 DEF_DQ_ERR(DQERR_STMTBLK_START_MISSING,            "StmtBlockStartMissing",  "\":\" is missing for statement block start");
 DEF_DQ_ERR(DQERR_STMTBLK_CLOSE_MISSING,            "StmtBlockCloseMissing",  "Statement block closer \"$1\" is missing");
 DEF_DQ_ERR(DQERR_STMT_UNKNOWN,                     "StmtUnknown",            "Unknown statement or function \"$1\"");
+DEF_DQ_ERR(DQERR_STMT_INVALID,                     "StmtInvalid",            "Invalid statement \"$1\"");
+DEF_DQ_ERR(DQERR_STMT_ASSIGN_OR_FCALL_EXP,         "StmtAssignOrFCallExp",   "Assignment statement or function call expected");
 
 DEF_DQ_ERR(DQERR_EXPR_EXPECTED,                    "Expression",             "Expression expected");
 DEF_DQ_ERR(DQERR_EXPR_UNEXPECTED_CHAR,             "ExprUnexpectedChar",     "Unexpected character \"$1\" in expression");

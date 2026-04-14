@@ -61,8 +61,7 @@ endfunc
 #ifdef ERRORTEST
 
 function dq_arr_fixed_test_error() -> int:
-                                          // the semicolon error in the next line should be fixed with better error recovery!
-  result = dq_arr_fixed_arg([1,2,3,4]);   //?error(ArrSize), error(Semicolon)
+  result = dq_arr_fixed_arg([1,2,3,4]);   //?error(ArrSize)
 endfunc                                   //?error(FuncResultNotSet)
 
 #endif

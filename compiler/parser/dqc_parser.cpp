@@ -638,7 +638,6 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
 
   string block_closer;
   string sid;
-  OValSym * pvalsym;
 
   scf->SkipWhite();
   if (scf->CheckSymbol("{"))
@@ -692,59 +691,10 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
       continue;
     }
 
-    if (scf->CheckSymbol("@"))  // namespace reference
-    {
-      pvalsym = ResolveNamespaceValSym();
-      if (!pvalsym)
-      {
-        continue;
-      }
+    // Try keywords first, use ReadIdentifier for whole word checking
 
-      if (VSK_VARIABLE == pvalsym->kind or VSK_PARAMETER == pvalsym->kind or VSK_CONST == pvalsym->kind)
-      {
-        if (ParseStmtAssign(pvalsym))
-        {
-          continue;
-        }
-      }
-
-      OValSymFunc * vsfunc = dynamic_cast<OValSymFunc *>(pvalsym);
-      if (vsfunc)
-      {
-        ParseStmtVoidCall(vsfunc);
-        continue;
-      }
-
-      StatementError(DQERR_STMT_UNKNOWN, pvalsym->name);
-      continue;
-    }
-
-    // there should be a normal statement
-
-    if (*scf->curp == '^')  // pointer casting case
-    {
-      OLValueExpr * lval = ParseAddressableExpr();
-      if (!lval)
-      {
-        continue;
-      }
-
-      if (ParseStmtAssignLValue(lval))
-      {
-        continue;
-      }
-
-      StatementError(DQERR_STMT_UNKNOWN, "^");
-      continue;
-    }
-
-    if (!scf->ReadIdentifier(sid))
-    {
-      StatementError(DQERR_KW_OR_ID_MISSING);
-      continue;
-    }
-
-    if (ReservedWord(sid))
+    scf->SaveCurPos(scpos_statement_start);  // we jump back here if the identifier is unknown
+    if (scf->ReadIdentifier(sid))
     {
       if ("var" == sid)  // local variable declaration
       {
@@ -766,42 +716,101 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
         ParseStmtIf();
         continue;
       }
-      else
+      else if (ReservedWord(sid))
       {
-        StatementError(DQERR_NOT_IMPLEMENTED_YET, format("Statement \"{}\"", sid));
+        StatementError(DQERR_STMT_INVALID, sid);
         continue;
+      }
+      else  // not handled, restore position and go on with expression parsing
+      {
+        scf->SetCurPos(scpos_statement_start);
       }
     }
-    else // starts with a non-reserved word (in sid)
+
+    // Now, there are two possibilities: function call or  - assignment
+    // Both start with an expression
+
+    int prev_errorcnt = errorcnt;
+    bool prev_stop_before_assignop = stop_before_assignop;
+    stop_before_assignop = true;
+    OExpr * leftexpr = ParseExpression();
+    stop_before_assignop = prev_stop_before_assignop;
+    if (!leftexpr)
     {
-      pvalsym = curscope->FindValSym(sid, nullptr, true);
-      if (not pvalsym)
+      if (prev_errorcnt == errorcnt)  // no error was generated yet ?
       {
-        StatementError(DQERR_VS_UNKNOWN, sid);
-        continue;
+        Error(DQERR_EXPR_EXPECTED, &scpos_statement_start);
       }
-
-      if (VSK_VARIABLE == pvalsym->kind or VSK_PARAMETER == pvalsym->kind)
-      {
-        if (ParseStmtAssign(pvalsym))
-        {
-          continue;
-        }
-      }
-
-      // function call
-      OValSymFunc * vsfunc = dynamic_cast<OValSymFunc *>(pvalsym);
-      if (vsfunc)
-      {
-        ParseStmtVoidCall(vsfunc);
-        continue;
-      }
-
-      // unknown
-
-      StatementError(DQERR_STMT_UNKNOWN, sid);
+      SkipToStatementEnd();  // try to find the ";"
       continue;
     }
+
+    scf->SkipWhite();
+
+    // check for assignment operator
+
+    EBinOp binop = ODqCompParser::ParseAssignOp();
+    if (int(binop) >= 0)
+    {
+      scf->SkipWhite();
+      prev_errorcnt = errorcnt;
+      OExpr * rightexpr = ParseExpression();
+      if (!rightexpr)
+      {
+        if (prev_errorcnt == errorcnt)  // no error was generated yet ?
+        {
+          Error(DQERR_EXPR_EXPECTED);
+        }
+        delete leftexpr;
+        SkipToStatementEnd();  // try to find the ";"
+        continue;
+      }
+
+      scf->SkipWhite();
+      if (!scf->CheckSymbol(";"))
+      {
+        OScPosition scpos;
+        scf->SaveCurPos(scpos);
+        StatementError(DQERR_MISSING_SEMICOLON_TO_CLOSE, "assignment statement", &scpos);
+      }
+
+      OLValueExpr * lval = dynamic_cast<OLValueExpr *>(leftexpr);
+      if (!lval)
+      {
+        Error(DQERR_LVALUE_NOT_WRITEABLE);
+        delete leftexpr;
+        delete rightexpr;
+        continue;
+      }
+
+      FinalizeStmtAssign(lval, binop, rightexpr);
+      continue;
+    }
+
+    // the leftexpr should be a function call
+    OCallExpr * callexpr = dynamic_cast<OCallExpr *>(leftexpr);
+    if (!callexpr)
+    {
+      StatementError(DQERR_STMT_ASSIGN_OR_FCALL_EXP);
+      scf->SkipWhite();
+      if (!scf->CheckSymbol(";"))
+      {
+        SkipToStatementEnd();
+      }
+      delete leftexpr;
+      continue;
+    }
+
+    scf->SkipWhite();
+    if (!scf->CheckSymbol(";"))
+    {
+      OScPosition scpos;
+      scf->SaveCurPos(scpos);
+      StatementError(DQERR_MISSING_SEMICOLON_TO_CLOSE, "function call statement", &scpos);
+    }
+
+    FinalizeStmtVoidCall(callexpr);
+
   }
 
   curscope = prev_scope;
@@ -1120,6 +1129,17 @@ OExpr * ODqCompParser::ParseExpression()
   return FoldExprTree(ParseExprOr());
 }
 
+static bool IsModifyAssignPrefixSymbol(const char * sym)
+{
+  string_view op(sym);
+  return (op == "+")
+      || (op == "-")
+      || (op == "*")
+      || (op == "/")
+      || (op == "<<")
+      || (op == ">>");
+}
+
 OExpr * ODqCompParser::ParseExprOr()
 {
   OExpr * left = ParseExprAnd();
@@ -1264,14 +1284,36 @@ OExpr * ODqCompParser::ParseBinOpLevel(OExpr * (ODqCompParser::*parse_next)(), c
   {
     scf->SkipWhite();
     EBinOp op = BINOP_NONE;
+    bool blocked_assignop = false;
     for (int i = 0; i < nops; ++i)
     {
+      OScPosition saved_pos;
+      if (stop_before_assignop && IsModifyAssignPrefixSymbol(ops[i].sym))
+      {
+        scf->SaveCurPos(saved_pos);
+        if (scf->CheckSymbol(ops[i].sym))
+        {
+          if (*scf->curp == '=')
+          {
+            scf->SetCurPos(saved_pos);
+            blocked_assignop = true;
+            break;
+          }
+
+          op = ops[i].op;
+          break;
+        }
+
+        continue;
+      }
+
       if (scf->CheckSymbol(ops[i].sym))
       {
         op = ops[i].op;
         break;
       }
     }
+    if (blocked_assignop)  break;
     if (op == BINOP_NONE)  break;
 
     OExpr * right = (this->*parse_next)();
@@ -1901,6 +1943,11 @@ OExpr * ODqCompParser::ParsePostfix(OExpr * base)
   {
     scf->SkipWhite();
 
+    if (!result->ptype)
+    {
+      break;  // void function call: no postfix operations are possible
+    }
+
     ETypeKind      tk   = result->ptype->kind;
     OLValueExpr *  lval = dynamic_cast<OLValueExpr *>(result);
 
@@ -2144,7 +2191,7 @@ OExpr * ODqCompParser::ParseExprPrimary()
     }
 
     result = new OLValueVar(vs);
-    if (vs->kind != VSK_FUNCTION and not vs->initialized)
+    if (vs->kind != VSK_FUNCTION and not vs->initialized and not supress_varinit_check)
     {
       Error(DQERR_VAR_NOT_INITIALIZED, vs->name);
     }
@@ -2199,7 +2246,7 @@ OExpr * ODqCompParser::ParseExprPrimary()
   }
 
   result = new OLValueVar(vs);
-  if (vs->kind != VSK_FUNCTION and not vs->initialized)
+  if (vs->kind != VSK_FUNCTION and not vs->initialized and not supress_varinit_check)
   {
     Error(DQERR_VAR_NOT_INITIALIZED, vs->name, &scpos_sid);
   }
@@ -2691,57 +2738,50 @@ EBinOp ODqCompParser::ParseAssignOp()
   return EBinOp(-1);  // not an assignment operator
 }
 
-bool ODqCompParser::ParseStmtAssign(OValSym * pvalsym)
+OValSym * ODqCompParser::GetAssignRootValSym(OLValueExpr * leftexpr)
 {
-  if (VSK_CONST == pvalsym->kind)
+  if (!leftexpr)
   {
-    Error(DQERR_TYPE_ASSIGN_TO_CONST, pvalsym->name);
-    return true;
+    return nullptr;
   }
 
-  OExpr * targetexpr = ParsePostfix(new OLValueVar(pvalsym));
-  OLValueExpr * lval = dynamic_cast<OLValueExpr *>(targetexpr);
-  if (!lval)
+  if (auto * varref = dynamic_cast<OLValueVar *>(leftexpr))
   {
-    Error(DQERR_LVALUE_NOT_WRITEABLE);
-    delete targetexpr;
-    return true;
+    return varref->pvalsym;
   }
 
-  return ParseStmtAssignLValue(lval, pvalsym);
+  if (auto * memberref = dynamic_cast<OLValueMember *>(leftexpr))
+  {
+    return GetAssignRootValSym(memberref->base);
+  }
+
+  if (auto * indexref = dynamic_cast<OLValueIndex *>(leftexpr))
+  {
+    return GetAssignRootValSym(indexref->base);
+  }
+
+  return nullptr;
 }
 
-bool ODqCompParser::ParseStmtAssignLValue(OLValueExpr * lval, OValSym * pvalsym)
+bool ODqCompParser::FinalizeStmtAssign(OLValueExpr * leftexpr, EBinOp op, OExpr * rightexpr)
 {
-  if (!lval)
+  if (!leftexpr || !rightexpr)
   {
-    return true;
-  }
-
-  EBinOp op = ParseAssignOp();
-  if (int(op) < 0)
-  {
-    delete lval;
+    delete leftexpr;
+    delete rightexpr;
     return false;
   }
 
-  OExpr * expr = ParseExpression();
-
-  scf->SkipWhite();
-  if (!scf->CheckSymbol(";"))
+  OValSym * rootvalsym = GetAssignRootValSym(leftexpr);
+  if (rootvalsym && VSK_CONST == rootvalsym->kind)
   {
-    OScPosition scpos;
-    scf->SaveCurPos(scpos);
-    StatementError(DQERR_MISSING_SEMICOLON_TO_CLOSE, "assignment statement", &scpos);
+    Error(DQERR_TYPE_ASSIGN_TO_CONST, rootvalsym->name);
+    delete leftexpr;
+    delete rightexpr;
+    return false;
   }
 
-  if (!expr)
-  {
-    delete lval;
-    return true;
-  }
-
-  OType * targettype = lval->ptype;
+  OType * targettype = leftexpr->ptype;
 
   // Pointer arithmetic: p += int  or  p -= int
   if (TK_POINTER == targettype->kind and (BINOP_ADD == op or BINOP_SUB == op))
@@ -2750,80 +2790,48 @@ bool ODqCompParser::ParseStmtAssignLValue(OLValueExpr * lval, OValSym * pvalsym)
     if (!ptrtype->IsTypedPointer())
     {
       Error(DQERR_PTR_OPAQUE_USAGE, "pointer arithmetic");
-      delete expr;
-      delete lval;
-      return true;
+      delete leftexpr;
+      delete rightexpr;
+      return false;
     }
 
-    if (TK_INT != expr->ptype->kind)
+    if (TK_INT != rightexpr->ptype->kind)
     {
-      Error(DQERR_PTRARITH_TYPE, expr->ptype->name);
-      delete expr;
-      delete lval;
-      return true;
+      Error(DQERR_PTRARITH_TYPE, rightexpr->ptype->name);
+      delete leftexpr;
+      delete rightexpr;
+      return false;
     }
-    if (pvalsym && not pvalsym->initialized)
-    {
-      Error(DQERR_VAR_NOT_INITIALIZED, pvalsym->name);
-    }
-    else
-    {
-      curblock->AddStatement(new OStmtModifyAssign(scpos_statement_start, lval, op, expr));
-    }
+
+    curblock->AddStatement(new OStmtModifyAssign(scpos_statement_start, leftexpr, op, rightexpr));
     return true;
   }
 
-  if (not CheckAssignType(targettype, &expr, "Assignment"))
+  if (not CheckAssignType(targettype, &rightexpr, "Assignment"))
   {
-    delete expr;
-    delete lval;
-    return true;
+    delete leftexpr;
+    delete rightexpr;
+    return false;
   }
 
   if (BINOP_NONE == op)
   {
-    curblock->AddStatement(new OStmtAssign(scpos_statement_start, lval, expr));
-    if (pvalsym)
+    curblock->AddStatement(new OStmtAssign(scpos_statement_start, leftexpr, rightexpr));
+    if (rootvalsym && (VSK_VARIABLE == rootvalsym->kind || VSK_PARAMETER == rootvalsym->kind))
     {
-      curblock->scope->SetVarInitialized(pvalsym);
+      curblock->scope->SetVarInitialized(rootvalsym);
     }
   }
   else
   {
-    if (pvalsym && not pvalsym->initialized)
-    {
-      Error(DQERR_VAR_NOT_INITIALIZED, pvalsym->name);
-    }
-    else
-    {
-      curblock->AddStatement(new OStmtModifyAssign(scpos_statement_start, lval, op, expr));
-    }
+    curblock->AddStatement(new OStmtModifyAssign(scpos_statement_start, leftexpr, op, rightexpr));
   }
 
   return true;
 }
 
-void ODqCompParser::ParseStmtVoidCall(OValSymFunc * vsfunc)
+void ODqCompParser::FinalizeStmtVoidCall(OCallExpr * callexpr)
 {
-  scf->SkipWhite();
-  if (not scf->CheckSymbol("("))
-  {
-    StatementError(DQERR_FUNC_CALL_PARENTH, vsfunc->name);
-    return;
-  }
-
-  OExpr * callexpr = ParseExprFuncCall(vsfunc);  // re-use the existing version in the expressions
-  if (not callexpr)
-  {
-    return;
-  }
-
-  scf->SkipWhite();
-  if (!scf->CheckSymbol(";"))
-  {
-    Error(DQERR_MISSING_SEMICOLON_TO_CLOSE, "function call statement");
-  }
-
   curblock->AddStatement(new OStmtVoidCall(scpos_statement_start, callexpr));
 }
 
