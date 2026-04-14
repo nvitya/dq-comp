@@ -731,10 +731,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
     // Both start with an expression
 
     int prev_errorcnt = errorcnt;
-    bool prev_stop_before_assignop = stop_before_assignop;
-    stop_before_assignop = true;
     OExpr * leftexpr = ParseExpression();
-    stop_before_assignop = prev_stop_before_assignop;
     if (!leftexpr)
     {
       if (prev_errorcnt == errorcnt)  // no error was generated yet ?
@@ -1129,17 +1126,6 @@ OExpr * ODqCompParser::ParseExpression()
   return FoldExprTree(ParseExprOr());
 }
 
-static bool IsModifyAssignPrefixSymbol(const char * sym)
-{
-  string_view op(sym);
-  return (op == "+")
-      || (op == "-")
-      || (op == "*")
-      || (op == "/")
-      || (op == "<<")
-      || (op == ">>");
-}
-
 OExpr * ODqCompParser::ParseExprOr()
 {
   OExpr * left = ParseExprAnd();
@@ -1215,6 +1201,12 @@ OExpr * ODqCompParser::ParseComparison()
   scf->SkipWhite();
 
   ECompareOp op = COMPOP_NONE;
+  
+  // check first the ambigous expression terminators
+  if (scf->CheckSymbol("<<=", false) or scf->CheckSymbol(">>=", false))
+  {
+    return left;
+  }
 
   if      (scf->CheckSymbol("=="))    op = COMPOP_EQ;
   else if (scf->CheckSymbol("!=") or
@@ -1283,37 +1275,28 @@ OExpr * ODqCompParser::ParseBinOpLevel(OExpr * (ODqCompParser::*parse_next)(), c
   while (not scf->Eof())
   {
     scf->SkipWhite();
+
+    // check first the ambigous expression terminators
+    if (    scf->CheckSymbol("+=", false)
+         or scf->CheckSymbol("-=", false)
+         or scf->CheckSymbol("*=", false)
+         or scf->CheckSymbol("/=", false)
+         or scf->CheckSymbol("<<=", false)
+         or scf->CheckSymbol(">>=", false)  )
+    {
+      break;
+    }
+
     EBinOp op = BINOP_NONE;
     bool blocked_assignop = false;
     for (int i = 0; i < nops; ++i)
     {
-      OScPosition saved_pos;
-      if (stop_before_assignop && IsModifyAssignPrefixSymbol(ops[i].sym))
-      {
-        scf->SaveCurPos(saved_pos);
-        if (scf->CheckSymbol(ops[i].sym))
-        {
-          if (*scf->curp == '=')
-          {
-            scf->SetCurPos(saved_pos);
-            blocked_assignop = true;
-            break;
-          }
-
-          op = ops[i].op;
-          break;
-        }
-
-        continue;
-      }
-
       if (scf->CheckSymbol(ops[i].sym))
       {
         op = ops[i].op;
         break;
       }
     }
-    if (blocked_assignop)  break;
     if (op == BINOP_NONE)  break;
 
     OExpr * right = (this->*parse_next)();

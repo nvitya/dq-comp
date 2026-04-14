@@ -11,11 +11,14 @@ endfunc
 
 function dq_stmt_targets():
   var x : int;
+  var y : int = 3;
   var arr : int[2];
   var s : SItem = {};
 
   x = 1;
   x += 2;
+  x <<= 1;
+  x >>= 1;
   x =AND= 7;
 
   @.g_value = x;
@@ -25,6 +28,22 @@ function dq_stmt_targets():
 
   var p : ^int = &arr[0];
   p^ = s.value;
+
+  if x < y:
+    x = y;
+  endif
+
+  if x <= y:
+    x = y;
+  endif
+
+  if x > y:
+    x = y;
+  endif
+
+  if x >= y:
+    x = y;
+  endif
 
   dq_void_call();
 endfunc

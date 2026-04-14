@@ -90,7 +90,6 @@ public: // expressions
 
   bool          supress_varinit_check = true;  // do not emit unititalized variable errors for now, TEST ONLY !!!!!!!
   //bool          supress_varinit_check = false;  // do not emit unititalized variable errors (for left value expression parsing)
-  bool          stop_before_assignop = false;   // parser mode for statement-head expressions
 
   OExpr * ParseExpression(); // calls ParseExprOr()
 

@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.7.4"
+#define DQ_COMPILER_VERSION  "0.7.5"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.7.5:
+  - statement parser reworked phase 2: expression parsion termination rework for +=, -= etc
 v0.7.4:
   - statement parser reworked phase 1: migrated to re-using the expression parsing
 v0.7.3:
