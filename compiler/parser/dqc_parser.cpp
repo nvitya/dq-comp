@@ -731,11 +731,13 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
     // Both start with an expression
 
     int prev_errorcnt = errorcnt;
+    suppressed_varinit_diags.clear();
     supress_varinit_check = true;  // do not generate variable not initialized error for the left value
     OExpr * leftexpr = ParseExpression();
     supress_varinit_check = false;
     if (!leftexpr)
     {
+      EmitSuppressedVarInitDiags();
       if (prev_errorcnt == errorcnt)  // no error was generated yet ?
       {
         Error(DQERR_EXPR_EXPECTED, &scpos_statement_start);
@@ -760,6 +762,15 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
         {
           Error(DQERR_EXPR_EXPECTED);
         }
+        OLValueExpr * lval = dynamic_cast<OLValueExpr *>(leftexpr);
+        if (lval)
+        {
+          EmitFilteredAssignVarInitDiags(lval, binop);
+        }
+        else
+        {
+          EmitSuppressedVarInitDiags();
+        }
         delete leftexpr;
         SkipToStatementEnd();  // try to find the ";"
         continue;
@@ -776,12 +787,14 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
       OLValueExpr * lval = dynamic_cast<OLValueExpr *>(leftexpr);
       if (!lval)
       {
+        EmitSuppressedVarInitDiags();
         Error(DQERR_LVALUE_NOT_WRITEABLE);
         delete leftexpr;
         delete rightexpr;
         continue;
       }
 
+      EmitFilteredAssignVarInitDiags(lval, binop);
       FinalizeStmtAssign(lval, binop, rightexpr);
       continue;
     }
@@ -790,6 +803,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
     OCallExpr * callexpr = dynamic_cast<OCallExpr *>(leftexpr);
     if (!callexpr)
     {
+      EmitSuppressedVarInitDiags();
       StatementError(DQERR_STMT_ASSIGN_OR_FCALL_EXP);
       scf->SkipWhite();
       if (!scf->CheckSymbol(";"))
@@ -800,6 +814,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
       continue;
     }
 
+    EmitSuppressedVarInitDiags();
     scf->SkipWhite();
     if (!scf->CheckSymbol(";"))
     {
@@ -2169,6 +2184,7 @@ OExpr * ODqCompParser::ParseExprPrimary()
 
   if (scf->CheckSymbol("@"))
   {
+    OScPosition scpos_ns = scf->prevpos;
     OValSym * vs = ResolveNamespaceValSym();
     if (!vs)
     {
@@ -2176,9 +2192,9 @@ OExpr * ODqCompParser::ParseExprPrimary()
     }
 
     result = new OLValueVar(vs);
-    if (vs->kind != VSK_FUNCTION and not vs->initialized and not supress_varinit_check)
+    if (vs->kind != VSK_FUNCTION and not vs->initialized)
     {
-      Error(DQERR_VAR_NOT_INITIALIZED, vs->name);
+      VarInitError(static_cast<OLValueVar *>(result), vs, scpos_ns);
     }
     return result;
   }
@@ -2231,9 +2247,9 @@ OExpr * ODqCompParser::ParseExprPrimary()
   }
 
   result = new OLValueVar(vs);
-  if (vs->kind != VSK_FUNCTION and not vs->initialized and not supress_varinit_check)
+  if (vs->kind != VSK_FUNCTION and not vs->initialized)
   {
-    Error(DQERR_VAR_NOT_INITIALIZED, vs->name, &scpos_sid);
+    VarInitError(static_cast<OLValueVar *>(result), vs, scpos_sid);
   }
 
   return result;
@@ -2721,6 +2737,127 @@ EBinOp ODqCompParser::ParseAssignOp()
   else if (scf->CheckSymbol("=XOR="))   return BINOP_IXOR;
   else if (scf->CheckSymbol("="))       return BINOP_NONE;  // must come after =XXX=!, simple assign (ab)uses BINOP_NONE
   return EBinOp(-1);  // not an assignment operator
+}
+
+void ODqCompParser::VarInitError(OLValueVar * varexpr, OValSym * valsym, OScPosition & scpos)
+{
+  if (supress_varinit_check)
+  {
+    AddSuppressedVarInitDiag(varexpr, valsym, scpos);
+  }
+  else
+  {
+    Error(DQERR_VAR_NOT_INITIALIZED, valsym->name, &scpos);
+  }
+}
+
+void ODqCompParser::AddSuppressedVarInitDiag(OLValueVar * varexpr, OValSym * valsym, OScPosition & scpos)
+{
+  TSuppressedVarInitDiag diag;
+  diag.varexpr = varexpr;
+  diag.valsym = valsym;
+  diag.scpos = scpos;
+  suppressed_varinit_diags.push_back(diag);
+}
+
+void ODqCompParser::EmitSuppressedVarInitDiags()
+{
+  if (suppressed_varinit_diags.empty())
+  {
+    return;
+  }
+
+  for (auto & diag : suppressed_varinit_diags)
+  {
+    Error(DQERR_VAR_NOT_INITIALIZED, diag.valsym->name, &diag.scpos);
+  }
+
+  suppressed_varinit_diags.clear();
+}
+
+void ODqCompParser::CollectIgnoredPlainAssignVars(OLValueExpr * leftexpr, vector<OLValueVar *> & ignored)
+{
+  if (!leftexpr)
+  {
+    return;
+  }
+
+  if (auto * varref = dynamic_cast<OLValueVar *>(leftexpr))
+  {
+    ignored.push_back(varref);
+    return;
+  }
+
+  if (auto * memberref = dynamic_cast<OLValueMember *>(leftexpr))
+  {
+    CollectIgnoredPlainAssignVars(memberref->base, ignored);
+    return;
+  }
+
+  if (auto * indexref = dynamic_cast<OLValueIndex *>(leftexpr))
+  {
+    OType * containertype = indexref->containertype ? indexref->containertype->ResolveAlias() : nullptr;
+    if (!containertype)
+    {
+      return;
+    }
+
+    if (TK_ARRAY == containertype->kind)
+    {
+      CollectIgnoredPlainAssignVars(indexref->base, ignored);
+      return;
+    }
+
+    if (TK_STRING == containertype->kind)
+    {
+      OTypeCString * cstrtype = static_cast<OTypeCString *>(containertype);
+      if (cstrtype->maxlen > 0)
+      {
+        CollectIgnoredPlainAssignVars(indexref->base, ignored);
+      }
+      return;
+    }
+
+    return;
+  }
+}
+
+void ODqCompParser::EmitFilteredAssignVarInitDiags(OLValueExpr * leftexpr, EBinOp op)
+{
+  if (suppressed_varinit_diags.empty())
+  {
+    return;
+  }
+
+  vector<OLValueVar *> ignored;
+  if (BINOP_NONE == op)
+  {
+    CollectIgnoredPlainAssignVars(leftexpr, ignored);
+  }
+
+  for (auto & diag : suppressed_varinit_diags)
+  {
+    bool emit = true;
+
+    if (BINOP_NONE == op)
+    {
+      for (OLValueVar * ignoredvar : ignored)
+      {
+        if (ignoredvar == diag.varexpr)
+        {
+          emit = false;
+          break;
+        }
+      }
+    }
+
+    if (emit)
+    {
+      Error(DQERR_VAR_NOT_INITIALIZED, diag.valsym->name, &diag.scpos);
+    }
+  }
+
+  suppressed_varinit_diags.clear();
 }
 
 OValSym * ODqCompParser::GetAssignRootValSym(OLValueExpr * leftexpr)

@@ -1,5 +1,9 @@
 // test for not initialized variables
 
+struct SVarInit
+  value : int;
+endstruct
+
 var g_cnt : int;  // globals are initialized with zero, when not specified
 var g_var : int = 100;
 
@@ -49,4 +53,34 @@ function dq_result(a : int) -> int:
   else:
     result = 4;
   endif
+endfunc
+
+function dq_localvar_modassign_noinit() -> int:
+  var i : int;
+  i += 1;  //?error(VarNotInit)
+  result = 0;
+endfunc
+
+function dq_ptrassign_noinit() -> int:
+  var p : ^byte;
+  p^ = 1;  //?error(VarNotInit)
+  result = 0;
+endfunc
+
+function dq_ptrmember_noinit() -> int:
+  var p : ^SVarInit;
+  p^.value = 1;  //?error(VarNotInit)
+  result = 0;
+endfunc
+
+function dq_array_elem_modassign_noinit() -> int:
+  var a : int[2];
+  a[0] += 1;  //?error(VarNotInit)
+  result = 0;
+endfunc
+
+function dq_array_elem_plainassign_ok() -> int:
+  var a : int[2];
+  a[0] = 1;
+  result = a[0];
 endfunc

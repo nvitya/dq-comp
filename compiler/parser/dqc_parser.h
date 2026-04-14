@@ -90,6 +90,15 @@ public: // expressions
 
   bool          supress_varinit_check = false;  // do not emit unititalized variable errors (for left value expression parsing)
 
+  struct TSuppressedVarInitDiag
+  {
+    OLValueVar *  varexpr = nullptr;
+    OValSym *     valsym = nullptr;
+    OScPosition   scpos;
+  };
+
+  vector<TSuppressedVarInitDiag>  suppressed_varinit_diags;
+
   OExpr * ParseExpression(); // calls ParseExprOr()
 
   // if a == 1 or 1 SHL 5 AND 0xFFFF != 0
@@ -133,6 +142,11 @@ protected:
   bool    CheckAssignType(OType * dsttype, OExpr ** rexpr,
                           const string astmt);                    // returns false when the assignment is not possible
                                                                   // adds implicit conversion if necessary
+  void    VarInitError(OLValueVar * varexpr, OValSym * valsym, OScPosition & scpos);
+  void    AddSuppressedVarInitDiag(OLValueVar * varexpr, OValSym * valsym, OScPosition & scpos);
+  void    EmitSuppressedVarInitDiags();
+  void    CollectIgnoredPlainAssignVars(OLValueExpr * leftexpr, vector<OLValueVar *> & ignored);
+  void    EmitFilteredAssignVarInitDiags(OLValueExpr * leftexpr, EBinOp op);
   OValSym * GetAssignRootValSym(OLValueExpr * leftexpr);
   OExpr * FreeLeftRight(OExpr * left, OExpr * right);
 };
