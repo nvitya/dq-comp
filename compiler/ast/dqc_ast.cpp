@@ -273,6 +273,112 @@ OValSym * ODqCompAst::GetAssignRootValSym(OLValueExpr * leftexpr)
   return nullptr;
 }
 
+bool ODqCompAst::HarmonizeNumericOperands(OExpr ** rleft, OExpr ** rright)
+{
+  if (!rleft || !rright || !*rleft || !*rright)
+  {
+    return false;
+  }
+
+  OExpr * left = *rleft;
+  OExpr * right = *rright;
+  OType * lefttype = left->ResolvedType();
+  OType * righttype = right->ResolvedType();
+  if (!lefttype || !righttype)
+  {
+    return false;
+  }
+
+  ETypeKind tkl = lefttype->kind;
+  ETypeKind tkr = righttype->kind;
+
+  if ((TK_INT == tkl) and (TK_INT == tkr))
+  {
+    OTypeInt * intl = static_cast<OTypeInt *>(lefttype);
+    OTypeInt * intr = static_cast<OTypeInt *>(righttype);
+    if (intl->bitlength != intr->bitlength)
+    {
+      if (intl->bitlength > intr->bitlength)
+        right = new OExprTypeConv(left->ptype, right);
+      else
+        left = new OExprTypeConv(right->ptype, left);
+    }
+
+    *rleft = left;
+    *rright = right;
+    return true;
+  }
+
+  if ((TK_INT == tkl) and (TK_FLOAT == tkr))
+  {
+    *rleft = new OExprTypeConv(right->ptype, left);
+    return true;
+  }
+
+  if ((TK_FLOAT == tkl) and (TK_INT == tkr))
+  {
+    *rright = new OExprTypeConv(left->ptype, right);
+    return true;
+  }
+
+  if ((TK_FLOAT == tkl) and (TK_FLOAT == tkr))
+  {
+    OTypeFloat * floatl = static_cast<OTypeFloat *>(lefttype);
+    OTypeFloat * floatr = static_cast<OTypeFloat *>(righttype);
+    if (floatl->bitlength != floatr->bitlength)
+    {
+      if (floatl->bitlength > floatr->bitlength)
+        right = new OExprTypeConv(left->ptype, right);
+      else
+        left = new OExprTypeConv(right->ptype, left);
+    }
+
+    *rleft = left;
+    *rright = right;
+    return true;
+  }
+
+  return false;
+}
+
+bool ODqCompAst::ResolveCommonPointerType(OExpr * leftexpr, OExpr * rightexpr, OType ** rresulttype)
+{
+  if (!leftexpr || !rightexpr || !rresulttype)
+  {
+    return false;
+  }
+
+  OTypePointer * leftptr = dynamic_cast<OTypePointer *>(leftexpr->ResolvedType());
+  OTypePointer * rightptr = dynamic_cast<OTypePointer *>(rightexpr->ResolvedType());
+  if (!leftptr || !rightptr)
+  {
+    return false;
+  }
+
+  if (leftptr->IsNullPointer() and !rightptr->IsNullPointer())
+  {
+    *rresulttype = rightexpr->ptype;
+    return true;
+  }
+
+  if (rightptr->IsNullPointer() and !leftptr->IsNullPointer())
+  {
+    *rresulttype = leftexpr->ptype;
+    return true;
+  }
+
+  if (leftexpr->ptype == rightexpr->ptype
+      || (leftptr->IsOpaquePointer() && rightptr->IsOpaquePointer())
+      || (leftptr->IsTypedPointer() && rightptr->IsTypedPointer()
+          && (leftptr->basetype->ResolveAlias() == rightptr->basetype->ResolveAlias())))
+  {
+    *rresulttype = leftexpr->ptype;
+    return true;
+  }
+
+  return false;
+}
+
 OExpr * ODqCompAst::FreeLeftRight(OExpr * left, OExpr * right)
 {
   if (left) delete left;
@@ -303,15 +409,7 @@ OExpr * ODqCompAst::CreateBinExpr(EBinOp op, OExpr * left, OExpr * right)
   }
   else if (tkl != tkr)
   {
-    if ((TK_INT == tkl) and (TK_FLOAT == tkr))
-    {
-      newleft  = new OExprTypeConv(right->ptype, left);
-    }
-    else if ((TK_INT == tkr) and (TK_FLOAT == tkl))
-    {
-      newright = new OExprTypeConv(left->ptype, right);
-    }
-    else if ((TK_POINTER == tkl) and (TK_INT == tkr)
+    if ((TK_POINTER == tkl) and (TK_INT == tkr)
              and (BINOP_ADD == op or BINOP_SUB == op))
     {
       OTypePointer * ptrtype = static_cast<OTypePointer *>(left->ResolvedType());
@@ -321,48 +419,25 @@ OExpr * ODqCompAst::CreateBinExpr(EBinOp op, OExpr * left, OExpr * right)
         return nullptr;
       }
     }
-    else if ((TK_INT == tkl) and (TK_INT == tkr))
-    {
-      OTypeInt * intl = static_cast<OTypeInt *>(left->ResolvedType());
-      OTypeInt * intr = static_cast<OTypeInt *>(right->ResolvedType());
-      if (intl->bitlength > intr->bitlength)
-        newright = new OExprTypeConv(left->ptype, right);
-      else
-        newleft = new OExprTypeConv(right->ptype, left);
-    }
-    else
+    else if (!HarmonizeNumericOperands(&newleft, &newright))
     {
       Error(DQERR_TYPEMISM_FOR_OP, left->ptype->name, GetBinopSymbol(op), right->ptype->name);
       return nullptr;
     }
   }
-  else if ((TK_INT == tkl) and (TK_INT == tkr))
+  else
   {
-    OTypeInt * intl = static_cast<OTypeInt *>(left->ResolvedType());
-    OTypeInt * intr = static_cast<OTypeInt *>(right->ResolvedType());
-    if (intl->bitlength != intr->bitlength)
+    HarmonizeNumericOperands(&newleft, &newright);
+
+    if ((TK_INT == tkl) and (TK_INT == tkr))
     {
-      if (intl->bitlength > intr->bitlength)
-        newright = new OExprTypeConv(left->ptype, right);
-      else
-        newleft = new OExprTypeConv(right->ptype, left);
-    }
-    else if (BINOP_DIV == op)
-    {
-      newleft  = new OExprTypeConv(g_builtins->type_float, left);
-      newright = new OExprTypeConv(g_builtins->type_float, right);
-    }
-  }
-  else if ((TK_FLOAT == tkl) and (TK_FLOAT == tkr))
-  {
-    OTypeFloat * floatl = static_cast<OTypeFloat *>(left->ResolvedType());
-    OTypeFloat * floatr = static_cast<OTypeFloat *>(right->ResolvedType());
-    if (floatl->bitlength != floatr->bitlength)
-    {
-      if (floatl->bitlength > floatr->bitlength)
-        newright = new OExprTypeConv(left->ptype, right);
-      else
-        newleft = new OExprTypeConv(right->ptype, left);
+      OTypeInt * intl = static_cast<OTypeInt *>(left->ResolvedType());
+      OTypeInt * intr = static_cast<OTypeInt *>(right->ResolvedType());
+      if ((intl->bitlength == intr->bitlength) and (BINOP_DIV == op))
+      {
+        newleft  = new OExprTypeConv(g_builtins->type_float, newleft);
+        newright = new OExprTypeConv(g_builtins->type_float, newright);
+      }
     }
   }
 
@@ -744,93 +819,25 @@ bool ODqCompAst::ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OType *
     return true;
   }
 
-  if ((TK_INT == truetype->kind) and (TK_FLOAT == falsetype->kind))
-  {
-    *rtrueexpr = FoldExprTree(new OExprTypeConv(falseexpr->ptype, trueexpr));
-    *rfalseexpr = FoldExprTree(falseexpr);
-    *rresulttype = falseexpr->ptype;
-    return true;
-  }
-
-  if ((TK_FLOAT == truetype->kind) and (TK_INT == falsetype->kind))
+  if (HarmonizeNumericOperands(&trueexpr, &falseexpr))
   {
     *rtrueexpr = FoldExprTree(trueexpr);
-    *rfalseexpr = FoldExprTree(new OExprTypeConv(trueexpr->ptype, falseexpr));
+    *rfalseexpr = FoldExprTree(falseexpr);
     *rresulttype = trueexpr->ptype;
     return true;
   }
 
-  if ((TK_INT == truetype->kind) and (TK_INT == falsetype->kind))
+  OType * resulttype = nullptr;
+  if (ResolveCommonPointerType(trueexpr, falseexpr, &resulttype))
   {
-    OTypeInt * trueint = static_cast<OTypeInt *>(truetype);
-    OTypeInt * falseint = static_cast<OTypeInt *>(falsetype);
-    if ((trueint->bitlength > falseint->bitlength)
-        || ((trueint->bitlength == falseint->bitlength) && (trueint->issigned == falseint->issigned)))
-    {
-      *rtrueexpr = FoldExprTree(trueexpr);
-      *rfalseexpr = FoldExprTree(new OExprTypeConv(trueexpr->ptype, falseexpr));
-      *rresulttype = trueexpr->ptype;
-      return true;
-    }
-    if (falseint->bitlength > trueint->bitlength)
-    {
-      *rtrueexpr = FoldExprTree(new OExprTypeConv(falseexpr->ptype, trueexpr));
-      *rfalseexpr = FoldExprTree(falseexpr);
-      *rresulttype = falseexpr->ptype;
-      return true;
-    }
-  }
-
-  if ((TK_FLOAT == truetype->kind) and (TK_FLOAT == falsetype->kind))
-  {
-    OTypeFloat * truefloat = static_cast<OTypeFloat *>(truetype);
-    OTypeFloat * falsefloat = static_cast<OTypeFloat *>(falsetype);
-    if (truefloat->bitlength >= falsefloat->bitlength)
-    {
-      *rtrueexpr = FoldExprTree(trueexpr);
-      *rfalseexpr = FoldExprTree(new OExprTypeConv(trueexpr->ptype, falseexpr));
-      *rresulttype = trueexpr->ptype;
-      return true;
-    }
-
-    *rtrueexpr = FoldExprTree(new OExprTypeConv(falseexpr->ptype, trueexpr));
+    *rtrueexpr = FoldExprTree(trueexpr);
     *rfalseexpr = FoldExprTree(falseexpr);
-    *rresulttype = falseexpr->ptype;
+    *rresulttype = resulttype;
     return true;
   }
 
   if ((TK_POINTER == truetype->kind) and (TK_POINTER == falsetype->kind))
   {
-    OTypePointer * trueptr = static_cast<OTypePointer *>(truetype);
-    OTypePointer * falseptr = static_cast<OTypePointer *>(falsetype);
-
-    if (trueptr->IsNullPointer() and !falseptr->IsNullPointer())
-    {
-      *rtrueexpr = FoldExprTree(trueexpr);
-      *rfalseexpr = FoldExprTree(falseexpr);
-      *rresulttype = falseexpr->ptype;
-      return true;
-    }
-
-    if (falseptr->IsNullPointer() and !trueptr->IsNullPointer())
-    {
-      *rtrueexpr = FoldExprTree(trueexpr);
-      *rfalseexpr = FoldExprTree(falseexpr);
-      *rresulttype = trueexpr->ptype;
-      return true;
-    }
-
-    if (trueexpr->ptype == falseexpr->ptype
-        || (trueptr->IsOpaquePointer() && falseptr->IsOpaquePointer())
-        || (trueptr->IsTypedPointer() && falseptr->IsTypedPointer()
-            && (trueptr->basetype->ResolveAlias() == falseptr->basetype->ResolveAlias())))
-    {
-      *rtrueexpr = FoldExprTree(trueexpr);
-      *rfalseexpr = FoldExprTree(falseexpr);
-      *rresulttype = trueexpr->ptype;
-      return true;
-    }
-
     Error(DQERR_PTR_TYPEMISM, trueexpr->ptype->name, falseexpr->ptype->name);
     return false;
   }

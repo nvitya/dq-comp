@@ -32,6 +32,16 @@ function compare_int16(a : int16, b : int16) -> int:
   endif
 endfunc
 
+function compare_int16_int32(a : int16, b : int32) -> int:
+  if a < b:
+    return -1;
+  elif a > b:
+    return 1;
+  else:
+    return 0;
+  endif
+endfunc
+
 function sum_ints(a : int, b : int) -> int:
   result = 0;
   var i : int = a;
@@ -90,6 +100,9 @@ function main() -> int:
 
   printf("compare_uint16(0xF000, 0x0F00) = %d\n",  compare_uint16(0xF000, 0x0F00)  ); //?check('compare_uint16(0xF000, 0x0F00)' , 1)
   printf("compare_int16(0xF000, 0x0F00)  = %d\n",  compare_int16(0xF000, 0x0F00)  ); //?check('compare_int16(0xF000, 0x0F00)' , -1)
+  printf("compare_int16_int32(30000, 40000) = %d\n", compare_int16_int32(30000, 40000));  //?check('compare_int16_int32(30000, 40000)', -1)
+  printf("compare_int16_int32(30000, 20000) = %d\n", compare_int16_int32(30000, 20000));  //?check('compare_int16_int32(30000, 20000)', 1)
+  printf("compare_int16_int32(30000, 30000) = %d\n", compare_int16_int32(30000, 30000));  //?check('compare_int16_int32(30000, 30000)', 0)
 
   printf("sum_ints(1, 5)  = %d\n", sum_ints(1, 5)  );  //?check('sum_ints(1, 5)',  15)
   printf("sum_ints(5, 1)  = %d\n", sum_ints(5, 1)  );  //?check('sum_ints(5, 1)',   0)

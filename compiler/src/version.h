@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.7.8"
+#define DQ_COMPILER_VERSION  "0.7.9"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.7.9:
+  - eliminated more duplicate code with AST helpers
 v0.7.8:
   - eliminated some duplicated code parts
   - functions moved from dqc_parser to dqc_ast

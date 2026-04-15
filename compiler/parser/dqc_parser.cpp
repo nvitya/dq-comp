@@ -18,7 +18,6 @@
 #include "dq_module.h"
 #include "dqc_parser.h"
 #include "otype_func.h"
-#include "otype_int.h"
 #include "otype_array.h"
 #include "otype_cstring.h"
 #include "named_scopes.h"
@@ -1172,41 +1171,7 @@ OExpr * ODqCompParser::ParseComparison()
     return FreeLeftRight(left, nullptr);
   }
 
-  // Widen int operands to matching width before comparison
-  ETypeKind tkl = left->ptype->kind;
-  ETypeKind tkr = right->ptype->kind;
-  if (TK_INT == tkl and TK_INT == tkr)
-  {
-    OTypeInt * intl = static_cast<OTypeInt *>(left->ResolvedType());
-    OTypeInt * intr = static_cast<OTypeInt *>(right->ResolvedType());
-    if (intl->bitlength != intr->bitlength)
-    {
-      if (intl->bitlength > intr->bitlength)
-        right = new OExprTypeConv(left->ptype, right);
-      else
-        left = new OExprTypeConv(right->ptype, left);
-    }
-  }
-  else if ((TK_INT == tkl) and (TK_FLOAT == tkr))
-  {
-    left = new OExprTypeConv(right->ptype, left);
-  }
-  else if ((TK_INT == tkr) and (TK_FLOAT == tkl))
-  {
-    right = new OExprTypeConv(left->ptype, right);
-  }
-  else if (TK_FLOAT == tkl and TK_FLOAT == tkr)
-  {
-    OTypeFloat * floatl = static_cast<OTypeFloat *>(left->ResolvedType());
-    OTypeFloat * floatr = static_cast<OTypeFloat *>(right->ResolvedType());
-    if (floatl->bitlength != floatr->bitlength)
-    {
-      if (floatl->bitlength > floatr->bitlength)
-        right = new OExprTypeConv(left->ptype, right);
-      else
-        left = new OExprTypeConv(right->ptype, left);
-    }
-  }
+  HarmonizeNumericOperands(&left, &right);
 
   return new OCompareExpr(op, left, right);
 }

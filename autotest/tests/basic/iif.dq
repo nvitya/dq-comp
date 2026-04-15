@@ -28,6 +28,19 @@ function dq_iif_float(flag : bool) -> int:
   result = round(f);
 endfunc
 
+function dq_iif_int_width(flag : bool) -> int32:
+  var a : int16 = 1234;
+  var b : int32 = 567890;
+  result = iif(flag, a, b);
+endfunc
+
+function dq_iif_float_width(flag : bool) -> int:
+  var a : float32 = 1.25;
+  var b : float64 = 2.75;
+  var f : float64 = iif(flag, a, b);
+  result = round(f * 10.0);
+endfunc
+
 function dq_iif_ptr(flag : bool) -> int:
   var x : int = 33;
   var p : ^int = iif(flag, &x, null);
@@ -67,6 +80,15 @@ function main() -> int:
 
   r = dq_iif_float(false);
   printf("dq_iif_float(false) = %li\n", r);  //?check('dq_iif_float(false)', 3)
+
+  printf("dq_iif_int_width(true) = %li\n", dq_iif_int_width(true));    //?check('dq_iif_int_width(true)', 1234)
+  printf("dq_iif_int_width(false) = %li\n", dq_iif_int_width(false));  //?check('dq_iif_int_width(false)', 567890)
+
+  r = dq_iif_float_width(true);
+  printf("dq_iif_float_width(true) = %li\n", r);   //?check('dq_iif_float_width(true)', 13)
+
+  r = dq_iif_float_width(false);
+  printf("dq_iif_float_width(false) = %li\n", r);  //?check('dq_iif_float_width(false)', 28)
 
   r = dq_iif_ptr(true);
   printf("dq_iif_ptr(true) = %li\n", r);  //?check('dq_iif_ptr(true)', 33)

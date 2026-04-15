@@ -57,4 +57,8 @@ public:
   bool    ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OType ** rresulttype);
   bool    CheckAssignType(OType * dsttype, OExpr ** rexpr, const string astmt);
 
+protected:
+  bool    HarmonizeNumericOperands(OExpr ** rleft, OExpr ** rright);
+  bool    ResolveCommonPointerType(OExpr * leftexpr, OExpr * rightexpr, OType ** rresulttype);
+
 };
