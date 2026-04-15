@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.7.10"
+#define DQ_COMPILER_VERSION  "0.7.11"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.7.11:
+  - Removed duplicate code from preprocessor #if... branches
 v0.7.10:
   - const declaration is allowed in statement blocks too
 v0.7.9:

@@ -94,6 +94,10 @@ protected:
   void ParseDirectiveDefine();
   bool FindDirectiveEnd();
 
+  void StartConditionalBranch();
+  void ApplyConditionalResult(bool acondition_true);
+  bool ContinueConditionalBranch(const string & adirective);
+
   bool CheckConditionals(const string aid);  // processes if, ifdef, else, elif, elifdef, endif. Returns true, when one of those found
 
   void SkipInactiveCode();

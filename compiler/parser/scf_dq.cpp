@@ -455,6 +455,56 @@ void OScFeederDq::PreprocError2(const TDiagDefErr & adiag, OScPosition * ascpos,
   PreprocError2(adiag, "", "", "", ascpos, atryrecover);
 }
 
+void OScFeederDq::StartConditionalBranch()
+{
+  curcond = new OScfCondition(curcond, scpos_start_directive, inactive_code);
+}
+
+void OScFeederDq::ApplyConditionalResult(bool acondition_true)
+{
+  if (not inactive_code)
+  {
+    if (acondition_true)
+    {
+      curcond->branch_taken = true;
+    }
+    else
+    {
+      inactive_code = true;
+    }
+  }
+}
+
+bool OScFeederDq::ContinueConditionalBranch(const string & adirective)
+{
+  if (!curcond)
+  {
+    PreprocError2(DQERR_CDIR_ELCOND_WITHOUT_IF, adirective);
+    inactive_code = true;
+    return false;
+  }
+
+  if (FCOND_ELSE == curcond->state)
+  {
+    PreprocError2(DQERR_CDIR_ELCOND_AFTER_ELSE_PREVPOS, adirective, curcond->elsepos.Format()); // this message is not perfect
+    inactive_code = true;
+    return false;
+  }
+
+  // restore the inactive code state
+  inactive_code = (curcond->parent_inactive or curcond->branch_taken);
+
+  if (curcond->startpos.scfile != curfile)  // same include ?
+  {
+    PreprocError2(DQERR_CDIR_COND_WRONG_INC, adirective, "#if");
+    curcond = new OScfCondition(curcond, scpos_start_directive, inactive_code);
+    inactive_code = true;
+  }
+
+  curcond->state = FCOND_ELIF;
+  return (not inactive_code);
+}
+
 
 bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a conditional processed
 {
@@ -468,27 +518,17 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
   {
     SkipSpaces();
 
-    curcond = new OScfCondition(curcond, scpos_start_directive, inactive_code);
+    StartConditionalBranch();
 
     if (!ReadIdentifier(sid))
     {
       PreprocError2(DQERR_CDIR_COND_ID_MISSING, "#" + aid);
       inactive_code = true;
     }
-    else
+    else if (not inactive_code)
     {
-      if (not inactive_code)
-      {
-        bool isdefined = g_defines->Defined(sid);
-        if ((("ifdef" == aid) and isdefined) or (("ifndef" == aid) and not isdefined))
-        {
-          curcond->branch_taken = true;
-        }
-        else
-        {
-          inactive_code = true;
-        }
-      }
+      bool isdefined = g_defines->Defined(sid);
+      ApplyConditionalResult((("ifdef" == aid) and isdefined) or (("ifndef" == aid) and not isdefined));
     }
 
     if (g_opt.verblevel >= VERBLEVEL_DEBUG)
@@ -498,19 +538,12 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
   }
   else if ("if" == aid)
   {
-    curcond = new OScfCondition(curcond, scpos_start_directive, inactive_code);
+    StartConditionalBranch();
 
     if (not inactive_code)
     {
       condval = g_compiler->ParseDefineCondition(scpos_start_directive, &condok);
-      if (condok and condval)
-      {
-        curcond->branch_taken = true;
-      }
-      else
-      {
-        inactive_code = true;
-      }
+      ApplyConditionalResult(condok and condval);
     }
 
     if (g_opt.verblevel >= VERBLEVEL_DEBUG)
@@ -581,48 +614,19 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
   }
   else if (("elifdef" == aid) || ("elifndef" == aid))
   {
+    string directive = "#" + aid;
+
     SkipSpaces();
     if (not ReadIdentifier(sid))
     {
-      PreprocError2(DQERR_CDIR_COND_ID_MISSING, "#"+aid);
+      PreprocError2(DQERR_CDIR_COND_ID_MISSING, directive);
       inactive_code = true;
     }
 
-    if (!curcond)
+    if (ContinueConditionalBranch(directive))
     {
-      PreprocError2(DQERR_CDIR_ELCOND_WITHOUT_IF, "#"+aid);
-      inactive_code = true;
-    }
-    else if (FCOND_ELSE == curcond->state)
-    {
-      PreprocError2(DQERR_CDIR_ELCOND_AFTER_ELSE_PREVPOS, "#"+aid, curcond->elsepos.Format()); // this message is not perfect
-      inactive_code = true;
-    }
-    else
-    {
-      // restore the inactive code state
-      inactive_code = (curcond->parent_inactive or curcond->branch_taken);
-
-      if (curcond->startpos.scfile != curfile)  // same include ?
-      {
-        PreprocError2(DQERR_CDIR_COND_WRONG_INC, "#elifdef", "#if");
-        curcond = new OScfCondition(curcond, scpos_start_directive, inactive_code);
-        inactive_code = true;
-      }
-
-      curcond->state = FCOND_ELIF;
-      if (not inactive_code)
-      {
-        bool isdefined = g_defines->Defined(sid);
-        if ((("elifdef" == aid) and isdefined) or (("elifndef" == aid) and not isdefined))
-        {
-          curcond->branch_taken = true;
-        }
-        else
-        {
-          inactive_code = true;
-        }
-      }
+      bool isdefined = g_defines->Defined(sid);
+      ApplyConditionalResult((("elifdef" == aid) and isdefined) or (("elifndef" == aid) and not isdefined));
     }
 
     if (g_opt.verblevel >= VERBLEVEL_DEBUG)
@@ -632,40 +636,10 @@ bool OScFeederDq::CheckConditionals(const string aid)  // returns true if a cond
   }
   else if ("elif" == aid)
   {
-    if (!curcond)
+    if (ContinueConditionalBranch("#elif"))
     {
-      PreprocError2(DQERR_CDIR_ELCOND_WITHOUT_IF, "#elif");
-      inactive_code = true;
-    }
-    else if (FCOND_ELSE == curcond->state)
-    {
-      PreprocError2(DQERR_CDIR_ELCOND_AFTER_ELSE_PREVPOS, "#elif", curcond->elsepos.Format());
-      inactive_code = true;
-    }
-    else
-    {
-      inactive_code = (curcond->parent_inactive or curcond->branch_taken);
-
-      if (curcond->startpos.scfile != curfile)
-      {
-        PreprocError2(DQERR_CDIR_COND_WRONG_INC, "#elif", "#if");
-        curcond = new OScfCondition(curcond, scpos_start_directive, inactive_code);
-        inactive_code = true;
-      }
-
-      curcond->state = FCOND_ELIF;
-      if (not inactive_code)
-      {
-        condval = g_compiler->ParseDefineCondition(scpos_start_directive, &condok);
-        if (condok and condval)
-        {
-          curcond->branch_taken = true;
-        }
-        else
-        {
-          inactive_code = true;
-        }
-      }
+      condval = g_compiler->ParseDefineCondition(scpos_start_directive, &condok);
+      ApplyConditionalResult(condok and condval);
     }
 
     if (g_opt.verblevel >= VERBLEVEL_DEBUG)
