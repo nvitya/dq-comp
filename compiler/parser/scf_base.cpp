@@ -581,7 +581,10 @@ bool OScFeederBase::CheckSymbol(const char * checkstring, bool aconsume)
   char *  csptr = (char *)checkstring;
   char *  csend = csptr + strlen(checkstring);
 
-  SaveCurPos(prevpos);
+  if (prevpos.pos != p)
+  {
+    SaveCurPos(prevpos);  // for precise error position tracking
+  }
 
   while ((csptr < csend) && (p < bufend) && (*csptr == *p))
   {
@@ -605,9 +608,11 @@ bool OScFeederBase::CheckSymbol(const char * checkstring, bool aconsume)
 
 bool OScFeederBase::ReadIdentifier(string & rvalue, bool aconsume)
 {
+  if (prevpos.pos != curp)
+  {
+    SaveCurPos(prevpos);  // for precise error position tracking
+  }
   char *   p = curp;
-
-  SaveCurPos(prevpos);  // for precise error position tracking
   prevp = curp;
   while (p < bufend)
   {

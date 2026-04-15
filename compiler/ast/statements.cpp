@@ -110,6 +110,38 @@ static void EmitSizedCStringCopy(OScope * scope, LlValue * dstdaddr, OTypeCStrin
   ll_builder.CreateStore(ll_i8_zero, ll_dstnull);
 }
 
+static bool EmitCStringStore(OScope * scope, LlValue * dstdaddr, OTypeCString * dsttype, OExpr * srcexpr)
+{
+  if (!dsttype || (dsttype->maxlen <= 0))
+  {
+    return false;
+  }
+
+  if (!srcexpr)
+  {
+    LlConst * ll_zero = llvm::ConstantAggregateZero::get(dsttype->GetLlType());
+    ll_builder.CreateStore(ll_zero, dstdaddr);
+    return true;
+  }
+
+  if (auto * strlit = dynamic_cast<OCStringLit *>(srcexpr))
+  {
+    OValueCString val(dsttype, dsttype->maxlen);
+    val.value = strlit->value;
+    LlConst * ll_const = val.CreateLlConst();
+    ll_builder.CreateStore(ll_const, dstdaddr);
+    return true;
+  }
+
+  if (dynamic_cast<OTypeCString *>(srcexpr->ResolvedType()))
+  {
+    EmitSizedCStringCopy(scope, dstdaddr, dsttype, srcexpr);
+    return true;
+  }
+
+  return false;
+}
+
 void OStmt::EmitDebugLocation(OScope * scope, OScPosition * ascpos)
 {
   if (not g_opt.dbg_info)
@@ -170,37 +202,11 @@ void OStmtVarDecl::Generate(OScope * scope)
   if (TK_STRING == variable->ptype->kind)
   {
     OTypeCString * cstrtype = static_cast<OTypeCString *>(variable->ptype);
-    if (cstrtype->maxlen > 0)
+    if (EmitCStringStore(scope, variable->ll_value, cstrtype, initvalue))
     {
-      // Sized cstring: handle init specially
-      OCStringLit * strlit = initvalue ? dynamic_cast<OCStringLit *>(initvalue) : nullptr;
-      if (strlit)
+      if (!initvalue)
       {
-        // Create padded [N x i8] constant and store
-        OValueCString val(cstrtype, cstrtype->maxlen);
-        val.value = strlit->value;
-        LlConst * ll_const = val.CreateLlConst();
-        ll_builder.CreateStore(ll_const, variable->ll_value);
-      }
-      else if (!initvalue)
-      {
-        // No initializer: zero-fill
-        LlConst * ll_zero = llvm::ConstantAggregateZero::get(ll_type);
-        ll_builder.CreateStore(ll_zero, variable->ll_value);
         variable->initialized = true;
-      }
-      else
-      {
-        OTypeCString * srcstrtype = dynamic_cast<OTypeCString *>(initvalue->ResolvedType());
-        if (srcstrtype)
-        {
-          EmitSizedCStringCopy(scope, variable->ll_value, cstrtype, initvalue);
-        }
-        else
-        {
-          LlValue * ll_initval = initvalue->Generate(scope);
-          ll_builder.CreateStore(ll_initval, variable->ll_value);
-        }
       }
       return;
     }
@@ -223,42 +229,23 @@ void OStmtVarDecl::Generate(OScope * scope)
 
 void OStmtAssign::Generate(OScope * scope)
 {
-  // Special handling: cstring[N] = "literal"
-  OLValueVar * varref = dynamic_cast<OLValueVar *>(target);
-  if (varref and TK_STRING == varref->pvalsym->ptype->kind)
-  {
-    OTypeCString * cstrtype = static_cast<OTypeCString *>(varref->pvalsym->ptype);
-    if (cstrtype->maxlen > 0)
-    {
-      OCStringLit * strlit = dynamic_cast<OCStringLit *>(value);
-      if (strlit)
-      {
-        OValueCString val(cstrtype, cstrtype->maxlen);
-        val.value = strlit->value;
-        LlConst * ll_const = val.CreateLlConst();
-        ll_builder.CreateStore(ll_const, varref->pvalsym->ll_value);
-        return;
-      }
-
-      OTypeCString * srcstrtype = dynamic_cast<OTypeCString *>(value->ResolvedType());
-      if (srcstrtype)
-      {
-        EmitSizedCStringCopy(scope, varref->pvalsym->ll_value, cstrtype, value);
-        return;
-      }
-    }
-  }
-
   if (TK_STRING == target->ResolvedType()->kind)
   {
     OTypeCString * cstrtype = static_cast<OTypeCString *>(target->ResolvedType());
     if (cstrtype->maxlen > 0)
     {
-      OTypeCString * srcstrtype = dynamic_cast<OTypeCString *>(value->ResolvedType());
-      if (srcstrtype)
+      LlValue * ll_addr = nullptr;
+      if (auto * varref = dynamic_cast<OLValueVar *>(target))
       {
-        LlValue * ll_addr = target->GenerateAddress(scope);
-        EmitSizedCStringCopy(scope, ll_addr, cstrtype, value);
+        ll_addr = varref->pvalsym->ll_value;
+      }
+      else
+      {
+        ll_addr = target->GenerateAddress(scope);
+      }
+
+      if (EmitCStringStore(scope, ll_addr, cstrtype, value))
+      {
         return;
       }
     }

@@ -57,16 +57,16 @@ public:
   void ParseModule();
 
 public: // root level items
-  void ParseRootVarDecl();
   void ParseRootConstDecl();
   void ParseRootTypeDecl();
   void ParseFunction(bool aexternal = false);
   void ParseStructDecl();
 
+  void ParseStmtVar(bool arootstmt);  // used for statement blocks too
+
 public: // statement blocks
   void ReadStatementBlock(OStmtBlock * stblock, const string blockend, string * rendstr = nullptr);
 
-  void ParseStmtVar();
   bool FinalizeStmtAssign(OLValueExpr * leftexpr, EBinOp op, OExpr * rightexpr);
   void ParseStmtReturn();
   void ParseStmtWhile();

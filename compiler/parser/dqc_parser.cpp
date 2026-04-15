@@ -198,7 +198,7 @@ void ODqCompParser::ParseModule()
 
     if ("var" == sid) // global variable definition
     {
-      ParseRootVarDecl();
+      ParseStmtVar(true);
     }
     else if ("const" == sid) // global constant definition
     {
@@ -230,9 +230,9 @@ void ODqCompParser::ParseModule()
   }
 }
 
-void ODqCompParser::ParseRootVarDecl()  // global var declaration (the local var is a statement)
+void ODqCompParser::ParseStmtVar(bool arootstmt)
 {
-  // syntax form: "var identifier : type [ = initial value];"
+  // syntax form: "var identifier : type [ = expression];"
   // note: "var" is already consumed
 
   string     sid;
@@ -243,57 +243,87 @@ void ODqCompParser::ParseRootVarDecl()  // global var declaration (the local var
   scf->SkipWhite();
   if (not scf->ReadIdentifier(sid))
   {
-    RootStatementError(DQERR_ID_EXP_AFTER, "var");
+    StatementError(DQERR_ID_EXP_AFTER, "var");
     return;
   }
 
-  if (g_module->ValSymDeclared(sid, &pvalsym))
+  pvalsym = curscope->FindValSym(sid, nullptr, false);  // do not search in the parent scopes this time !
+  if (pvalsym)
   {
-    RootStatementError(DQERR_VS_ALREADY_DECL_TYPE, sid, pvalsym->ptype->name, &scf->prevpos);
+    StatementError(DQERR_VS_ALREADY_DECL_TYPE, sid, pvalsym->ptype->name, &scf->prevpos);
     return;
   }
 
   scf->SkipWhite();
   if (not scf->CheckSymbol(":"))
   {
-    RootStatementError(DQERR_TYPE_SPECIFIER_EXP_AFTER, sid);
+    StatementError(DQERR_TYPE_SPECIFIER_EXP_AFTER, sid);
     return;
   }
 
   ptype = ParseTypeSpec();
-  if (not ptype)
-  {
-    SkipToModuleStatementStart();
-    return;
-  }
-
-  ODecl * vdecl = AddDeclVar(scpos_statement_start, sid, ptype);
+  if (not ptype)  return;
 
   OExpr * initexpr = nullptr;
+  bool zero_init = false;
   scf->SkipWhite();
   if (scf->CheckSymbol("="))  // variable initializer specified
   {
     scf->SkipWhite();
-    OExpr * initexpr = ParseExpression();
+    // Check for {} zero-initializer (for compound types)
+    if (scf->CheckSymbol("{"))
+    {
+      scf->SkipWhite();
+      if (not scf->CheckSymbol("}"))
+      {
+        ErrorTxt(DQERR_EXPR_INITVALUE, "\"}\" expected for zero-initializer");
+        return;
+      }
+      zero_init = true;
+    }
+    else
+    {
+      initexpr = ParseExpression();
+    }
+  }
+
+  scf->SkipWhite();
+  if (!scf->CheckSymbol(";"))
+  {
+    StatementError(DQERR_MISSING_SEMICOLON_TO_CLOSE, "variable declaration");
+  }
+
+  if (initexpr and (not CheckAssignType(ptype, &initexpr, "Assignment")))  // might add implicit conversion
+  {
+    // error message is already provided.
+    delete initexpr;
+    return;
+  }
+
+  if (arootstmt)
+  {
+    ODecl * vdecl = AddDeclVar(scpos_statement_start, sid, ptype);
     if (initexpr)
     {
       if (not vdecl->initvalue->CalculateConstant(initexpr))
       {
         // the error message is already generated
       }
+      delete initexpr;
     }
-    delete initexpr;
+
+    // global variables are always initialized with 0 / null
+    vdecl->pvalsym->initialized = true;
   }
-
-  // global variables are always initialized with 0 / null
-  vdecl->pvalsym->initialized = true;
-
-  if (not CheckStatementClose())
+  else
   {
-    // error message already generated.
-    return;
+    pvalsym = ptype->CreateValSym(scpos_statement_start, sid);
+    if (zero_init)  pvalsym->initialized = true;
+    curscope->DefineValSym(pvalsym);
+    curblock->AddStatement(new OStmtVarDecl(scpos_statement_start, pvalsym, initexpr));
   }
 }
+
 
 void ODqCompParser::ParseRootConstDecl()
 {
@@ -698,7 +728,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
     {
       if ("var" == sid)  // local variable declaration
       {
-        ParseStmtVar();
+        ParseStmtVar(false);
         continue;
       }
       else if ("return" == sid)
@@ -2642,82 +2672,6 @@ OExpr * ODqCompParser::ParseBuiltinSizeof()
   }
 
   return new OIntLit(sizetype->bytesize);
-}
-
-void ODqCompParser::ParseStmtVar()
-{
-  // syntax form: "var identifier : type [ = expression];"
-  // note: "var" is already consumed
-
-  string     sid;
-  string     stype;
-  OValSym *  pvalsym;
-  OType *    ptype;
-
-  scf->SkipWhite();
-  if (not scf->ReadIdentifier(sid))
-  {
-    StatementError(DQERR_ID_EXP_AFTER, "var");
-    return;
-  }
-
-  pvalsym = curscope->FindValSym(sid, nullptr, false);  // do not search in the parent scopes this time !
-  if (pvalsym)
-  {
-    StatementError(DQERR_VS_ALREADY_DECL_TYPE, sid, pvalsym->ptype->name, &scf->prevpos);
-    return;
-  }
-
-  scf->SkipWhite();
-  if (not scf->CheckSymbol(":"))
-  {
-    StatementError(DQERR_TYPE_SPECIFIER_EXP_AFTER, sid);
-    return;
-  }
-
-  ptype = ParseTypeSpec();
-  if (not ptype)  return;
-
-  OExpr * initexpr = nullptr;
-  bool zero_init = false;
-  scf->SkipWhite();
-  if (scf->CheckSymbol("="))  // variable initializer specified
-  {
-    scf->SkipWhite();
-    // Check for {} zero-initializer (for compound types)
-    if (scf->CheckSymbol("{"))
-    {
-      scf->SkipWhite();
-      if (not scf->CheckSymbol("}"))
-      {
-        ErrorTxt(DQERR_EXPR_INITVALUE, "\"}\" expected for zero-initializer");
-        return;
-      }
-      zero_init = true;
-    }
-    else
-    {
-      initexpr = ParseExpression();
-    }
-  }
-
-  scf->SkipWhite();
-  if (!scf->CheckSymbol(";"))
-  {
-    StatementError(DQERR_MISSING_SEMICOLON_TO_CLOSE, "variable declaration");
-  }
-
-  if (initexpr and (not CheckAssignType(ptype, &initexpr, "Assignment")))  // might add implicit conversion
-  {
-    // error message is already provided.
-    delete initexpr;
-    return;
-  }
-
-  pvalsym = ptype->CreateValSym(scpos_statement_start, sid);
-  if (zero_init)  pvalsym->initialized = true;
-  curscope->DefineValSym(pvalsym);
-  curblock->AddStatement(new OStmtVarDecl(scpos_statement_start, pvalsym, initexpr));
 }
 
 EBinOp ODqCompParser::ParseAssignOp()

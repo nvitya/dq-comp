@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.7.7"
+#define DQ_COMPILER_VERSION  "0.7.8"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.7.8:
+  - eliminated some duplicated code parts
 v0.7.7:
   - improved variable not initialized checks
 v0.7.6:
