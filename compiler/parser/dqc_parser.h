@@ -35,7 +35,7 @@ public:
   void ParseModule();
 
 public: // root level items
-  void ParseRootConstDecl();
+  void ParseStmtConst(bool arootstmt);  // used for statement blocks too
   void ParseRootTypeDecl();
   void ParseFunction(bool aexternal = false);
   void ParseStructDecl();

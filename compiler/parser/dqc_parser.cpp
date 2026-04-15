@@ -100,7 +100,7 @@ void ODqCompParser::ParseModule()
     }
     else if ("const" == sid) // global constant definition
     {
-      ParseRootConstDecl();
+      ParseStmtConst(true);
     }
     else if ("type" == sid)
     {
@@ -223,7 +223,7 @@ void ODqCompParser::ParseStmtVar(bool arootstmt)
 }
 
 
-void ODqCompParser::ParseRootConstDecl()
+void ODqCompParser::ParseStmtConst(bool arootstmt)
 {
   // syntax form: "const identifier : type [ = initial value];"
   // note: "const" is already consumed
@@ -233,23 +233,45 @@ void ODqCompParser::ParseRootConstDecl()
   OType *      ptype;
   OScPosition  expos;
 
+  auto emit_error = [&](const TDiagDefErr & adiag, string_view par1 = "", string_view par2 = "",
+                        OScPosition * scpos = nullptr, bool atryrecover = true)
+  {
+    if (arootstmt)
+    {
+      RootStatementError(adiag, par1, par2, scpos, atryrecover);
+    }
+    else
+    {
+      StatementError(adiag, par1, par2, scpos, atryrecover);
+    }
+  };
+
   scf->SkipWhite();
   if (not scf->ReadIdentifier(sid))
   {
-    RootStatementError(DQERR_ID_EXP_AFTER, "var");
+    emit_error(DQERR_ID_EXP_AFTER, "const");
     return;
   }
 
-  if (g_module->ValSymDeclared(sid, &pvalsym))
+  pvalsym = nullptr;
+  if (arootstmt)
   {
-    RootStatementError(DQERR_VS_ALREADY_DECL_TYPE, sid, pvalsym->ptype->name, &scf->prevpos);
+    g_module->ValSymDeclared(sid, &pvalsym);
+  }
+  else
+  {
+    pvalsym = curscope->FindValSym(sid, nullptr, false);  // check only the current scope
+  }
+  if (pvalsym)
+  {
+    emit_error(DQERR_VS_ALREADY_DECL_TYPE, sid, pvalsym->ptype->name, &scf->prevpos);
     return;
   }
 
   scf->SkipWhite();
   if (not scf->CheckSymbol(":"))
   {
-    RootStatementError(DQERR_TYPE_SPECIFIER_EXP_AFTER, sid);
+    emit_error(DQERR_TYPE_SPECIFIER_EXP_AFTER, sid);
     return;
   }
 
@@ -262,7 +284,7 @@ void ODqCompParser::ParseRootConstDecl()
   scf->SkipWhite();
   if (not scf->CheckSymbol("="))  // variable initializer specified
   {
-    RootStatementError(DQERR_MISSING_ASSIGN_FOR, sid);
+    emit_error(DQERR_MISSING_ASSIGN_FOR, sid);
     return;
   }
 
@@ -272,14 +294,14 @@ void ODqCompParser::ParseRootConstDecl()
   if (not valueexpr)
   {
     delete valueexpr;
-    RootStatementError(DQERR_EXPR_WRONG_VALUE_FOR, sid, &expos);
+    emit_error(DQERR_EXPR_WRONG_VALUE_FOR, sid, "", &expos);
     return;
   }
 
   OValue * pvalue = ptype->CreateValue();
   if (not pvalue->CalculateConstant(valueexpr))
   {
-    RootStatementError(DQERR_CONSTEXPR_INVALID_FOR, sid, &expos);
+    emit_error(DQERR_CONSTEXPR_INVALID_FOR, sid, "", &expos);
 
     delete valueexpr;
     delete pvalue;
@@ -288,7 +310,14 @@ void ODqCompParser::ParseRootConstDecl()
 
   delete valueexpr;
 
-  ODecl * vdecl = AddDeclConst(scpos_statement_start, sid, ptype, pvalue);
+  if (arootstmt)
+  {
+    AddDeclConst(scpos_statement_start, sid, ptype, pvalue);
+  }
+  else
+  {
+    curscope->DefineValSym(new OValSymConst(scpos_statement_start, sid, ptype, pvalue));
+  }
 
   if (not CheckStatementClose())
   {
@@ -627,6 +656,11 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
       if ("var" == sid)  // local variable declaration
       {
         ParseStmtVar(false);
+        continue;
+      }
+      else if ("const" == sid)
+      {
+        ParseStmtConst(false);
         continue;
       }
       else if ("return" == sid)

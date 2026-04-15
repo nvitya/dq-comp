@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.7.9"
+#define DQ_COMPILER_VERSION  "0.7.10"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.7.10:
+  - const declaration is allowed in statement blocks too
 v0.7.9:
   - eliminated more duplicate code with AST helpers
 v0.7.8:
