@@ -924,36 +924,40 @@ static OExpr * FoldScalarExpr(OExpr * expr)
   return result;
 }
 
-OExpr * FoldExprTree(OExpr * expr)
+void FoldExprTree(OExpr ** rexpr)
 {
+  OExpr * expr = (rexpr ? *rexpr : nullptr);
   if (!expr)
   {
-    return nullptr;
+    return;
   }
 
   if (auto * ex = dynamic_cast<OExprTypeConv *>(expr))
   {
-    ex->src = FoldExprTree(ex->src);
-    return FoldScalarExpr(ex);
+    FoldExprTree(&ex->src);
+    *rexpr = FoldScalarExpr(ex);
+    return;
   }
 
   if (auto * ex = dynamic_cast<OBinExpr *>(expr))
   {
-    ex->left = FoldExprTree(ex->left);
-    ex->right = FoldExprTree(ex->right);
-    return FoldScalarExpr(ex);
+    FoldExprTree(&ex->left);
+    FoldExprTree(&ex->right);
+    *rexpr = FoldScalarExpr(ex);
+    return;
   }
 
   if (auto * ex = dynamic_cast<OCompareExpr *>(expr))
   {
-    ex->left = FoldExprTree(ex->left);
-    ex->right = FoldExprTree(ex->right);
-    return FoldScalarExpr(ex);
+    FoldExprTree(&ex->left);
+    FoldExprTree(&ex->right);
+    *rexpr = FoldScalarExpr(ex);
+    return;
   }
 
   if (auto * ex = dynamic_cast<OIifExpr *>(expr))
   {
-    ex->condition = FoldExprTree(ex->condition);
+    FoldExprTree(&ex->condition);
 
     if (auto * cond = dynamic_cast<OBoolLit *>(ex->condition))
     {
@@ -968,100 +972,111 @@ OExpr * FoldExprTree(OExpr * expr)
       }
 
       delete ex;
-      return FoldExprTree(selected);
+      *rexpr = selected;
+      FoldExprTree(rexpr);
+      return;
     }
 
-    ex->true_expr = FoldExprTree(ex->true_expr);
-    ex->false_expr = FoldExprTree(ex->false_expr);
-    return ex;
+    FoldExprTree(&ex->true_expr);
+    FoldExprTree(&ex->false_expr);
+    return;
   }
 
   if (auto * ex = dynamic_cast<OLogicalExpr *>(expr))
   {
-    ex->left = FoldExprTree(ex->left);
-    ex->right = FoldExprTree(ex->right);
-    return FoldScalarExpr(ex);
+    FoldExprTree(&ex->left);
+    FoldExprTree(&ex->right);
+    *rexpr = FoldScalarExpr(ex);
+    return;
   }
 
   if (auto * ex = dynamic_cast<ONotExpr *>(expr))
   {
-    ex->operand = FoldExprTree(ex->operand);
-    return FoldScalarExpr(ex);
+    FoldExprTree(&ex->operand);
+    *rexpr = FoldScalarExpr(ex);
+    return;
   }
 
   if (auto * ex = dynamic_cast<OBinNotExpr *>(expr))
   {
-    ex->operand = FoldExprTree(ex->operand);
-    return FoldScalarExpr(ex);
+    FoldExprTree(&ex->operand);
+    *rexpr = FoldScalarExpr(ex);
+    return;
   }
 
   if (auto * ex = dynamic_cast<ONegExpr *>(expr))
   {
-    ex->operand = FoldExprTree(ex->operand);
-    return FoldScalarExpr(ex);
+    FoldExprTree(&ex->operand);
+    *rexpr = FoldScalarExpr(ex);
+    return;
   }
 
   if (auto * ex = dynamic_cast<OFloatRoundExpr *>(expr))
   {
-    ex->src = FoldExprTree(ex->src);
-    return FoldScalarExpr(ex);
+    FoldExprTree(&ex->src);
+    *rexpr = FoldScalarExpr(ex);
+    return;
   }
 
   if (auto * ex = dynamic_cast<OLValueDeref *>(expr))
   {
-    ex->ptrexpr = FoldExprTree(ex->ptrexpr);
-    return ex;
+    FoldExprTree(&ex->ptrexpr);
+    return;
   }
 
   if (auto * ex = dynamic_cast<OLValueMember *>(expr))
   {
-    ex->base = static_cast<OLValueExpr *>(FoldExprTree(ex->base));
-    return ex;
+    OExpr * tmp = ex->base;
+    FoldExprTree(&tmp);
+    ex->base = static_cast<OLValueExpr *>(tmp);
+    return;
   }
 
   if (auto * ex = dynamic_cast<OLValueIndex *>(expr))
   {
-    ex->base = static_cast<OLValueExpr *>(FoldExprTree(ex->base));
-    ex->indexexpr = FoldExprTree(ex->indexexpr);
-    return ex;
+    OExpr * tmp = ex->base;
+    FoldExprTree(&tmp);
+    ex->base = static_cast<OLValueExpr *>(tmp);
+    FoldExprTree(&ex->indexexpr);
+    return;
   }
 
   if (auto * ex = dynamic_cast<OAddrOfExpr *>(expr))
   {
-    ex->target = static_cast<OLValueExpr *>(FoldExprTree(ex->target));
-    return ex;
+    OExpr * tmp = ex->target;
+    FoldExprTree(&tmp);
+    ex->target = static_cast<OLValueExpr *>(tmp);
+    return;
   }
 
   if (auto * ex = dynamic_cast<OPointerIndexExpr *>(expr))
   {
-    ex->ptrexpr = FoldExprTree(ex->ptrexpr);
-    ex->indexexpr = FoldExprTree(ex->indexexpr);
-    return ex;
+    FoldExprTree(&ex->ptrexpr);
+    FoldExprTree(&ex->indexexpr);
+    return;
   }
 
   if (auto * ex = dynamic_cast<OCallExpr *>(expr))
   {
     for (OExpr *& arg : ex->args)
     {
-      arg = FoldExprTree(arg);
+      FoldExprTree(&arg);
     }
-    return ex;
+    return;
   }
 
   if (auto * ex = dynamic_cast<OArrayLit *>(expr))
   {
     for (OExpr *& elem : ex->elements)
     {
-      elem = FoldExprTree(elem);
+      FoldExprTree(&elem);
     }
-    return ex;
+    return;
   }
 
   if (auto * ex = dynamic_cast<OCStringLitToDescExpr *>(expr))
   {
-    ex->litexpr = FoldExprTree(ex->litexpr);
-    return ex;
+    FoldExprTree(&ex->litexpr);
+    return;
   }
-
-  return expr;
 }

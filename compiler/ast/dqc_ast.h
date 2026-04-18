@@ -53,7 +53,7 @@ public:
   OValSym * GetAssignRootValSym(OLValueExpr * leftexpr);
   OExpr * FreeLeftRight(OExpr * left, OExpr * right);
   OExpr * CreateBinExpr(EBinOp op, OExpr * left, OExpr * right);
-  bool    ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rout, uint32_t aflags = 0);
+  bool    ConvertExprToType(OType * dsttype, OExpr ** rexpr, uint32_t aflags = 0);
   bool    ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OType ** rresulttype);
   bool    CheckAssignType(OType * dsttype, OExpr ** rexpr, const string astmt);
 

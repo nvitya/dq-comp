@@ -1102,7 +1102,9 @@ void ODqCompParser::ParseStmtIf()
 
 OExpr * ODqCompParser::ParseExpression()
 {
-  return FoldExprTree(ParseExprOr());
+  OExpr * expr = ParseExprOr();
+  FoldExprTree(&expr);
+  return expr;
 }
 
 OExpr * ODqCompParser::ParseExprOr()
@@ -1391,14 +1393,13 @@ OExpr * ODqCompParser::ParseExplicitCastExpr(bool * rattempted)
     return nullptr;
   }
 
-  OExpr * result = nullptr;
-  if (!ConvertExprToType(dsttype, srcexpr, &result, EXPCF_GENERATE_ERRORS | EXPCF_EXPLICIT_CAST))
+  if (!ConvertExprToType(dsttype, &srcexpr, EXPCF_GENERATE_ERRORS | EXPCF_EXPLICIT_CAST))
   {
     delete srcexpr;
     return nullptr;
   }
 
-  return result;
+  return srcexpr;
 }
 
 OExpr * ODqCompParser::ParsePostfix(OExpr * base)
@@ -1967,7 +1968,9 @@ OExpr * ODqCompParser::ParseBuiltinIif()
     return nullptr;
   }
 
-  return FoldExprTree(new OIifExpr(condexpr, trueexpr, falseexpr, resulttype));
+  OExpr * expr = new OIifExpr(condexpr, trueexpr, falseexpr, resulttype);
+  FoldExprTree(&expr);
+  return expr;
 }
 
 OExpr * ODqCompParser::ParseBuiltinFloatRound(ERoundMode amode)

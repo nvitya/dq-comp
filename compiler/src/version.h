@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.7.11"
+#define DQ_COMPILER_VERSION  "0.7.12"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.7.12:
+  - Internal changes for Type conversion calls and Expression folding
 v0.7.11:
   - Removed duplicate code from preprocessor #if... branches
 v0.7.10:

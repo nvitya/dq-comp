@@ -444,9 +444,9 @@ OExpr * ODqCompAst::CreateBinExpr(EBinOp op, OExpr * left, OExpr * right)
   return new OBinExpr(op, newleft, newright);
 }
 
-bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rout, uint32_t aflags)
+bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr ** rexpr, uint32_t aflags)
 {
-  *rout = nullptr;
+  OExpr * src = (rexpr ? *rexpr : nullptr);
   if (!dsttype || !src || !src->ptype)
   {
     if (aflags & EXPCF_GENERATE_ERRORS)
@@ -475,13 +475,15 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rout, 
   {
     if ((TK_FLOAT == tkd) and (TK_INT == tks))
     {
-      *rout = FoldExprTree(new OExprTypeConv(dsttype, src));
+      *rexpr = new OExprTypeConv(dsttype, src);
+      FoldExprTree(rexpr);
       return true;
     }
 
     if (is_explicit_cast && (TK_INT == tkd) && (TK_BOOL == tks))
     {
-      *rout = FoldExprTree(new OExprTypeConv(dsttype, src));
+      *rexpr = new OExprTypeConv(dsttype, src);
+      FoldExprTree(rexpr);
       return true;
     }
 
@@ -520,7 +522,8 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rout, 
         }
       }
 
-      *rout = FoldExprTree(new OExprTypeConv(dsttype, src));
+      *rexpr = new OExprTypeConv(dsttype, src);
+      FoldExprTree(rexpr);
       return true;
     }
 
@@ -535,7 +538,8 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rout, 
         return false;
       }
 
-      *rout = FoldExprTree(new OExprTypeConv(dsttype, src));
+      *rexpr = new OExprTypeConv(dsttype, src);
+      FoldExprTree(rexpr);
       return true;
     }
 
@@ -571,8 +575,10 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rout, 
         return false;
       }
 
-      *rout = FoldExprTree(new OArrayToSliceExpr(varref->pvalsym, dsttype));
+      OExpr * result = new OArrayToSliceExpr(varref->pvalsym, dsttype);
+      FoldExprTree(&result);
       delete src;
+      *rexpr = result;
       return true;
     }
 
@@ -593,7 +599,7 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rout, 
       {
         if (strlit && (aflags & EXPCF_ALLOW_LAZY_CSTRING))
         {
-          *rout = FoldExprTree(src);
+          FoldExprTree(rexpr);
           return true;
         }
 
@@ -613,7 +619,8 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rout, 
         return false;
       }
 
-      *rout = FoldExprTree(new OCStringLitToDescExpr(src, strlit->value.size() + 1, dsttype));
+      *rexpr = new OCStringLitToDescExpr(src, strlit->value.size() + 1, dsttype);
+      FoldExprTree(rexpr);
       return true;
     }
 
@@ -637,13 +644,15 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rout, 
     OTypeInt * intsrc = static_cast<OTypeInt *>(resolved_src);
     if ((intdst->bitlength != intsrc->bitlength) or (intdst->issigned != intsrc->issigned))
     {
-      *rout = FoldExprTree(new OExprTypeConv(dsttype, src));
+      *rexpr = new OExprTypeConv(dsttype, src);
+      FoldExprTree(rexpr);
+      return true;
     }
     else
     {
-      *rout = FoldExprTree(src);
+      FoldExprTree(rexpr);
+      return true;
     }
-    return true;
   }
 
   if (TK_FLOAT == tkd)
@@ -652,13 +661,15 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rout, 
     OTypeFloat * floatsrc = static_cast<OTypeFloat *>(resolved_src);
     if (floatdst->bitlength != floatsrc->bitlength)
     {
-      *rout = FoldExprTree(new OExprTypeConv(dsttype, src));
+      *rexpr = new OExprTypeConv(dsttype, src);
+      FoldExprTree(rexpr);
+      return true;
     }
     else
     {
-      *rout = FoldExprTree(src);
+      FoldExprTree(rexpr);
+      return true;
     }
-    return true;
   }
 
   if (TK_POINTER == tkd)
@@ -668,7 +679,8 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rout, 
 
     if (is_explicit_cast)
     {
-      *rout = FoldExprTree(new OExprTypeConv(dsttype, src));
+      *rexpr = new OExprTypeConv(dsttype, src);
+      FoldExprTree(rexpr);
       return true;
     }
 
@@ -681,7 +693,7 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rout, 
       return false;
     }
 
-    *rout = FoldExprTree(src);
+    FoldExprTree(rexpr);
     return true;
   }
 
@@ -707,7 +719,7 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rout, 
       return false;
     }
 
-    *rout = FoldExprTree(src);
+    FoldExprTree(rexpr);
     return true;
   }
 
@@ -741,7 +753,7 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rout, 
       return false;
     }
 
-    *rout = FoldExprTree(src);
+    FoldExprTree(rexpr);
     return true;
   }
 
@@ -770,14 +782,16 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rout, 
         return false;
       }
 
-      *rout = FoldExprTree(new OCStringToDescExpr(varref->pvalsym, dsttype));
+      OExpr * result = new OCStringToDescExpr(varref->pvalsym, dsttype);
+      FoldExprTree(&result);
       delete src;
+      *rexpr = result;
       return true;
     }
 
     if ((cstrdst->maxlen > 0) && (aflags & EXPCF_ALLOW_LAZY_CSTRING))
     {
-      *rout = FoldExprTree(src);
+      FoldExprTree(rexpr);
       return true;
     }
 
@@ -790,11 +804,11 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr * src, OExpr ** rout, 
       return false;
     }
 
-    *rout = FoldExprTree(src);
+    FoldExprTree(rexpr);
     return true;
   }
 
-  *rout = FoldExprTree(src);
+  FoldExprTree(rexpr);
   return true;
 }
 
@@ -813,16 +827,20 @@ bool ODqCompAst::ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OType *
 
   if (truetype == falsetype)
   {
-    *rtrueexpr = FoldExprTree(trueexpr);
-    *rfalseexpr = FoldExprTree(falseexpr);
+    FoldExprTree(&trueexpr);
+    FoldExprTree(&falseexpr);
+    *rtrueexpr = trueexpr;
+    *rfalseexpr = falseexpr;
     *rresulttype = trueexpr->ptype;
     return true;
   }
 
   if (HarmonizeNumericOperands(&trueexpr, &falseexpr))
   {
-    *rtrueexpr = FoldExprTree(trueexpr);
-    *rfalseexpr = FoldExprTree(falseexpr);
+    FoldExprTree(&trueexpr);
+    FoldExprTree(&falseexpr);
+    *rtrueexpr = trueexpr;
+    *rfalseexpr = falseexpr;
     *rresulttype = trueexpr->ptype;
     return true;
   }
@@ -830,8 +848,10 @@ bool ODqCompAst::ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OType *
   OType * resulttype = nullptr;
   if (ResolveCommonPointerType(trueexpr, falseexpr, &resulttype))
   {
-    *rtrueexpr = FoldExprTree(trueexpr);
-    *rfalseexpr = FoldExprTree(falseexpr);
+    FoldExprTree(&trueexpr);
+    FoldExprTree(&falseexpr);
+    *rtrueexpr = trueexpr;
+    *rfalseexpr = falseexpr;
     *rresulttype = resulttype;
     return true;
   }
@@ -842,20 +862,20 @@ bool ODqCompAst::ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OType *
     return false;
   }
 
-  OExpr * converted_false = nullptr;
-  if (ConvertExprToType(trueexpr->ptype, falseexpr, &converted_false, EXPCF_ALLOW_LAZY_CSTRING))
+  if (ConvertExprToType(trueexpr->ptype, &falseexpr, EXPCF_ALLOW_LAZY_CSTRING))
   {
-    *rtrueexpr = FoldExprTree(trueexpr);
-    *rfalseexpr = converted_false;
+    FoldExprTree(&trueexpr);
+    *rtrueexpr = trueexpr;
+    *rfalseexpr = falseexpr;
     *rresulttype = trueexpr->ptype;
     return true;
   }
 
-  OExpr * converted_true = nullptr;
-  if (ConvertExprToType(falseexpr->ptype, trueexpr, &converted_true, EXPCF_ALLOW_LAZY_CSTRING))
+  if (ConvertExprToType(falseexpr->ptype, &trueexpr, EXPCF_ALLOW_LAZY_CSTRING))
   {
-    *rtrueexpr = converted_true;
-    *rfalseexpr = FoldExprTree(falseexpr);
+    *rtrueexpr = trueexpr;
+    FoldExprTree(&falseexpr);
+    *rfalseexpr = falseexpr;
     *rresulttype = falseexpr->ptype;
     return true;
   }
@@ -867,12 +887,5 @@ bool ODqCompAst::ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OType *
 bool ODqCompAst::CheckAssignType(OType * dsttype, OExpr ** rexpr, const string astmt)
 {
   (void)astmt;
-  OExpr * converted = nullptr;
-  if (!ConvertExprToType(dsttype, *rexpr, &converted, EXPCF_GENERATE_ERRORS | EXPCF_ALLOW_LAZY_CSTRING))
-  {
-    return false;
-  }
-
-  *rexpr = converted;
-  return true;
+  return ConvertExprToType(dsttype, rexpr, EXPCF_GENERATE_ERRORS | EXPCF_ALLOW_LAZY_CSTRING);
 }

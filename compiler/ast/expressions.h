@@ -352,4 +352,4 @@ public:
   LlValue *  Generate(OScope * scope) override;
 };
 
-OExpr * FoldExprTree(OExpr * expr);
+void FoldExprTree(OExpr ** rexpr);
