@@ -1103,6 +1103,8 @@ void ODqCompParser::ParseStmtIf()
 OExpr * ODqCompParser::ParseExpression()
 {
   OExpr * expr = ParseExprOr();
+  // This is the parser-side fold for the full expression tree; later AST helpers only
+  // need to fold again when they inject new conversion nodes after parsing.
   FoldExprTree(&expr);
   return expr;
 }
@@ -1968,9 +1970,7 @@ OExpr * ODqCompParser::ParseBuiltinIif()
     return nullptr;
   }
 
-  OExpr * expr = new OIifExpr(condexpr, trueexpr, falseexpr, resulttype);
-  FoldExprTree(&expr);
-  return expr;
+  return new OIifExpr(condexpr, trueexpr, falseexpr, resulttype);
 }
 
 OExpr * ODqCompParser::ParseBuiltinFloatRound(ERoundMode amode)

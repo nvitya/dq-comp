@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.7.12"
+#define DQ_COMPILER_VERSION  "0.7.13"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.7.13:
+  - Removed unnecessary constant folding calls
 v0.7.12:
   - Internal changes for Type conversion calls and Expression folding
 v0.7.11:

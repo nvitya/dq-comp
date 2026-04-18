@@ -98,6 +98,13 @@ static bool CanAssignPointerImplicitly(OTypePointer * dst, OTypePointer * src)
   return dst->basetype->ResolveAlias() == src->basetype->ResolveAlias();
 }
 
+static void FoldExprTreeAfterTypeRewrite(OExpr ** rexpr)
+{
+  // ParseExpression() already folds the original parse tree. Re-fold only after type
+  // resolution injects conversion nodes so constant casts collapse immediately.
+  FoldExprTree(rexpr);
+}
+
 ODqCompAst::ODqCompAst()
 {
 }
@@ -476,14 +483,14 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr ** rexpr, uint32_t afl
     if ((TK_FLOAT == tkd) and (TK_INT == tks))
     {
       *rexpr = new OExprTypeConv(dsttype, src);
-      FoldExprTree(rexpr);
+      FoldExprTreeAfterTypeRewrite(rexpr);
       return true;
     }
 
     if (is_explicit_cast && (TK_INT == tkd) && (TK_BOOL == tks))
     {
       *rexpr = new OExprTypeConv(dsttype, src);
-      FoldExprTree(rexpr);
+      FoldExprTreeAfterTypeRewrite(rexpr);
       return true;
     }
 
@@ -523,7 +530,7 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr ** rexpr, uint32_t afl
       }
 
       *rexpr = new OExprTypeConv(dsttype, src);
-      FoldExprTree(rexpr);
+      FoldExprTreeAfterTypeRewrite(rexpr);
       return true;
     }
 
@@ -539,7 +546,7 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr ** rexpr, uint32_t afl
       }
 
       *rexpr = new OExprTypeConv(dsttype, src);
-      FoldExprTree(rexpr);
+      FoldExprTreeAfterTypeRewrite(rexpr);
       return true;
     }
 
@@ -576,7 +583,6 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr ** rexpr, uint32_t afl
       }
 
       OExpr * result = new OArrayToSliceExpr(varref->pvalsym, dsttype);
-      FoldExprTree(&result);
       delete src;
       *rexpr = result;
       return true;
@@ -599,7 +605,6 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr ** rexpr, uint32_t afl
       {
         if (strlit && (aflags & EXPCF_ALLOW_LAZY_CSTRING))
         {
-          FoldExprTree(rexpr);
           return true;
         }
 
@@ -620,7 +625,6 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr ** rexpr, uint32_t afl
       }
 
       *rexpr = new OCStringLitToDescExpr(src, strlit->value.size() + 1, dsttype);
-      FoldExprTree(rexpr);
       return true;
     }
 
@@ -645,14 +649,11 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr ** rexpr, uint32_t afl
     if ((intdst->bitlength != intsrc->bitlength) or (intdst->issigned != intsrc->issigned))
     {
       *rexpr = new OExprTypeConv(dsttype, src);
-      FoldExprTree(rexpr);
+      FoldExprTreeAfterTypeRewrite(rexpr);
       return true;
     }
-    else
-    {
-      FoldExprTree(rexpr);
-      return true;
-    }
+
+    return true;
   }
 
   if (TK_FLOAT == tkd)
@@ -662,14 +663,11 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr ** rexpr, uint32_t afl
     if (floatdst->bitlength != floatsrc->bitlength)
     {
       *rexpr = new OExprTypeConv(dsttype, src);
-      FoldExprTree(rexpr);
+      FoldExprTreeAfterTypeRewrite(rexpr);
       return true;
     }
-    else
-    {
-      FoldExprTree(rexpr);
-      return true;
-    }
+
+    return true;
   }
 
   if (TK_POINTER == tkd)
@@ -680,7 +678,7 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr ** rexpr, uint32_t afl
     if (is_explicit_cast)
     {
       *rexpr = new OExprTypeConv(dsttype, src);
-      FoldExprTree(rexpr);
+      FoldExprTreeAfterTypeRewrite(rexpr);
       return true;
     }
 
@@ -693,7 +691,6 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr ** rexpr, uint32_t afl
       return false;
     }
 
-    FoldExprTree(rexpr);
     return true;
   }
 
@@ -719,7 +716,6 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr ** rexpr, uint32_t afl
       return false;
     }
 
-    FoldExprTree(rexpr);
     return true;
   }
 
@@ -753,7 +749,6 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr ** rexpr, uint32_t afl
       return false;
     }
 
-    FoldExprTree(rexpr);
     return true;
   }
 
@@ -783,7 +778,6 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr ** rexpr, uint32_t afl
       }
 
       OExpr * result = new OCStringToDescExpr(varref->pvalsym, dsttype);
-      FoldExprTree(&result);
       delete src;
       *rexpr = result;
       return true;
@@ -791,7 +785,6 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr ** rexpr, uint32_t afl
 
     if ((cstrdst->maxlen > 0) && (aflags & EXPCF_ALLOW_LAZY_CSTRING))
     {
-      FoldExprTree(rexpr);
       return true;
     }
 
@@ -804,11 +797,9 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr ** rexpr, uint32_t afl
       return false;
     }
 
-    FoldExprTree(rexpr);
     return true;
   }
 
-  FoldExprTree(rexpr);
   return true;
 }
 
@@ -827,8 +818,6 @@ bool ODqCompAst::ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OType *
 
   if (truetype == falsetype)
   {
-    FoldExprTree(&trueexpr);
-    FoldExprTree(&falseexpr);
     *rtrueexpr = trueexpr;
     *rfalseexpr = falseexpr;
     *rresulttype = trueexpr->ptype;
@@ -837,8 +826,8 @@ bool ODqCompAst::ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OType *
 
   if (HarmonizeNumericOperands(&trueexpr, &falseexpr))
   {
-    FoldExprTree(&trueexpr);
-    FoldExprTree(&falseexpr);
+    FoldExprTreeAfterTypeRewrite(&trueexpr);
+    FoldExprTreeAfterTypeRewrite(&falseexpr);
     *rtrueexpr = trueexpr;
     *rfalseexpr = falseexpr;
     *rresulttype = trueexpr->ptype;
@@ -848,8 +837,6 @@ bool ODqCompAst::ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OType *
   OType * resulttype = nullptr;
   if (ResolveCommonPointerType(trueexpr, falseexpr, &resulttype))
   {
-    FoldExprTree(&trueexpr);
-    FoldExprTree(&falseexpr);
     *rtrueexpr = trueexpr;
     *rfalseexpr = falseexpr;
     *rresulttype = resulttype;
@@ -864,7 +851,6 @@ bool ODqCompAst::ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OType *
 
   if (ConvertExprToType(trueexpr->ptype, &falseexpr, EXPCF_ALLOW_LAZY_CSTRING))
   {
-    FoldExprTree(&trueexpr);
     *rtrueexpr = trueexpr;
     *rfalseexpr = falseexpr;
     *rresulttype = trueexpr->ptype;
@@ -874,7 +860,6 @@ bool ODqCompAst::ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OType *
   if (ConvertExprToType(falseexpr->ptype, &trueexpr, EXPCF_ALLOW_LAZY_CSTRING))
   {
     *rtrueexpr = trueexpr;
-    FoldExprTree(&falseexpr);
     *rfalseexpr = falseexpr;
     *rresulttype = falseexpr->ptype;
     return true;
