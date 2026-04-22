@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.8.1"
+#define DQ_COMPILER_VERSION  "0.8.2"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.8.2:
+  - Function default arguments
 v0.8.1:
   - Attribute simplification using flags
 v0.8.0:

@@ -36,7 +36,7 @@ public:
   string              name;
   OType *             ptype;
   EParamMode          mode;
-  OValSym *           defvalue = nullptr;
+  OValSymConst *      defvalue = nullptr;
 
   OFuncParam(const string aname, OType * atype, EParamMode amode = FPM_VALUE)
   :
@@ -46,7 +46,10 @@ public:
   {
   }
 
-  virtual ~ OFuncParam() {}
+  virtual ~ OFuncParam()
+  {
+    delete defvalue;
+  }
 };
 
 // A function signature is a type (TK_FUNCTION).
@@ -81,6 +84,7 @@ public:
 
   OFuncParam *  AddParam(const string aname, OType * atype, EParamMode amode = FPM_VALUE);
   bool          ParNameValid(const string aname);
+  size_t        RequiredParamCount() const;
   OType *       ResolvedRetType() const;
 
   LlType * CreateLlType() override;

@@ -169,6 +169,8 @@ DEF_DQ_ERR(DQERR_VARARGS_ALONE,                    "VarargsAlone",           "Va
 
 DEF_DQ_ERR(DQERR_FUNCPAR_NAME_EXP,                 "FuncParNameExpected",    "Function parameter name expected");
 DEF_DQ_ERR(DQERR_FUNCPAR_NAME_INVALID,             "FuncParNameInvalid",     "Invalid function parameter name \"$1\"");
+DEF_DQ_ERR(DQERR_FUNCPAR_DEFAULT_ORDER,            "FuncParDefaultOrder",    "Function parameter \"$1\" without default value cannot follow defaulted parameters");
+DEF_DQ_ERR(DQERR_FUNCPAR_DEFAULT_TYPE,             "FuncParDefaultType",     "Function parameter \"$1\" default value is not supported for type \"$2\"");
 DEF_DQ_ERR(DQERR_FUNC_RETTYPE_EXPECTED,            "FuncRettypeExpected",    "Function return type identifier expected after \"->\"");
 DEF_DQ_ERR(DQERR_FUNC_NO_BODY_ALLOWED_AFTER,       "FuncNoBodyAllowed",      "\";\" is expected after $1");
 DEF_DQ_ERR(DQERR_FUNC_RESULT_NOT_SET,              "FuncResultNotSet",       "Function \"$1\" result is not set");

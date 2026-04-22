@@ -56,6 +56,20 @@ bool OTypeFunc::ParNameValid(const string aname)
   return true;
 }
 
+size_t OTypeFunc::RequiredParamCount() const
+{
+  size_t result = 0;
+  for (OFuncParam * fp : params)
+  {
+    if (fp->defvalue)
+    {
+      break;
+    }
+    ++result;
+  }
+  return result;
+}
+
 OType * OTypeFunc::ResolvedRetType() const
 {
   return (rettype ? rettype->ResolveAlias() : nullptr);

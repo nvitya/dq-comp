@@ -18,6 +18,7 @@
 #include "symbols.h"
 #include "dqc_base.h"
 
+#include "expressions.h"
 #include "otype_array.h"
 #include "otype_int.h"
 #include "dqc.h"
@@ -181,6 +182,38 @@ OValSym * OType::CreateValSym(OScPosition & apos, const string aname)
 {
   OValSym * result = new OValSym(apos, aname, this);
   return result;
+}
+
+OValue * OTypePointer::CreateValue()
+{
+  return new OValuePointer(this, false);
+}
+
+LlConst * OValuePointer::CreateLlConst()
+{
+  if (!is_null)
+  {
+    return nullptr;
+  }
+
+  return llvm::ConstantPointerNull::get(llvm::PointerType::get(ll_ctx, 0));
+}
+
+bool OValuePointer::CalculateConstant(OExpr * expr, bool emit_errors)
+{
+  is_null = false;
+
+  if (dynamic_cast<ONullLit *>(expr))
+  {
+    is_null = true;
+    return true;
+  }
+
+  if (emit_errors)
+  {
+    g_compiler->Error(DQERR_CONSTEXPR_INVALID_FOR, ptype->name);
+  }
+  return false;
 }
 
 LlValue * OTypePointer::GenerateConversion(OScope * scope, OExpr * src)

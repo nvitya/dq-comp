@@ -27,6 +27,30 @@
 
 using namespace std;
 
+static bool SupportsFuncParamDefaultType(OType * ptype)
+{
+  OType * resolved = (ptype ? ptype->ResolveAlias() : nullptr);
+  if (!resolved)
+  {
+    return false;
+  }
+
+  if ((TK_INT == resolved->kind) || (TK_FLOAT == resolved->kind)
+      || (TK_BOOL == resolved->kind) || (TK_ARRAY == resolved->kind)
+      || (TK_POINTER == resolved->kind))
+  {
+    return true;
+  }
+
+  if (TK_STRING == resolved->kind)
+  {
+    OTypeCString * cstrtype = dynamic_cast<OTypeCString *>(resolved);
+    return cstrtype && (cstrtype->maxlen > 0);
+  }
+
+  return false;
+}
+
 ODqCompParser::ODqCompParser()
 {
   attr = new OAttr();
@@ -699,7 +723,7 @@ void ODqCompParser::ParseFunction()
   if (scf->CheckSymbol("("))  // parameter list start
   {
     string spname;
-    string sptype;
+    bool   default_seen = false;
 
     while (not scf->Eof())
     {
@@ -762,8 +786,62 @@ void ODqCompParser::ParseFunction()
         continue;
       }
 
-      // OK
-      tfunc->AddParam(spname, ptype);
+      OFuncParam * fparam = tfunc->AddParam(spname, ptype);
+
+      scf->SkipWhite();
+      if (scf->CheckSymbol("="))
+      {
+        default_seen = true;
+
+        if (!SupportsFuncParamDefaultType(ptype))
+        {
+          Error(DQERR_FUNCPAR_DEFAULT_TYPE, spname, ptype->ResolveAlias()->name);
+          scf->ReadTo(",)");
+          continue;
+        }
+
+        scf->SkipWhite();
+        OScPosition defexpr_pos;
+        scf->SaveCurPos(defexpr_pos);
+
+        OExpr * defexpr = ParseExpression();
+        if (!defexpr)
+        {
+          scf->ReadTo(",)");
+          continue;
+        }
+
+        if (!CheckAssignType(ptype, &defexpr, "Argument"))
+        {
+          OExpr::DeleteTree(defexpr);
+          scf->ReadTo(",)");
+          continue;
+        }
+
+        OValue * defvalue = ptype->CreateValue();
+        if (!defvalue)
+        {
+          Error(DQERR_FUNCPAR_DEFAULT_TYPE, spname, ptype->ResolveAlias()->name, &defexpr_pos);
+          OExpr::DeleteTree(defexpr);
+          scf->ReadTo(",)");
+          continue;
+        }
+
+        if (!defvalue->CalculateConstant(defexpr, true))
+        {
+          delete defvalue;
+          OExpr::DeleteTree(defexpr);
+          scf->ReadTo(",)");
+          continue;
+        }
+
+        fparam->defvalue = new OValSymConst(defexpr_pos, format("__defarg_{}_{}", sid, spname), ptype, defvalue);
+        OExpr::DeleteTree(defexpr);
+      }
+      else if (default_seen)
+      {
+        Error(DQERR_FUNCPAR_DEFAULT_ORDER, spname);
+      }
 
     }  // while function parameters
   }
@@ -2067,6 +2145,7 @@ OExpr * ODqCompParser::ParseExprFuncCall(OValSymFunc * vsfunc)
   OCallExpr * result = new OCallExpr(vsfunc);
   OTypeFunc * tfunc = static_cast<OTypeFunc *>(vsfunc->ptype);
   bool        bok = true;
+  size_t      required_param_count = tfunc->RequiredParamCount();
 
   // parse and check the arguments
   int pcnt = 0;
@@ -2117,10 +2196,23 @@ OExpr * ODqCompParser::ParseExprFuncCall(OValSymFunc * vsfunc)
     ++pcnt;
   }
 
-  if (result->args.size() < tfunc->params.size())
+  if (result->args.size() < required_param_count)
   {
-    Error(DQERR_FUNC_ARGS_TOO_FEW, vsfunc->name, to_string(result->args.size()), to_string(tfunc->params.size()));
+    Error(DQERR_FUNC_ARGS_TOO_FEW, to_string(result->args.size()), vsfunc->name, to_string(required_param_count));
     bok = false;
+  }
+
+  while (bok && (result->args.size() < tfunc->params.size()))
+  {
+    OFuncParam * fparam = tfunc->params[result->args.size()];
+    if (!fparam->defvalue)
+    {
+      Error(DQERR_FUNC_ARGS_TOO_FEW, to_string(result->args.size()), vsfunc->name, to_string(required_param_count));
+      bok = false;
+      break;
+    }
+
+    result->AddArgument(new OLValueVar(fparam->defvalue));
   }
 
   if (!bok)

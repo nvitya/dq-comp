@@ -316,6 +316,7 @@ public:
     );
   }
 
+  OValue * CreateValue() override;
   LlValue * GenerateConversion(OScope * scope, OExpr * src) override;
 
   static OTypePointer * GetNullPtrType()
@@ -359,6 +360,25 @@ public:
   {
     return (ptype ? ptype->ResolveAlias() : nullptr);
   }
+};
+
+class OValuePointer : public OValue
+{
+private:
+  using        super = OValue;
+
+public:
+  bool         is_null = true;
+
+  OValuePointer(OType * atype, bool ais_null)
+  :
+    super(atype),
+    is_null(ais_null)
+  {
+  }
+
+  LlConst *  CreateLlConst() override;
+  bool       CalculateConstant(OExpr * expr, bool emit_errors = true) override;
 };
 
 // Expression Base
