@@ -59,7 +59,7 @@ public: // statement blocks
 
 public: // type parsing
   OType * ParseTypeSpec(bool aemit_errors = true);  // parses type after ":" — handles ^, [N], []
-  OTypeFunc * ParseFunctionType(bool aemit_errors = true, bool aallow_defaults = false, const string & aowner_name = "function");
+  OTypeFunc * ParseFunctionType(bool aemit_errors = true, const string & aowner_name = "function");
 
 public: // utility
   bool ParseAttributes(bool areset);
@@ -116,6 +116,7 @@ protected:
   struct BinOpEntry { const char * sym; EBinOp op; };
   OExpr * ParseBinOpLevel(OExpr * (ODqCompParser::*parse_next)(),
                           const BinOpEntry ops[], int nops);
+  bool    ParseFunctionSignature(OTypeFunc * tfunc, bool atypespec, const string & aowner_name, bool aemit_errors = true);
 
   bool    ParseAttributeBlock();
   bool    ParseSingleAttribute(const string & attrname);

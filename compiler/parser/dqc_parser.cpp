@@ -831,7 +831,6 @@ void ODqCompParser::ParseFunction()
   // statement block must follow, when ';' then it is a forward declaration
 
   string   sid;
-  string   stype;
 
   scf->SkipWhite();
   if (not scf->ReadIdentifier(sid))
@@ -844,180 +843,7 @@ void ODqCompParser::ParseFunction()
   OValSymFunc  * vsfunc = new OValSymFunc(scpos_statement_start, sid, tfunc, cur_mod_scope);
   curvsfunc = vsfunc;
 
-  scf->SkipWhite();
-  if (scf->CheckSymbol("("))  // parameter list start
-  {
-    string spname;
-    bool   default_seen = false;
-
-    while (not scf->Eof())
-    {
-      scf->SkipWhite();
-      if (scf->CheckSymbol(")"))
-      {
-        break;
-      }
-
-      if (tfunc->params.size() > 0)
-      {
-        if (not scf->CheckSymbol(","))
-        {
-          Error(DQERR_MISSING_COMMA, &scf->prevpos);
-        }
-        else { scf-> SkipWhite(); }
-      }
-
-      // check for variadic "..."
-      if (scf->CheckSymbol("..."))
-      {
-        tfunc->has_varargs = true;
-        scf->SkipWhite();
-        if (!scf->CheckSymbol(")"))
-        {
-          Error(DQERR_MISSING_CLOSE_PAREN_AFTER, "...");
-        }
-        break;
-      }
-
-      EParamMode pmode = FPM_VALUE;
-      string pname_or_mode;
-      if (not scf->ReadIdentifier(pname_or_mode))
-      {
-        Error(DQERR_FUNCPAR_NAME_EXP, &scf->prevpos);
-        if (not scf->ReadTo(",)"))  // try to skip to next parameter
-        {
-          break;  // serious problem, would lead to endless-loop
-        }
-        continue;
-      }
-
-      spname = pname_or_mode;
-      if (ParseParamModeKeyword(pname_or_mode, pmode))
-      {
-        scf->SkipWhite();
-        if (not scf->ReadIdentifier(spname))
-        {
-          Error(DQERR_FUNCPAR_NAME_EXP, &scf->prevpos);
-          if (not scf->ReadTo(",)"))
-          {
-            break;
-          }
-          continue;
-        }
-      }
-
-      if (not tfunc->ParNameValid(spname))
-      {
-        Error(DQERR_FUNCPAR_NAME_INVALID, spname, &scf->prevpos);
-        scf->ReadTo(",)");  // try to skip to next parameter
-        continue;
-      }
-
-      scf->SkipWhite();
-      if (not scf->CheckSymbol(":"))
-      {
-        Error(DQERR_TYPE_SPECIFIER_EXP_AFTER, spname, &scf->prevpos);
-        scf->ReadTo(",)");  // try to skip to next parameter
-        continue;
-      }
-
-      OType * ptype = ParseTypeSpec();
-      if (!ptype)
-      {
-        scf->ReadTo(",)");  // try to skip to next parameter
-        continue;
-      }
-
-      OFuncParam * fparam = tfunc->AddParam(spname, ptype, pmode);
-
-      scf->SkipWhite();
-      if (scf->CheckSymbol("="))
-      {
-        if (ParamModeIsRefLike(pmode))
-        {
-          Error(DQERR_FUNCPAR_DEFAULT_REF, spname);
-          scf->ReadTo(",)");
-          continue;
-        }
-
-        if (!SupportsFuncParamDefaultType(ptype))
-        {
-          Error(DQERR_FUNCPAR_DEFAULT_TYPE, spname, ptype->ResolveAlias()->name);
-          scf->ReadTo(",)");
-          continue;
-        }
-
-        default_seen = true;
-
-        scf->SkipWhite();
-        OScPosition defexpr_pos;
-        scf->SaveCurPos(defexpr_pos);
-
-        OExpr * defexpr = ParseExpression();
-        if (!defexpr)
-        {
-          scf->ReadTo(",)");
-          continue;
-        }
-
-        if (!CheckAssignType(ptype, &defexpr, "Argument"))
-        {
-          OExpr::DeleteTree(defexpr);
-          scf->ReadTo(",)");
-          continue;
-        }
-
-        OValue * defvalue = ptype->CreateValue();
-        if (!defvalue)
-        {
-          Error(DQERR_FUNCPAR_DEFAULT_TYPE, spname, ptype->ResolveAlias()->name, &defexpr_pos);
-          OExpr::DeleteTree(defexpr);
-          scf->ReadTo(",)");
-          continue;
-        }
-
-        if (!defvalue->CalculateConstant(defexpr, true))
-        {
-          delete defvalue;
-          OExpr::DeleteTree(defexpr);
-          scf->ReadTo(",)");
-          continue;
-        }
-
-        fparam->defvalue = new OValSymConst(defexpr_pos, format("__defarg_{}_{}", sid, spname), ptype, defvalue);
-        OExpr::DeleteTree(defexpr);
-      }
-      else if (default_seen)
-      {
-        Error(DQERR_FUNCPAR_DEFAULT_ORDER, spname);
-      }
-
-    }  // while function parameters
-  }
-
-  if (tfunc->has_varargs && tfunc->params.empty())
-  {
-    Error(DQERR_VARARGS_ALONE);
-  }
-
-  scf->SkipWhite();
-  if (scf->CheckSymbol("->"))  // return type
-  {
-    scf->SkipWhite();
-    string frtname;
-    if (not scf->ReadIdentifier(frtname))
-    {
-      Error(DQERR_FUNC_RETTYPE_EXPECTED);
-    }
-    else
-    {
-      tfunc->rettype = cur_mod_scope->FindType(frtname);
-      if (not tfunc->rettype)
-      {
-        Error(DQERR_TYPE_UNKNOWN, frtname);
-      }
-    }
-  }
+  ParseFunctionSignature(tfunc, false, sid, true);
 
   if (!ParseAttributes(false))
   {
@@ -1303,7 +1129,7 @@ OType * ODqCompParser::ParseTypeSpec(bool aemit_errors)
 
   if (scf->CheckSymbol("function"))
   {
-    OTypeFunc * sigtype = ParseFunctionType(aemit_errors, false, "function");
+    OTypeFunc * sigtype = ParseFunctionType(aemit_errors, "function");
     if (!sigtype)
     {
       return nullptr;
@@ -1471,203 +1297,291 @@ OType * ODqCompParser::ParseTypeSpec(bool aemit_errors)
   return ptype;
 }
 
-OTypeFunc * ODqCompParser::ParseFunctionType(bool aemit_errors, bool aallow_defaults, const string & aowner_name)
+bool ODqCompParser::ParseFunctionSignature(OTypeFunc * tfunc, bool atypespec, const string & aowner_name, bool aemit_errors)
 {
-  OTypeFunc * tfunc = new OTypeFunc(aowner_name);
-
-  scf->SkipWhite();
-  if (!scf->CheckSymbol("("))
+  if (!tfunc)
   {
-    if (aemit_errors)
-    {
-      Error(DQERR_MISSING_OPEN_PAREN_AFTER, "function");
-    }
-    delete tfunc;
-    return nullptr;
+    return false;
   }
 
-  string spname;
-  bool default_seen = false;
-
-  while (not scf->Eof())
+  auto fail_or_recover = [&, this]() -> bool
   {
-    scf->SkipWhite();
-    if (scf->CheckSymbol(")"))
+    if (atypespec)
     {
-      break;
+      return false;
     }
 
-    if (!tfunc->params.empty())
+    if (!scf->ReadTo(",)"))
     {
-      if (!scf->CheckSymbol(","))
-      {
-        if (aemit_errors)
-        {
-          Error(DQERR_MISSING_COMMA, &scf->prevpos);
-        }
-        delete tfunc;
-        return nullptr;
-      }
-      scf->SkipWhite();
+      return false;
     }
 
-    if (scf->CheckSymbol("..."))
-    {
-      tfunc->has_varargs = true;
-      scf->SkipWhite();
-      if (!scf->CheckSymbol(")"))
-      {
-        if (aemit_errors)
-        {
-          Error(DQERR_MISSING_CLOSE_PAREN_AFTER, "...");
-        }
-        delete tfunc;
-        return nullptr;
-      }
-      break;
-    }
+    return true;
+  };
 
-    EParamMode pmode = FPM_VALUE;
-    string pname_or_mode;
-    if (!scf->ReadIdentifier(pname_or_mode))
+  scf->SkipWhite();
+  bool has_param_list = scf->CheckSymbol("(");
+  if (!has_param_list)
+  {
+    if (atypespec)
     {
       if (aemit_errors)
       {
-        Error(DQERR_FUNCPAR_NAME_EXP, &scf->prevpos);
+        Error(DQERR_MISSING_OPEN_PAREN_AFTER, "function");
       }
-      delete tfunc;
-      return nullptr;
+      return false;
     }
+  }
+  else
+  {
+    string spname;
+    bool default_seen = false;
 
-    spname = pname_or_mode;
-    if (ParseParamModeKeyword(pname_or_mode, pmode))
+    while (not scf->Eof())
     {
       scf->SkipWhite();
-      if (!scf->ReadIdentifier(spname))
+      if (scf->CheckSymbol(")"))
+      {
+        break;
+      }
+
+      if (!tfunc->params.empty())
+      {
+        if (!scf->CheckSymbol(","))
+        {
+          if (aemit_errors)
+          {
+            Error(DQERR_MISSING_COMMA, &scf->prevpos);
+          }
+          if (!fail_or_recover())
+          {
+            break;
+          }
+          continue;
+        }
+        scf->SkipWhite();
+      }
+
+      if (scf->CheckSymbol("..."))
+      {
+        tfunc->has_varargs = true;
+        scf->SkipWhite();
+        if (!scf->CheckSymbol(")"))
+        {
+          if (aemit_errors)
+          {
+            Error(DQERR_MISSING_CLOSE_PAREN_AFTER, "...");
+          }
+          if (atypespec)
+          {
+            return false;
+          }
+        }
+        break;
+      }
+
+      EParamMode pmode = FPM_VALUE;
+      string pname_or_mode;
+      if (!scf->ReadIdentifier(pname_or_mode))
       {
         if (aemit_errors)
         {
           Error(DQERR_FUNCPAR_NAME_EXP, &scf->prevpos);
         }
-        delete tfunc;
-        return nullptr;
+        if (!fail_or_recover())
+        {
+          break;
+        }
+        continue;
       }
-    }
 
-    if (!tfunc->ParNameValid(spname))
-    {
-      if (aemit_errors)
+      spname = pname_or_mode;
+      if (ParseParamModeKeyword(pname_or_mode, pmode))
       {
-        Error(DQERR_FUNCPAR_NAME_INVALID, spname, &scf->prevpos);
+        scf->SkipWhite();
+        if (!scf->ReadIdentifier(spname))
+        {
+          if (aemit_errors)
+          {
+            Error(DQERR_FUNCPAR_NAME_EXP, &scf->prevpos);
+          }
+          if (!fail_or_recover())
+          {
+            break;
+          }
+          continue;
+        }
       }
-      delete tfunc;
-      return nullptr;
-    }
 
-    scf->SkipWhite();
-    if (!scf->CheckSymbol(":"))
-    {
-      if (aemit_errors)
-      {
-        Error(DQERR_TYPE_SPECIFIER_EXP_AFTER, spname, &scf->prevpos);
-      }
-      delete tfunc;
-      return nullptr;
-    }
-
-    OType * ptype = ParseTypeSpec(aemit_errors);
-    if (!ptype)
-    {
-      delete tfunc;
-      return nullptr;
-    }
-
-    OFuncParam * fparam = tfunc->AddParam(spname, ptype, pmode);
-
-    scf->SkipWhite();
-    if (scf->CheckSymbol("="))
-    {
-      if (!aallow_defaults)
+      if (!tfunc->ParNameValid(spname))
       {
         if (aemit_errors)
         {
-          Error(DQERR_NOT_SUPPORTED, "Default arguments in FuncRef types");
+          Error(DQERR_FUNCPAR_NAME_INVALID, spname, &scf->prevpos);
         }
-        delete tfunc;
-        return nullptr;
-      }
-
-      if (ParamModeIsRefLike(pmode))
-      {
-        if (aemit_errors)
+        if (!fail_or_recover())
         {
-          Error(DQERR_FUNCPAR_DEFAULT_REF, spname);
+          break;
         }
-        delete tfunc;
-        return nullptr;
+        continue;
       }
-
-      if (!SupportsFuncParamDefaultType(ptype))
-      {
-        if (aemit_errors)
-        {
-          Error(DQERR_FUNCPAR_DEFAULT_TYPE, spname, ptype->ResolveAlias()->name);
-        }
-        delete tfunc;
-        return nullptr;
-      }
-
-      default_seen = true;
 
       scf->SkipWhite();
-      OScPosition defexpr_pos;
-      scf->SaveCurPos(defexpr_pos);
-
-      OExpr * defexpr = ParseExpression();
-      if (!defexpr)
-      {
-        delete tfunc;
-        return nullptr;
-      }
-
-      if (!CheckAssignType(ptype, &defexpr, "Argument"))
-      {
-        OExpr::DeleteTree(defexpr);
-        delete tfunc;
-        return nullptr;
-      }
-
-      OValue * defvalue = ptype->CreateValue();
-      if (!defvalue)
+      if (!scf->CheckSymbol(":"))
       {
         if (aemit_errors)
         {
-          Error(DQERR_FUNCPAR_DEFAULT_TYPE, spname, ptype->ResolveAlias()->name, &defexpr_pos);
+          Error(DQERR_TYPE_SPECIFIER_EXP_AFTER, spname, &scf->prevpos);
         }
-        OExpr::DeleteTree(defexpr);
-        delete tfunc;
-        return nullptr;
+        if (!fail_or_recover())
+        {
+          break;
+        }
+        continue;
       }
 
-      if (!defvalue->CalculateConstant(defexpr, true))
+      OType * ptype = ParseTypeSpec(aemit_errors);
+      if (!ptype)
       {
-        delete defvalue;
-        OExpr::DeleteTree(defexpr);
-        delete tfunc;
-        return nullptr;
+        if (atypespec)
+        {
+          return false;
+        }
+
+        if (!fail_or_recover())
+        {
+          break;
+        }
+        continue;
       }
 
-      fparam->defvalue = new OValSymConst(defexpr_pos, format("__defarg_{}_{}", aowner_name, spname), ptype, defvalue);
-      OExpr::DeleteTree(defexpr);
-    }
-    else if (default_seen)
-    {
-      if (aemit_errors)
+      OFuncParam * fparam = tfunc->AddParam(spname, ptype, pmode);
+
+      scf->SkipWhite();
+      if (scf->CheckSymbol("="))
       {
-        Error(DQERR_FUNCPAR_DEFAULT_ORDER, spname);
+        if (atypespec)
+        {
+          if (aemit_errors)
+          {
+            Error(DQERR_NOT_SUPPORTED, "Default arguments in FuncRef types");
+          }
+          return false;
+        }
+
+        if (ParamModeIsRefLike(pmode))
+        {
+          if (aemit_errors)
+          {
+            Error(DQERR_FUNCPAR_DEFAULT_REF, spname);
+          }
+          if (!fail_or_recover())
+          {
+            break;
+          }
+          continue;
+        }
+
+        if (!SupportsFuncParamDefaultType(ptype))
+        {
+          if (aemit_errors)
+          {
+            Error(DQERR_FUNCPAR_DEFAULT_TYPE, spname, ptype->ResolveAlias()->name);
+          }
+          if (!fail_or_recover())
+          {
+            break;
+          }
+          continue;
+        }
+
+        default_seen = true;
+
+        scf->SkipWhite();
+        OScPosition defexpr_pos;
+        scf->SaveCurPos(defexpr_pos);
+
+        OExpr * defexpr = ParseExpression();
+        if (!defexpr)
+        {
+          if (atypespec)
+          {
+            return false;
+          }
+
+          if (!fail_or_recover())
+          {
+            break;
+          }
+          continue;
+        }
+
+        if (!CheckAssignType(ptype, &defexpr, "Argument"))
+        {
+          OExpr::DeleteTree(defexpr);
+          if (atypespec)
+          {
+            return false;
+          }
+
+          if (!fail_or_recover())
+          {
+            break;
+          }
+          continue;
+        }
+
+        OValue * defvalue = ptype->CreateValue();
+        if (!defvalue)
+        {
+          if (aemit_errors)
+          {
+            Error(DQERR_FUNCPAR_DEFAULT_TYPE, spname, ptype->ResolveAlias()->name, &defexpr_pos);
+          }
+          OExpr::DeleteTree(defexpr);
+          if (atypespec)
+          {
+            return false;
+          }
+
+          if (!fail_or_recover())
+          {
+            break;
+          }
+          continue;
+        }
+
+        if (!defvalue->CalculateConstant(defexpr, true))
+        {
+          delete defvalue;
+          OExpr::DeleteTree(defexpr);
+          if (atypespec)
+          {
+            return false;
+          }
+
+          if (!fail_or_recover())
+          {
+            break;
+          }
+          continue;
+        }
+
+        fparam->defvalue = new OValSymConst(defexpr_pos, format("__defarg_{}_{}", aowner_name, spname), ptype, defvalue);
+        OExpr::DeleteTree(defexpr);
       }
-      delete tfunc;
-      return nullptr;
+      else if (default_seen)
+      {
+        if (aemit_errors)
+        {
+          Error(DQERR_FUNCPAR_DEFAULT_ORDER, spname);
+        }
+
+        if (atypespec)
+        {
+          return false;
+        }
+      }
     }
   }
 
@@ -1677,19 +1591,56 @@ OTypeFunc * ODqCompParser::ParseFunctionType(bool aemit_errors, bool aallow_defa
     {
       Error(DQERR_VARARGS_ALONE);
     }
-    delete tfunc;
-    return nullptr;
+    if (atypespec)
+    {
+      return false;
+    }
   }
 
   scf->SkipWhite();
   if (scf->CheckSymbol("->"))
   {
-    tfunc->rettype = ParseTypeSpec(aemit_errors);
-    if (!tfunc->rettype)
+    if (atypespec)
     {
-      delete tfunc;
-      return nullptr;
+      tfunc->rettype = ParseTypeSpec(aemit_errors);
+      if (!tfunc->rettype)
+      {
+        return false;
+      }
     }
+    else
+    {
+      scf->SkipWhite();
+      string frtname;
+      if (!scf->ReadIdentifier(frtname))
+      {
+        if (aemit_errors)
+        {
+          Error(DQERR_FUNC_RETTYPE_EXPECTED);
+        }
+      }
+      else
+      {
+        tfunc->rettype = cur_mod_scope->FindType(frtname);
+        if (!tfunc->rettype && aemit_errors)
+        {
+          Error(DQERR_TYPE_UNKNOWN, frtname);
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
+OTypeFunc * ODqCompParser::ParseFunctionType(bool aemit_errors, const string & aowner_name)
+{
+  OTypeFunc * tfunc = new OTypeFunc(aowner_name);
+
+  if (!ParseFunctionSignature(tfunc, true, aowner_name, aemit_errors))
+  {
+    delete tfunc;
+    return nullptr;
   }
 
   return tfunc;
