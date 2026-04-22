@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.8.5"
+#define DQ_COMPILER_VERSION  "0.8.6"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.8.6:
+  - Default parameters for FuncRef types
 v0.8.5:
   - Code cleanup at function signature parsing
 v0.8.4:

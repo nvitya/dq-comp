@@ -712,7 +712,11 @@ void ODqCompParser::ParseRootTypeDecl()
   }
 
   ptype = ParseTypeSpec();
-  if (not ptype)  return;
+  if (not ptype)
+  {
+    SkipToModuleStatementStart();
+    return;
+  }
 
   if (!ParseAttributes(false))
   {
@@ -1355,6 +1359,10 @@ bool ODqCompParser::ParseFunctionSignature(OTypeFunc * tfunc, bool atypespec, co
           }
           if (!fail_or_recover())
           {
+            if (atypespec)
+            {
+              return false;
+            }
             break;
           }
           continue;
@@ -1390,6 +1398,10 @@ bool ODqCompParser::ParseFunctionSignature(OTypeFunc * tfunc, bool atypespec, co
         }
         if (!fail_or_recover())
         {
+          if (atypespec)
+          {
+            return false;
+          }
           break;
         }
         continue;
@@ -1407,6 +1419,10 @@ bool ODqCompParser::ParseFunctionSignature(OTypeFunc * tfunc, bool atypespec, co
           }
           if (!fail_or_recover())
           {
+            if (atypespec)
+            {
+              return false;
+            }
             break;
           }
           continue;
@@ -1421,6 +1437,10 @@ bool ODqCompParser::ParseFunctionSignature(OTypeFunc * tfunc, bool atypespec, co
         }
         if (!fail_or_recover())
         {
+          if (atypespec)
+          {
+            return false;
+          }
           break;
         }
         continue;
@@ -1435,6 +1455,10 @@ bool ODqCompParser::ParseFunctionSignature(OTypeFunc * tfunc, bool atypespec, co
         }
         if (!fail_or_recover())
         {
+          if (atypespec)
+          {
+            return false;
+          }
           break;
         }
         continue;
@@ -1450,6 +1474,10 @@ bool ODqCompParser::ParseFunctionSignature(OTypeFunc * tfunc, bool atypespec, co
 
         if (!fail_or_recover())
         {
+          if (atypespec)
+          {
+            return false;
+          }
           break;
         }
         continue;
@@ -1460,15 +1488,6 @@ bool ODqCompParser::ParseFunctionSignature(OTypeFunc * tfunc, bool atypespec, co
       scf->SkipWhite();
       if (scf->CheckSymbol("="))
       {
-        if (atypespec)
-        {
-          if (aemit_errors)
-          {
-            Error(DQERR_NOT_SUPPORTED, "Default arguments in FuncRef types");
-          }
-          return false;
-        }
-
         if (ParamModeIsRefLike(pmode))
         {
           if (aemit_errors)
@@ -1477,6 +1496,10 @@ bool ODqCompParser::ParseFunctionSignature(OTypeFunc * tfunc, bool atypespec, co
           }
           if (!fail_or_recover())
           {
+            if (atypespec)
+            {
+              return false;
+            }
             break;
           }
           continue;
@@ -1490,6 +1513,10 @@ bool ODqCompParser::ParseFunctionSignature(OTypeFunc * tfunc, bool atypespec, co
           }
           if (!fail_or_recover())
           {
+            if (atypespec)
+            {
+              return false;
+            }
             break;
           }
           continue;
@@ -1511,6 +1538,10 @@ bool ODqCompParser::ParseFunctionSignature(OTypeFunc * tfunc, bool atypespec, co
 
           if (!fail_or_recover())
           {
+            if (atypespec)
+            {
+              return false;
+            }
             break;
           }
           continue;
@@ -1526,6 +1557,10 @@ bool ODqCompParser::ParseFunctionSignature(OTypeFunc * tfunc, bool atypespec, co
 
           if (!fail_or_recover())
           {
+            if (atypespec)
+            {
+              return false;
+            }
             break;
           }
           continue;
@@ -1546,6 +1581,10 @@ bool ODqCompParser::ParseFunctionSignature(OTypeFunc * tfunc, bool atypespec, co
 
           if (!fail_or_recover())
           {
+            if (atypespec)
+            {
+              return false;
+            }
             break;
           }
           continue;
@@ -1562,6 +1601,10 @@ bool ODqCompParser::ParseFunctionSignature(OTypeFunc * tfunc, bool atypespec, co
 
           if (!fail_or_recover())
           {
+            if (atypespec)
+            {
+              return false;
+            }
             break;
           }
           continue;
