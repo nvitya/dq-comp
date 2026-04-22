@@ -18,6 +18,7 @@
 #include "otype_array.h"
 #include "otype_cstring.h"
 #include "otype_float.h"
+#include "otype_func.h"
 #include "otype_int.h"
 
 static bool IsPointerWidthIntegerType(OType * type)
@@ -96,6 +97,37 @@ static bool CanAssignPointerImplicitly(OTypePointer * dst, OTypePointer * src)
   }
 
   return dst->basetype->ResolveAlias() == src->basetype->ResolveAlias();
+}
+
+static bool CanAssignFuncRefImplicitly(OTypeFuncRef * dst, OType * srctype)
+{
+  if (!dst || !srctype)
+  {
+    return false;
+  }
+
+  OType * resolved_src = srctype->ResolveAlias();
+  if (!resolved_src)
+  {
+    return false;
+  }
+
+  if (auto * src_cb = dynamic_cast<OTypeFuncRef *>(resolved_src))
+  {
+    return dst->functype && src_cb->functype && dst->functype->MatchesSignature(src_cb->functype);
+  }
+
+  if (auto * src_ptr = dynamic_cast<OTypePointer *>(resolved_src))
+  {
+    return src_ptr->IsNullPointer();
+  }
+
+  if (auto * src_func = dynamic_cast<OTypeFunc *>(resolved_src))
+  {
+    return dst->functype && dst->functype->MatchesSignature(src_func);
+  }
+
+  return false;
 }
 
 static void FoldExprTreeAfterTypeRewrite(OExpr ** rexpr)
@@ -389,6 +421,40 @@ bool ODqCompAst::ResolveCommonPointerType(OExpr * leftexpr, OExpr * rightexpr, O
   return false;
 }
 
+bool ODqCompAst::ResolveCommonFuncRefType(OExpr * leftexpr, OExpr * rightexpr, OType ** rresulttype)
+{
+  if (!leftexpr || !rightexpr || !rresulttype)
+  {
+    return false;
+  }
+
+  OTypeFuncRef * leftcb = dynamic_cast<OTypeFuncRef *>(leftexpr->ResolvedType());
+  OTypeFuncRef * rightcb = dynamic_cast<OTypeFuncRef *>(rightexpr->ResolvedType());
+  OTypePointer * leftptr = dynamic_cast<OTypePointer *>(leftexpr->ResolvedType());
+  OTypePointer * rightptr = dynamic_cast<OTypePointer *>(rightexpr->ResolvedType());
+
+  if (leftcb && rightcb && leftcb->functype && rightcb->functype
+      && leftcb->functype->MatchesSignature(rightcb->functype))
+  {
+    *rresulttype = leftexpr->ptype;
+    return true;
+  }
+
+  if (leftcb && rightptr && rightptr->IsNullPointer())
+  {
+    *rresulttype = leftexpr->ptype;
+    return true;
+  }
+
+  if (rightcb && leftptr && leftptr->IsNullPointer())
+  {
+    *rresulttype = rightexpr->ptype;
+    return true;
+  }
+
+  return false;
+}
+
 OExpr * ODqCompAst::FreeLeftRight(OExpr * left, OExpr * right)
 {
   if (left) delete left;
@@ -483,6 +549,23 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr ** rexpr, uint32_t afl
 
   if (tkd != tks)
   {
+    if (TK_FUNCREF == tkd)
+    {
+      OTypeFuncRef * cbdst = static_cast<OTypeFuncRef *>(resolved_dst);
+      if (CanAssignFuncRefImplicitly(cbdst, resolved_src))
+      {
+        *rexpr = new OExprTypeConv(dsttype, src);
+        FoldExprTreeAfterTypeRewrite(rexpr);
+        return true;
+      }
+
+      if (aflags & EXPCF_GENERATE_ERRORS)
+      {
+        Error(DQERR_FUNCSIG_TYPEMISM, resolved_dst->name, resolved_src->name);
+      }
+      return false;
+    }
+
     if ((TK_FLOAT == tkd) and (TK_INT == tks))
     {
       *rexpr = new OExprTypeConv(dsttype, src);
@@ -697,6 +780,27 @@ bool ODqCompAst::ConvertExprToType(OType * dsttype, OExpr ** rexpr, uint32_t afl
     return true;
   }
 
+  if (TK_FUNCREF == tkd)
+  {
+    OTypeFuncRef * cbdst = static_cast<OTypeFuncRef *>(resolved_dst);
+    if (!CanAssignFuncRefImplicitly(cbdst, resolved_src))
+    {
+      if (aflags & EXPCF_GENERATE_ERRORS)
+      {
+        Error(DQERR_FUNCSIG_TYPEMISM, resolved_dst->name, resolved_src->name);
+      }
+      return false;
+    }
+
+    if (resolved_dst != resolved_src)
+    {
+      *rexpr = new OExprTypeConv(dsttype, src);
+      FoldExprTreeAfterTypeRewrite(rexpr);
+    }
+
+    return true;
+  }
+
   if (TK_ARRAY_SLICE == tkd)
   {
     if (is_explicit_cast)
@@ -832,6 +936,12 @@ bool ODqCompAst::ResolveIifType(OExpr ** rtrueexpr, OExpr ** rfalseexpr, OType *
   }
 
   OType * resulttype = nullptr;
+  if (ResolveCommonFuncRefType(*rtrueexpr, *rfalseexpr, &resulttype))
+  {
+    *rresulttype = resulttype;
+    return true;
+  }
+
   if (ResolveCommonPointerType(*rtrueexpr, *rfalseexpr, &resulttype))
   {
     *rresulttype = resulttype;

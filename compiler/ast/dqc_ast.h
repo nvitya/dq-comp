@@ -60,5 +60,6 @@ public:
 protected:
   bool    HarmonizeNumericOperands(OExpr ** rleft, OExpr ** rright);
   bool    ResolveCommonPointerType(OExpr * leftexpr, OExpr * rightexpr, OType ** rresulttype);
+  bool    ResolveCommonFuncRefType(OExpr * leftexpr, OExpr * rightexpr, OType ** rresulttype);
 
 };

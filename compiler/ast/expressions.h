@@ -314,6 +314,8 @@ public:
 };
 
 class OValSymFunc;  // forward declaration for otype_func.h
+class OTypeFuncRef;
+class OTypeFunc;
 
 class OCallExpr : public OExpr
 {
@@ -325,6 +327,34 @@ public:
   LlValue *         Generate(OScope * scope) override;
   void              FoldChildren() override;
   void              DeleteChildTree() override;
+
+public:
+  void AddArgument(OExpr * aarg)
+  {
+    args.push_back(aarg);
+  }
+};
+
+class OFuncRefExpr : public OExpr
+{
+public:
+  OValSymFunc *   vsfunc;
+  /* ctor */      OFuncRefExpr(OValSymFunc * avsfunc, OType * atype);
+  LlValue *       Generate(OScope * scope) override;
+};
+
+class OIndirectCallExpr : public OExpr
+{
+public:
+  OExpr *         callee;
+  OTypeFunc *     sigtype;
+  vector<OExpr *> args;
+
+  /* ctor */      OIndirectCallExpr(OExpr * acallee, OTypeFuncRef * acalltype);
+                  ~OIndirectCallExpr() override;
+  LlValue *       Generate(OScope * scope) override;
+  void            FoldChildren() override;
+  void            DeleteChildTree() override;
 
 public:
   void AddArgument(OExpr * aarg)

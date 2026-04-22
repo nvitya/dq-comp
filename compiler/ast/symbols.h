@@ -106,12 +106,14 @@ enum ETypeKind
   TK_ALIAS,
   TK_ENUM,
   TK_COMPOUND,  // object, struct
-  TK_FUNCTION
+  TK_FUNCTION,
+  TK_FUNCREF,   // function variable (function pointer)
 };
 
 class OExpr;
 
 class OTypePointer;      // forward declaration
+class OTypeFuncRef;     // forward declaration
 class OTypeArray;        // forward declaration
 class OTypeArraySlice;   // forward declaration
 

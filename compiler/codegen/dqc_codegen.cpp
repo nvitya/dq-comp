@@ -41,14 +41,31 @@ void ODqCompCodegen::GenerateIr()
 
   PrepareTarget();
 
-  // generate declarations
+  // predeclare functions first so later global initializers can reference them
 
   for (ODecl * decl : g_module->declarations)
   {
     if (DK_VALSYM == decl->kind)
     {
       OValSym * vs = decl->pvalsym;
-      vs->GenGlobalDecl(decl->ispublic, decl->initvalue);
+      if (dynamic_cast<OValSymFunc *>(vs))
+      {
+        vs->GenGlobalDecl(decl->ispublic, decl->initvalue);
+      }
+    }
+  }
+
+  // generate other global declarations
+
+  for (ODecl * decl : g_module->declarations)
+  {
+    if (DK_VALSYM == decl->kind)
+    {
+      OValSym * vs = decl->pvalsym;
+      if (!dynamic_cast<OValSymFunc *>(vs))
+      {
+        vs->GenGlobalDecl(decl->ispublic, decl->initvalue);
+      }
     }
     else if (DK_TYPE == decl->kind)
     {

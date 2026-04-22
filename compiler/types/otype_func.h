@@ -88,6 +88,7 @@ public:
   bool          ParNameValid(const string aname);
   size_t        RequiredParamCount() const;
   OType *       ResolvedRetType() const;
+  bool          MatchesSignature(const OTypeFunc * other) const;
 
   LlType * CreateLlType() override;
   LlDiType * CreateDiType() override;
@@ -145,3 +146,39 @@ public:
   void GenerateFuncBody();
   void GenerateFuncRet();
 };
+
+class OValueFuncRef : public OValue
+{
+public:
+  bool          is_null = true;
+  OValSymFunc * target_func = nullptr;
+
+  OValueFuncRef(OType * atype, bool ais_null = true)
+  :
+    OValue(atype),
+    is_null(ais_null)
+  {
+  }
+
+  LlConst *  CreateLlConst() override;
+  bool       CalculateConstant(OExpr * expr, bool emit_errors = true) override;
+};
+
+class OTypeFuncRef : public OType
+{
+private:
+  using        super = OType;
+
+public:
+  OTypeFunc *  functype = nullptr;
+
+  OTypeFuncRef(OTypeFunc * afunctype, const string & aname = "");
+  ~OTypeFuncRef() override;
+
+  LlType *   CreateLlType() override;
+  LlDiType * CreateDiType() override;
+  OValue *   CreateValue() override;
+  LlValue *  GenerateConversion(OScope * scope, OExpr * src) override;
+};
+
+extern string FuncTypeName(OTypeFunc * sigtype);

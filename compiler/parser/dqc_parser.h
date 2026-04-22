@@ -22,6 +22,9 @@
 
 using namespace std;
 
+class OTypeFunc;
+class OTypeFuncRef;
+
 class ODqCompParser : public ODqCompAst
 {
 private:
@@ -50,12 +53,13 @@ public: // statement blocks
   void ParseStmtReturn();
   void ParseStmtWhile();
   void ParseStmtIf();
-  void FinalizeStmtVoidCall(OCallExpr * callexpr);
+  void FinalizeStmtVoidCall(OExpr * callexpr);
 
   EBinOp ParseAssignOp();
 
 public: // type parsing
   OType * ParseTypeSpec(bool aemit_errors = true);  // parses type after ":" — handles ^, [N], []
+  OTypeFunc * ParseFunctionType(bool aemit_errors = true, bool aallow_defaults = false, const string & aowner_name = "function");
 
 public: // utility
   bool ParseAttributes(bool areset);
@@ -99,7 +103,9 @@ public: // expressions
   OExpr * ParseExprPrimary();
   OExpr * ParseExplicitCastExpr(bool * rattempted = nullptr);
 
+  bool ParseCallArguments(const string & callname, OTypeFunc * tfunc, vector<OExpr *> & rargs);
   OExpr * ParseExprFuncCall(OValSymFunc * vsfunc);
+  OExpr * ParseExprIndirectCall(OExpr * callee, OTypeFuncRef * calltype);
   OExpr * ParseBuiltinIif();
   OExpr * ParseBuiltinLen();
   OExpr * ParseBuiltinSizeof();

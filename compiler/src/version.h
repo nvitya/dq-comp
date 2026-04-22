@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.8.3"
+#define DQ_COMPILER_VERSION  "0.8.4"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.8.4:
+  - Function reference (callback) variables
 v0.8.3:
   - ref local variables
   - ref/refin/refout/refnull function parameters

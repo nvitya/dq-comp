@@ -405,7 +405,11 @@ void ODqCompParser::ParseStmtVar(bool arootstmt)
   }
 
   ptype = ParseTypeSpec();
-  if (not ptype)  return;
+  if (not ptype)
+  {
+    SkipToModuleStatementStart();
+    return;
+  }
 
   OExpr * initexpr = nullptr;
   bool zero_init = false;
@@ -1246,9 +1250,10 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
       continue;
     }
 
-    // the leftexpr should be a function call
-    OCallExpr * callexpr = dynamic_cast<OCallExpr *>(leftexpr);
-    if (!callexpr)
+    // the leftexpr should be a callable expression
+    bool is_call_stmt = (dynamic_cast<OCallExpr *>(leftexpr) != nullptr)
+                     || (dynamic_cast<OIndirectCallExpr *>(leftexpr) != nullptr);
+    if (!is_call_stmt)
     {
       EmitSuppressedVarInitDiags();
       StatementError(DQERR_STMT_ASSIGN_OR_FCALL_EXP);
@@ -1270,7 +1275,7 @@ void ODqCompParser::ReadStatementBlock(OStmtBlock * stblock, const string blocke
       StatementError(DQERR_MISSING_SEMICOLON_TO_CLOSE, "function call statement", &scpos);
     }
 
-    FinalizeStmtVoidCall(callexpr);
+    FinalizeStmtVoidCall(leftexpr);
 
   }
 
@@ -1292,9 +1297,43 @@ OType * ODqCompParser::ParseTypeSpec(bool aemit_errors)
   }
   bool is_pointer = (pointer_level > 0);
 
-  string stype;
   scf->SkipWhite();
-  if (not scf->ReadIdentifier(stype))
+  OType * ptype = nullptr;
+  string stype;
+
+  if (scf->CheckSymbol("function"))
+  {
+    OTypeFunc * sigtype = ParseFunctionType(aemit_errors, false, "function");
+    if (!sigtype)
+    {
+      return nullptr;
+    }
+
+    scf->SkipWhite();
+    if (scf->CheckSymbol("of"))
+    {
+      scf->SkipWhite();
+      if (scf->CheckSymbol("object"))
+      {
+        if (aemit_errors)
+        {
+          Error(DQERR_NOT_IMPLEMENTED_YET, "\"function(...) of object\"");
+        }
+        delete sigtype;
+        return nullptr;
+      }
+
+      if (aemit_errors)
+      {
+        Error(DQERR_NOT_IMPLEMENTED_YET, "\"function(...) of ...\"");
+      }
+      delete sigtype;
+      return nullptr;
+    }
+
+    ptype = new OTypeFuncRef(sigtype);
+  }
+  else if (not scf->ReadIdentifier(stype))
   {
     if (aemit_errors)
     {
@@ -1302,17 +1341,19 @@ OType * ODqCompParser::ParseTypeSpec(bool aemit_errors)
     }
     return nullptr;
   }
-
-  OType * ptype = cur_mod_scope->FindType(stype);
-  if (not ptype)
+  else
   {
-    if (aemit_errors)
+    ptype = cur_mod_scope->FindType(stype);
+    if (not ptype)
     {
-      Error(DQERR_TYPE_UNKNOWN, stype, &scf->prevpos);
+      if (aemit_errors)
+      {
+        Error(DQERR_TYPE_UNKNOWN, stype, &scf->prevpos);
+      }
+      return nullptr;
     }
-    return nullptr;
+    ptype = ptype->ResolveAlias();
   }
-  ptype = ptype->ResolveAlias();
 
   while (pointer_level > 0)
   {
@@ -1428,6 +1469,230 @@ OType * ODqCompParser::ParseTypeSpec(bool aemit_errors)
   }
 
   return ptype;
+}
+
+OTypeFunc * ODqCompParser::ParseFunctionType(bool aemit_errors, bool aallow_defaults, const string & aowner_name)
+{
+  OTypeFunc * tfunc = new OTypeFunc(aowner_name);
+
+  scf->SkipWhite();
+  if (!scf->CheckSymbol("("))
+  {
+    if (aemit_errors)
+    {
+      Error(DQERR_MISSING_OPEN_PAREN_AFTER, "function");
+    }
+    delete tfunc;
+    return nullptr;
+  }
+
+  string spname;
+  bool default_seen = false;
+
+  while (not scf->Eof())
+  {
+    scf->SkipWhite();
+    if (scf->CheckSymbol(")"))
+    {
+      break;
+    }
+
+    if (!tfunc->params.empty())
+    {
+      if (!scf->CheckSymbol(","))
+      {
+        if (aemit_errors)
+        {
+          Error(DQERR_MISSING_COMMA, &scf->prevpos);
+        }
+        delete tfunc;
+        return nullptr;
+      }
+      scf->SkipWhite();
+    }
+
+    if (scf->CheckSymbol("..."))
+    {
+      tfunc->has_varargs = true;
+      scf->SkipWhite();
+      if (!scf->CheckSymbol(")"))
+      {
+        if (aemit_errors)
+        {
+          Error(DQERR_MISSING_CLOSE_PAREN_AFTER, "...");
+        }
+        delete tfunc;
+        return nullptr;
+      }
+      break;
+    }
+
+    EParamMode pmode = FPM_VALUE;
+    string pname_or_mode;
+    if (!scf->ReadIdentifier(pname_or_mode))
+    {
+      if (aemit_errors)
+      {
+        Error(DQERR_FUNCPAR_NAME_EXP, &scf->prevpos);
+      }
+      delete tfunc;
+      return nullptr;
+    }
+
+    spname = pname_or_mode;
+    if (ParseParamModeKeyword(pname_or_mode, pmode))
+    {
+      scf->SkipWhite();
+      if (!scf->ReadIdentifier(spname))
+      {
+        if (aemit_errors)
+        {
+          Error(DQERR_FUNCPAR_NAME_EXP, &scf->prevpos);
+        }
+        delete tfunc;
+        return nullptr;
+      }
+    }
+
+    if (!tfunc->ParNameValid(spname))
+    {
+      if (aemit_errors)
+      {
+        Error(DQERR_FUNCPAR_NAME_INVALID, spname, &scf->prevpos);
+      }
+      delete tfunc;
+      return nullptr;
+    }
+
+    scf->SkipWhite();
+    if (!scf->CheckSymbol(":"))
+    {
+      if (aemit_errors)
+      {
+        Error(DQERR_TYPE_SPECIFIER_EXP_AFTER, spname, &scf->prevpos);
+      }
+      delete tfunc;
+      return nullptr;
+    }
+
+    OType * ptype = ParseTypeSpec(aemit_errors);
+    if (!ptype)
+    {
+      delete tfunc;
+      return nullptr;
+    }
+
+    OFuncParam * fparam = tfunc->AddParam(spname, ptype, pmode);
+
+    scf->SkipWhite();
+    if (scf->CheckSymbol("="))
+    {
+      if (!aallow_defaults)
+      {
+        if (aemit_errors)
+        {
+          Error(DQERR_NOT_SUPPORTED, "Default arguments in FuncRef types");
+        }
+        delete tfunc;
+        return nullptr;
+      }
+
+      if (ParamModeIsRefLike(pmode))
+      {
+        if (aemit_errors)
+        {
+          Error(DQERR_FUNCPAR_DEFAULT_REF, spname);
+        }
+        delete tfunc;
+        return nullptr;
+      }
+
+      if (!SupportsFuncParamDefaultType(ptype))
+      {
+        if (aemit_errors)
+        {
+          Error(DQERR_FUNCPAR_DEFAULT_TYPE, spname, ptype->ResolveAlias()->name);
+        }
+        delete tfunc;
+        return nullptr;
+      }
+
+      default_seen = true;
+
+      scf->SkipWhite();
+      OScPosition defexpr_pos;
+      scf->SaveCurPos(defexpr_pos);
+
+      OExpr * defexpr = ParseExpression();
+      if (!defexpr)
+      {
+        delete tfunc;
+        return nullptr;
+      }
+
+      if (!CheckAssignType(ptype, &defexpr, "Argument"))
+      {
+        OExpr::DeleteTree(defexpr);
+        delete tfunc;
+        return nullptr;
+      }
+
+      OValue * defvalue = ptype->CreateValue();
+      if (!defvalue)
+      {
+        if (aemit_errors)
+        {
+          Error(DQERR_FUNCPAR_DEFAULT_TYPE, spname, ptype->ResolveAlias()->name, &defexpr_pos);
+        }
+        OExpr::DeleteTree(defexpr);
+        delete tfunc;
+        return nullptr;
+      }
+
+      if (!defvalue->CalculateConstant(defexpr, true))
+      {
+        delete defvalue;
+        OExpr::DeleteTree(defexpr);
+        delete tfunc;
+        return nullptr;
+      }
+
+      fparam->defvalue = new OValSymConst(defexpr_pos, format("__defarg_{}_{}", aowner_name, spname), ptype, defvalue);
+      OExpr::DeleteTree(defexpr);
+    }
+    else if (default_seen)
+    {
+      if (aemit_errors)
+      {
+        Error(DQERR_FUNCPAR_DEFAULT_ORDER, spname);
+      }
+      delete tfunc;
+      return nullptr;
+    }
+  }
+
+  if (tfunc->has_varargs && tfunc->params.empty())
+  {
+    if (aemit_errors)
+    {
+      Error(DQERR_VARARGS_ALONE);
+    }
+    delete tfunc;
+    return nullptr;
+  }
+
+  scf->SkipWhite();
+  if (scf->CheckSymbol("->"))
+  {
+    tfunc->rettype = ParseTypeSpec(aemit_errors);
+    if (!tfunc->rettype)
+    {
+      delete tfunc;
+      return nullptr;
+    }
+  }
+
+  return tfunc;
 }
 
 void ODqCompParser::ParseStmtReturn()
@@ -1974,12 +2239,8 @@ OExpr * ODqCompParser::ParsePostfix(OExpr * base)
       if (varref)
       {
         OValSymFunc * vsfunc = dynamic_cast<OValSymFunc *>(varref->pvalsym);
-        if (vsfunc)
+        if (vsfunc && scf->CheckSymbol("("))
         {
-          if (not scf->CheckSymbol("("))
-          {
-            Error(DQERR_FUNC_CALL_PARENTH, vsfunc->name);
-          }
           OExpr * callexpr = ParseExprFuncCall(vsfunc);
           delete result;
           result = callexpr;
@@ -1987,6 +2248,23 @@ OExpr * ODqCompParser::ParsePostfix(OExpr * base)
           continue;
         }
       }
+    }
+
+    if (scf->CheckSymbol("(", false))
+    {
+      if (TK_FUNCREF == tk)
+      {
+        scf->CheckSymbol("(");
+        OTypeFuncRef * calltype = static_cast<OTypeFuncRef *>(result->ResolvedType());
+        OExpr * callexpr = ParseExprIndirectCall(result, calltype);
+        result = callexpr;
+        if (!result) return nullptr;
+        continue;
+      }
+
+      Error(DQERR_EXPR_NOT_CALLABLE, result->ptype->name);
+      delete result;
+      return nullptr;
     }
 
     // pointer operations — apply to any expression (not just lvalue)
@@ -2321,12 +2599,16 @@ OExpr * ODqCompParser::ParseArrayLit()
   return new OArrayLit(elems);
 }
 
-OExpr * ODqCompParser::ParseExprFuncCall(OValSymFunc * vsfunc)
+bool ODqCompParser::ParseCallArguments(const string & callname, OTypeFunc * tfunc, vector<OExpr *> & rargs)
 {
-  // function name and "(" was already consumed
+  // "(" was already consumed
 
-  OCallExpr * result = new OCallExpr(vsfunc);
-  OTypeFunc * tfunc = static_cast<OTypeFunc *>(vsfunc->ptype);
+  if (!tfunc)
+  {
+    Error(DQERR_EXPR_NOT_CALLABLE, callname);
+    return false;
+  }
+
   bool        bok = true;
   size_t      required_param_count = tfunc->RequiredParamCount();
 
@@ -2342,14 +2624,14 @@ OExpr * ODqCompParser::ParseExprFuncCall(OValSymFunc * vsfunc)
 
     if ((pcnt > 0) and not scf->CheckSymbol(","))
     {
-      Error(DQERR_FUNC_ARGS_LIST, "\",\" or \")\" is missing at function \"$1\"call arguments", vsfunc->name);
+      Error(DQERR_FUNC_ARGS_LIST, "\",\" or \")\" is missing at function \"$1\"call arguments", callname);
       bok = false;
       break;
     }
 
     if (pcnt >= (int)tfunc->params.size() && !tfunc->has_varargs)
     {
-      Error(DQERR_FUNC_ARGS_TOO_MANY, vsfunc->name, to_string(tfunc->params.size()));
+      Error(DQERR_FUNC_ARGS_TOO_MANY, callname, to_string(tfunc->params.size()));
       bok = false;
       break;
     }
@@ -2384,7 +2666,7 @@ OExpr * ODqCompParser::ParseExprFuncCall(OValSymFunc * vsfunc)
 
     if (!is_ref_arg)
     {
-      result->AddArgument(argexpr);  // to avoid memory leak, this must come before the type check
+      rargs.push_back(argexpr);  // to avoid memory leak, this must come before the type check
       if (pcnt < (int)tfunc->params.size())
       {
         OType * argtype = tfunc->params[pcnt]->ptype;
@@ -2394,7 +2676,7 @@ OExpr * ODqCompParser::ParseExprFuncCall(OValSymFunc * vsfunc)
           break;
         }
         // CheckAssignType may have replaced argexpr (e.g. array->slice conversion)
-        result->args[pcnt] = argexpr;
+        rargs[pcnt] = argexpr;
       }
     }
     else
@@ -2409,14 +2691,14 @@ OExpr * ODqCompParser::ParseExprFuncCall(OValSymFunc * vsfunc)
       {
         if (FPM_REFNULL != fparam->mode)
         {
-          Error(DQERR_FUNC_ARG_REF_NULL, to_string(pcnt + 1), vsfunc->name);
+          Error(DQERR_FUNC_ARG_REF_NULL, to_string(pcnt + 1), callname);
           delete argexpr;
           clear_suppressed();
           bok = false;
           break;
         }
 
-        result->AddArgument(argexpr);
+        rargs.push_back(argexpr);
         clear_suppressed();
       }
       else
@@ -2434,7 +2716,7 @@ OExpr * ODqCompParser::ParseExprFuncCall(OValSymFunc * vsfunc)
 
         if (!bind_ok)
         {
-          Error(DQERR_FUNC_ARG_REF_BIND, to_string(pcnt + 1), vsfunc->name);
+          Error(DQERR_FUNC_ARG_REF_BIND, to_string(pcnt + 1), callname);
           delete argexpr;
           clear_suppressed();
           bok = false;
@@ -2445,7 +2727,7 @@ OExpr * ODqCompParser::ParseExprFuncCall(OValSymFunc * vsfunc)
         {
           string type_text = format("{} = {}", fparam->ptype->name, argexpr->ptype->name);
           ErrorTxt(DQERR_FUNC_ARG_REF_TYPE,
-                   format("Reference argument {} type mismatch for function \"{}\": {}", pcnt + 1, vsfunc->name, type_text));
+                   format("Reference argument {} type mismatch for function \"{}\": {}", pcnt + 1, callname, type_text));
           delete argexpr;
           clear_suppressed();
           bok = false;
@@ -2465,7 +2747,7 @@ OExpr * ODqCompParser::ParseExprFuncCall(OValSymFunc * vsfunc)
           }
         }
 
-        result->AddArgument(new OAddrOfExpr(arglval));
+        rargs.push_back(new OAddrOfExpr(arglval));
         clear_suppressed();
 
         if ((FPM_REFOUT == fparam->mode) && curblock && rootvalsym
@@ -2479,26 +2761,56 @@ OExpr * ODqCompParser::ParseExprFuncCall(OValSymFunc * vsfunc)
     ++pcnt;
   }
 
-  if (bok && (result->args.size() < required_param_count))
+  if (bok && (rargs.size() < required_param_count))
   {
-    Error(DQERR_FUNC_ARGS_TOO_FEW, to_string(result->args.size()), vsfunc->name, to_string(required_param_count));
+    Error(DQERR_FUNC_ARGS_TOO_FEW, to_string(rargs.size()), callname, to_string(required_param_count));
     bok = false;
   }
 
-  while (bok && (result->args.size() < tfunc->params.size()))
+  while (bok && (rargs.size() < tfunc->params.size()))
   {
-    OFuncParam * fparam = tfunc->params[result->args.size()];
+    OFuncParam * fparam = tfunc->params[rargs.size()];
     if (!fparam->defvalue)
     {
-      Error(DQERR_FUNC_ARGS_TOO_FEW, to_string(result->args.size()), vsfunc->name, to_string(required_param_count));
+      Error(DQERR_FUNC_ARGS_TOO_FEW, to_string(rargs.size()), callname, to_string(required_param_count));
       bok = false;
       break;
     }
 
-    result->AddArgument(new OLValueVar(fparam->defvalue));
+    rargs.push_back(new OLValueVar(fparam->defvalue));
   }
 
   if (!bok)
+  {
+    for (OExpr *& arg : rargs)
+    {
+      OExpr::DeleteTree(arg);
+      arg = nullptr;
+    }
+    rargs.clear();
+    return false;
+  }
+
+  return true;
+}
+
+OExpr * ODqCompParser::ParseExprFuncCall(OValSymFunc * vsfunc)
+{
+  OCallExpr * result = new OCallExpr(vsfunc);
+  if (!ParseCallArguments(vsfunc->name, static_cast<OTypeFunc *>(vsfunc->ptype), result->args))
+  {
+    delete result;
+    return nullptr;
+  }
+
+  return result;
+}
+
+OExpr * ODqCompParser::ParseExprIndirectCall(OExpr * callee, OTypeFuncRef * calltype)
+{
+  OIndirectCallExpr * result = new OIndirectCallExpr(callee, calltype);
+  string callname = (calltype ? calltype->name : string("funcref"));
+  if (!ParseCallArguments(callname, (calltype ? calltype->functype : nullptr), result->args))
   {
     delete result;
     return nullptr;
@@ -2931,7 +3243,7 @@ bool ODqCompParser::FinalizeStmtAssign(OLValueExpr * leftexpr, EBinOp op, OExpr 
   return true;
 }
 
-void ODqCompParser::FinalizeStmtVoidCall(OCallExpr * callexpr)
+void ODqCompParser::FinalizeStmtVoidCall(OExpr * callexpr)
 {
   curblock->AddStatement(new OStmtVoidCall(scpos_statement_start, callexpr));
 }

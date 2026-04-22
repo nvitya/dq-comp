@@ -18,6 +18,7 @@
 #include "otype_int.h"
 #include "otype_array.h"
 #include "otype_cstring.h"
+#include "otype_func.h"
 #include <llvm/IR/Intrinsics.h>
 
 string GetBinopSymbol(EBinOp op)
@@ -556,7 +557,7 @@ LlValue * OCompareExpr::Generate(OScope * scope)
       else if (COMPOP_GE == op)   return ll_builder.CreateICmpUGE(ll_left, ll_right);
     }
   }
-  else if (TK_POINTER == optype->kind)
+  else if ((TK_POINTER == optype->kind) || (TK_FUNCREF == optype->kind))
   {
     // Pointer comparisons (unsigned — comparing addresses)
     if      (COMPOP_EQ == op)   return ll_builder.CreateICmpEQ(ll_left, ll_right);
@@ -1071,6 +1072,127 @@ void OCallExpr::DeleteChildTree()
 
 OCallExpr::~OCallExpr()
 {
+  for (OExpr * arg : args)
+  {
+    delete arg;
+  }
+  args.clear();
+}
+
+/* ctor */ OFuncRefExpr::OFuncRefExpr(OValSymFunc * avsfunc, OType * atype)
+{
+  vsfunc = avsfunc;
+  ptype = atype;
+}
+
+LlValue * OFuncRefExpr::Generate(OScope * scope)
+{
+  (void)scope;
+
+  if (!vsfunc || !vsfunc->ll_func)
+  {
+    throw runtime_error("OFuncRefExpr::Generate(): Unknown function: " + (vsfunc ? vsfunc->name : string("?")));
+  }
+
+  return vsfunc->ll_func;
+}
+
+/* ctor */ OIndirectCallExpr::OIndirectCallExpr(OExpr * acallee, OTypeFuncRef * acalltype)
+{
+  callee = acallee;
+  sigtype = (acalltype ? acalltype->functype : nullptr);
+  ptype = (sigtype ? sigtype->rettype : nullptr);
+}
+
+LlValue * OIndirectCallExpr::Generate(OScope * scope)
+{
+  if (!callee || !sigtype)
+  {
+    throw runtime_error("OIndirectCallExpr::Generate(): Missing callee or signature");
+  }
+
+  LlValue * ll_callee = callee->Generate(scope);
+  if (!ll_callee)
+  {
+    throw runtime_error("OIndirectCallExpr::Generate(): Failed to generate callee");
+  }
+
+  LlValue * ll_null = llvm::ConstantPointerNull::get(llvm::PointerType::get(ll_ctx, 0));
+  LlValue * ll_is_null = ll_builder.CreateICmpEQ(ll_callee, ll_null, "cb.is_null");
+
+  LlFunction * ll_parent = ll_builder.GetInsertBlock()->getParent();
+  LlBasicBlock * ok_bb = LlBasicBlock::Create(ll_ctx, "cb.call.ok", ll_parent);
+  LlBasicBlock * trap_bb = LlBasicBlock::Create(ll_ctx, "cb.call.trap", ll_parent);
+  LlBasicBlock * prev_bb = ll_builder.GetInsertBlock();
+
+  ll_builder.CreateCondBr(ll_is_null, trap_bb, ok_bb);
+
+  ll_builder.SetInsertPoint(trap_bb);
+  auto trap_fn = llvm::Intrinsic::getOrInsertDeclaration(ll_module, llvm::Intrinsic::trap);
+  ll_builder.CreateCall(trap_fn, {});
+  ll_builder.CreateUnreachable();
+
+  ll_builder.SetInsertPoint(ok_bb);
+
+  vector<LlValue *> ll_args;
+  for (size_t i = 0; i < args.size(); ++i)
+  {
+    LlValue * val = args[i]->Generate(scope);
+
+    if (sigtype->has_varargs && i >= sigtype->params.size())
+    {
+      LlType * valtype = val->getType();
+      if (valtype->isFloatTy())
+      {
+        val = ll_builder.CreateFPExt(val, llvm::Type::getDoubleTy(ll_ctx));
+      }
+      else if (valtype->isIntegerTy() && valtype->getIntegerBitWidth() < 32)
+      {
+        OTypeInt * inttype = dynamic_cast<OTypeInt *>(args[i]->ResolvedType());
+        if (inttype && inttype->issigned)
+        {
+          val = ll_builder.CreateSExt(val, llvm::Type::getInt32Ty(ll_ctx));
+        }
+        else
+        {
+          val = ll_builder.CreateZExt(val, llvm::Type::getInt32Ty(ll_ctx));
+        }
+      }
+    }
+
+    ll_args.push_back(val);
+  }
+
+  return ll_builder.CreateCall(static_cast<LlFuncType *>(sigtype->GetLlType()), ll_callee, ll_args);
+}
+
+void OIndirectCallExpr::FoldChildren()
+{
+  OExpr::FoldTree(&callee);
+  for (OExpr *& arg : args)
+  {
+    OExpr::FoldTree(&arg);
+  }
+}
+
+void OIndirectCallExpr::DeleteChildTree()
+{
+  OExpr::DeleteTree(callee);
+  callee = nullptr;
+
+  for (OExpr *& arg : args)
+  {
+    OExpr::DeleteTree(arg);
+    arg = nullptr;
+  }
+  args.clear();
+}
+
+OIndirectCallExpr::~OIndirectCallExpr()
+{
+  OExpr::DeleteTree(callee);
+  callee = nullptr;
+
   for (OExpr * arg : args)
   {
     delete arg;

@@ -75,6 +75,56 @@ OType * OTypeFunc::ResolvedRetType() const
   return (rettype ? rettype->ResolveAlias() : nullptr);
 }
 
+bool OTypeFunc::MatchesSignature(const OTypeFunc * other) const
+{
+  if (!other)
+  {
+    return false;
+  }
+
+  if (has_varargs != other->has_varargs)
+  {
+    return false;
+  }
+
+  if (params.size() != other->params.size())
+  {
+    return false;
+  }
+
+  if (ResolvedRetType() != other->ResolvedRetType())
+  {
+    return false;
+  }
+
+  for (size_t i = 0; i < params.size(); ++i)
+  {
+    OFuncParam * left = params[i];
+    OFuncParam * right = other->params[i];
+    if (!left || !right)
+    {
+      return false;
+    }
+
+    if (left->mode != right->mode)
+    {
+      return false;
+    }
+
+    if (!left->ptype || !right->ptype)
+    {
+      return false;
+    }
+
+    if (left->ptype->ResolveAlias() != right->ptype->ResolveAlias())
+    {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 LlType * OTypeFunc::CreateLlType()  // do not call GetLlType() until the function arguments fully prepared
 {
   vector<LlType *> ll_partypes;
@@ -183,7 +233,7 @@ void OValSymFunc::GenerateFuncBody()
   {
     ll_rettype = vsresult->ptype->GetLlType();
     vsresult->ll_value = ll_builder.CreateAlloca(ll_rettype, nullptr, "result");
-    ll_builder.CreateStore(llvm::ConstantInt::get(ll_rettype, 0), vsresult->ll_value);
+    ll_builder.CreateStore(llvm::Constant::getNullValue(ll_rettype), vsresult->ll_value);
     if (g_opt.dbg_info)
     {
       llvm::DILocalVariable * di_var = di_builder->createAutoVariable(
@@ -253,4 +303,165 @@ void OValSymFunc::GenerateFuncRet()
     LlValue * ll_result = ll_builder.CreateLoad(ll_rettype, vsresult->ll_value, "result");
     ll_builder.CreateRet(ll_result);
   }
+}
+
+string FuncTypeName(OTypeFunc * sigtype)  // argument can be nullptr too
+{
+  string result = "function(";
+  bool first = true;
+  if (sigtype)
+  {
+    for (OFuncParam * param : sigtype->params)
+    {
+      if (!first)
+      {
+        result += ", ";
+      }
+
+      if (FPM_REF == param->mode)       result += "ref ";
+      else if (FPM_REFIN == param->mode)  result += "refin ";
+      else if (FPM_REFOUT == param->mode) result += "refout ";
+      else if (FPM_REFNULL == param->mode) result += "refnull ";
+
+      result += param->name;
+      result += " : ";
+      result += (param->ptype ? param->ptype->name : "?");
+      first = false;
+    }
+
+    if (sigtype->has_varargs)
+    {
+      if (!first)
+      {
+        result += ", ";
+      }
+      result += "...";
+    }
+  }
+
+  result += ")";
+
+  if (sigtype && sigtype->rettype)
+  {
+    result += " -> ";
+    result += sigtype->rettype->name;
+  }
+
+  return result;
+}
+
+static OExpr * UnwrapFuncRefConstExpr(OExpr * expr)
+{
+  OExpr * current = expr;
+  while (auto * conv = dynamic_cast<OExprTypeConv *>(current))
+  {
+    current = conv->src;
+  }
+  return current;
+}
+
+OTypeFuncRef::OTypeFuncRef(OTypeFunc * afunctype, const string & aname)
+:
+  super((aname.empty() ? FuncTypeName(afunctype) : aname), TK_FUNCREF),
+  functype(afunctype)
+{
+  bytesize = TARGET_PTRSIZE;
+}
+
+OTypeFuncRef::~OTypeFuncRef()
+{
+  delete functype;
+  functype = nullptr;
+}
+
+LlType * OTypeFuncRef::CreateLlType()
+{
+  return llvm::PointerType::get(ll_ctx, 0);
+}
+
+LlDiType * OTypeFuncRef::CreateDiType()
+{
+  return di_builder->createPointerType(
+      functype ? functype->GetDiType() : nullptr,
+      bytesize * 8
+  );
+}
+
+OValue * OTypeFuncRef::CreateValue()
+{
+  return new OValueFuncRef(this, true);
+}
+
+LlValue * OTypeFuncRef::GenerateConversion(OScope * scope, OExpr * src)
+{
+  if (!src)
+  {
+    return nullptr;
+  }
+
+  if (auto * varref = dynamic_cast<OLValueVar *>(src))
+  {
+    if (auto * vsfunc = dynamic_cast<OValSymFunc *>(varref->pvalsym))
+    {
+      if (!vsfunc->ll_func)
+      {
+        throw logic_error("FuncRef conversion target function is not prepared in LLVM");
+      }
+      return vsfunc->ll_func;
+    }
+  }
+
+  return src->Generate(scope);
+}
+
+LlConst * OValueFuncRef::CreateLlConst()
+{
+  if (is_null)
+  {
+    return llvm::ConstantPointerNull::get(llvm::PointerType::get(ll_ctx, 0));
+  }
+
+  if (!target_func || !target_func->ll_func)
+  {
+    throw logic_error("FuncRef constant function target is not prepared in LLVM");
+  }
+
+  return target_func->ll_func;
+}
+
+bool OValueFuncRef::CalculateConstant(OExpr * expr, bool emit_errors)
+{
+  is_null = true;
+  target_func = nullptr;
+
+  OExpr * plain = UnwrapFuncRefConstExpr(expr);
+  if (!plain)
+  {
+    if (emit_errors)
+    {
+      g_compiler->Error(DQERR_CONSTEXPR_INVALID_FOR, ptype->name);
+    }
+    return false;
+  }
+
+  if (dynamic_cast<ONullLit *>(plain))
+  {
+    return true;
+  }
+
+  if (auto * varref = dynamic_cast<OLValueVar *>(plain))
+  {
+    target_func = dynamic_cast<OValSymFunc *>(varref->pvalsym);
+    if (target_func)
+    {
+      is_null = false;
+      return true;
+    }
+  }
+
+  if (emit_errors)
+  {
+    g_compiler->Error(DQERR_CONSTEXPR_INVALID_FOR, ptype->name);
+  }
+  return false;
 }

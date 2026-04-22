@@ -191,6 +191,8 @@ DEF_DQ_ERR(DQERR_FUNC_ARG_REF_BIND,                "FuncArgRefBind",         "Ar
 DEF_DQ_ERR(DQERR_FUNC_ARG_REF_NULL,                "FuncArgRefNull",         "Argument $1 for function \"$2\" cannot be null");
 DEF_DQ_ERR(DQERR_FUNC_ARG_REF_TYPE,                "FuncArgRefType",         "Reference argument $1 type mismatch for function \"$2\": expected \"$3\"");
 DEF_DQ_ERR(DQERR_FUNC_ARG_REF_UNINIT,              "FuncArgRefInit",         "Reference argument \"$1\" is not initialized");
+DEF_DQ_ERR(DQERR_FUNCSIG_TYPEMISM,                 "FuncSigType",            "Function signature mismatch: \"$1\" = \"$2\"");
+DEF_DQ_ERR(DQERR_EXPR_NOT_CALLABLE,                "ExprNotCallable",        "Expression of type \"$1\" is not callable");
 
 DEF_DQ_ERR(DQERR_CONDEXPR_MISSING_FOR,             "CondExprMissing",        "Condition expression is mission for \"$1\"");
 DEF_DQ_ERR(DQERR_BOOL_EXPR_EXPECTED,               "BoolExprExpected",       "bool expression expected, got \"$1\"");
