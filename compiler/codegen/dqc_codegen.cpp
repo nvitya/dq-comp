@@ -48,9 +48,16 @@ void ODqCompCodegen::GenerateIr()
     if (DK_VALSYM == decl->kind)
     {
       OValSym * vs = decl->pvalsym;
-      if (dynamic_cast<OValSymFunc *>(vs))
+      if (auto * vsfunc = dynamic_cast<OValSymFunc *>(vs))
       {
-        vs->GenGlobalDecl(decl->ispublic, decl->initvalue);
+        vsfunc->GenGlobalDecl(decl->ispublic, decl->initvalue);
+      }
+      else if (auto * ovset = dynamic_cast<OValSymOverloadSet *>(vs))
+      {
+        for (OValSymFunc * fn : ovset->GetFuncs())
+        {
+          fn->GenGlobalDecl(decl->ispublic, nullptr);
+        }
       }
     }
   }
@@ -62,6 +69,11 @@ void ODqCompCodegen::GenerateIr()
     if (DK_VALSYM == decl->kind)
     {
       OValSym * vs = decl->pvalsym;
+      if (dynamic_cast<OValSymOverloadSet *>(vs))
+      {
+        continue;
+      }
+
       if (!dynamic_cast<OValSymFunc *>(vs))
       {
         vs->GenGlobalDecl(decl->ispublic, decl->initvalue);
@@ -86,6 +98,13 @@ void ODqCompCodegen::GenerateIr()
       if (vsfunc)
       {
         vsfunc->GenerateFuncBody();
+      }
+      else if (auto * ovset = dynamic_cast<OValSymOverloadSet *>(vs))
+      {
+        for (OValSymFunc * fn : ovset->GetFuncs())
+        {
+          fn->GenerateFuncBody();
+        }
       }
     }
   }

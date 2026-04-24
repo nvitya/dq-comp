@@ -53,7 +53,7 @@ public:
     ispublic(aispublic),
     pvalsym(v)
   {
-    initvalue = v->ptype->CreateValue();
+    initvalue = (v && v->ptype ? v->ptype->CreateValue() : nullptr);
   }
 
   virtual ~ODecl()

@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.8.7"
+#define DQ_COMPILER_VERSION  "0.8.8"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.8.8:
+  - Function overload v1: collection, no call resolution yet
 v0.8.7:
   - ParseFunctionSignature simplification
 v0.8.6:

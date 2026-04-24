@@ -25,6 +25,8 @@
 
 using namespace std;
 
+class OValSymOverloadSet;
+
 enum EExprConvFlags
 {
   EXPCF_GENERATE_ERRORS    = 1,
@@ -48,6 +50,7 @@ public:
   ODecl * AddDeclVar(OScPosition & scpos, string aid, OType * atype);
   ODecl * AddDeclConst(OScPosition & scpos, string aid, OType * atype, OValue * avalue);
   ODecl * AddDeclFunc(OScPosition & scpos, OValSymFunc * avsfunc);
+  ODecl * AddDeclOverloadSet(OScPosition & scpos, OValSymOverloadSet * avsoverload);
   bool    ResolveCompoundMemberBase(OLValueExpr * lval, OType * srctype, OLValueExpr *& memberbase, OCompoundType *& ctype);
   void    CollectIgnoredPlainAssignVars(OLValueExpr * leftexpr, vector<OLValueVar *> & ignored);
   OValSym * GetAssignRootValSym(OLValueExpr * leftexpr);
@@ -58,6 +61,7 @@ public:
   bool    CheckAssignType(OType * dsttype, OExpr ** rexpr, const string astmt);
 
 protected:
+  void    PrepareFuncDecl(OScPosition & scpos, OValSymFunc * avsfunc);
   bool    HarmonizeNumericOperands(OExpr ** rleft, OExpr ** rright);
   bool    ResolveCommonPointerType(OExpr * leftexpr, OExpr * rightexpr, OType ** rresulttype);
   bool    ResolveCommonFuncRefType(OExpr * leftexpr, OExpr * rightexpr, OType ** rresulttype);

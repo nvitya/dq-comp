@@ -1,0 +1,50 @@
+#ifdef ERRORTEST
+
+function test_int(a : int):
+endfunc
+
+function test_int(a : int, b : int):  //?error(VsAlreadyDecl)
+endfunc
+
+function mix_plain(a : int) -> int:
+  return a;
+endfunc
+
+function mix_plain(a : int, b : int) -> int [[overload]];  //?error(OverloadMixedDecl)
+
+function oltest_int(a : int) -> int [[overload]]:
+  return 0;
+endfunc
+
+function oltest_int(a : int, b : int) -> int [[overload]]:
+  return 0;
+endfunc
+
+function oltest_int(b : int) -> int [[overload]];  //?error(OverloadDupSignature)
+
+type CB1 = function(a : int) -> int;
+var bad_cb : CB1 = oltest_int;  //?error(NotImplementedYet)
+
+function main() -> int:
+  oltest_int(2);  //?error(NotImplementedYet)
+  return 0;
+endfunc
+
+#else
+
+[[external]] function printf(fmt : ^cchar, ...) -> int;
+
+function oltest_int(a : int) -> int [[overload]]:
+  return a;
+endfunc
+
+function oltest_int(a : int, b : int) -> int [[overload]]:
+  return a * b;
+endfunc
+
+function main() -> int:
+  printf("Overload collection test\n");  //?check('Overload collection test')
+  return 0;
+endfunc
+
+#endif

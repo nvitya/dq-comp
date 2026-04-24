@@ -122,6 +122,8 @@ protected:
   bool    ParseSingleAttribute(const string & attrname);
   bool    ParseAttrIntArg(const string & attrname, int64_t & rvalue, bool positive_only = false);
   bool    ParseAttrStringArg(const string & attrname, string & rvalue);
+  bool    RejectUnsupportedOverloadUse(OValSym * vs, const string & symname, OScPosition * scpos = nullptr);
+  void    SkipUnsupportedCallRecovery();
 
   void    VarInitError(OLValueVar * varexpr, OValSym * valsym, OScPosition & scpos);
   void    AddSuppressedVarInitDiag(OLValueVar * varexpr, OValSym * valsym, OScPosition & scpos);

@@ -202,16 +202,8 @@ ODecl * ODqCompAst::AddDeclConst(OScPosition & scpos, string aid, OType * atype,
   return result;
 }
 
-ODecl * ODqCompAst::AddDeclFunc(OScPosition & scpos, OValSymFunc * avsfunc)
+void ODqCompAst::PrepareFuncDecl(OScPosition & scpos, OValSymFunc * avsfunc)
 {
-  ODecl * result = g_module->DeclareValSym(section_public, avsfunc);
-
-  if (g_opt.verblevel >= VERBLEVEL_DEBUG)
-  {
-    print("{}: ", scpos.Format());
-    print("AddDeclFunc(): {}", avsfunc->name);
-  }
-
   avsfunc->scpos.Assign(scpos);
 
   OTypeFunc * tfunc = (OTypeFunc *)(avsfunc->ptype);
@@ -234,12 +226,40 @@ ODecl * ODqCompAst::AddDeclFunc(OScPosition & scpos, OValSymFunc * avsfunc)
     avsfunc->vsresult = new OValSym(scpos, "result", tfunc->rettype, VSK_VARIABLE);
     avsfunc->body->scope->DefineValSym(avsfunc->vsresult);
   }
+}
+
+ODecl * ODqCompAst::AddDeclFunc(OScPosition & scpos, OValSymFunc * avsfunc)
+{
+  ODecl * result = g_module->DeclareValSym(section_public, avsfunc);
+
+  if (g_opt.verblevel >= VERBLEVEL_DEBUG)
+  {
+    print("{}: ", scpos.Format());
+    print("AddDeclFunc(): {}", avsfunc->name);
+  }
+
+  PrepareFuncDecl(scpos, avsfunc);
 
   if (g_opt.verblevel >= VERBLEVEL_DEBUG)
   {
     print("\n");
   }
 
+  return result;
+}
+
+ODecl * ODqCompAst::AddDeclOverloadSet(OScPosition & scpos, OValSymOverloadSet * avsoverload)
+{
+  ODecl * result = g_module->DeclareValSym(section_public, avsoverload);
+
+  if (g_opt.verblevel >= VERBLEVEL_DEBUG)
+  {
+    print("{}: ", scpos.Format());
+    print("AddDeclOverloadSet(): {}", avsoverload->name);
+    print("\n");
+  }
+
+  avsoverload->scpos.Assign(scpos);
   return result;
 }
 

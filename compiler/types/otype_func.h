@@ -112,6 +112,7 @@ public:
 
   bool               is_external = false;
   string             external_linkage_name = "";
+  string             generated_linkage_name = "";
 
   LlFunction *       ll_func = nullptr;
   LlDiSubPrg *       di_func = nullptr;
@@ -145,6 +146,42 @@ public:
 
   void GenerateFuncBody();
   void GenerateFuncRet();
+};
+
+class OValSymOverloadSet : public OValSym
+{
+private:
+  using  super = OValSym;
+
+public:
+  vector<OValSymFunc *>  funcs;
+
+  OValSymOverloadSet(OScPosition & apos, const string aname, OType * atype = nullptr)
+  :
+    super(apos, aname, atype, VSK_FUNCTION)
+  {
+  }
+
+  virtual ~OValSymOverloadSet()
+  {
+    for (OValSymFunc * fn : funcs)
+    {
+      delete fn;
+    }
+  }
+
+  void AddFunc(OValSymFunc * afunc);
+  bool HasMatchingSignature(const OTypeFunc * atype) const;
+
+  inline size_t Count() const
+  {
+    return funcs.size();
+  }
+
+  inline const vector<OValSymFunc *> & GetFuncs() const
+  {
+    return funcs;
+  }
 };
 
 class OValueFuncRef : public OValue

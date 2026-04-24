@@ -97,6 +97,23 @@ ODqCompParser::~ODqCompParser()
   delete attr;
 }
 
+bool ODqCompParser::RejectUnsupportedOverloadUse(OValSym * vs, const string & symname, OScPosition * scpos)
+{
+  if (!dynamic_cast<OValSymOverloadSet *>(vs))
+  {
+    return false;
+  }
+
+  Error(DQERR_NOT_IMPLEMENTED_YET, format("Function overload resolution for \"{}\"", symname), scpos);
+  return true;
+}
+
+void ODqCompParser::SkipUnsupportedCallRecovery()
+{
+  scf->ReadTo(")");
+  scf->CheckSymbol(")");
+}
+
 bool ODqCompParser::ParseAttrIntArg(const string & attrname, int64_t & rvalue, bool positive_only)
 {
   scf->SkipWhite();
@@ -864,7 +881,53 @@ void ODqCompParser::ParseFunction()
     Error(DQERR_VARARGS_NOT_ALLOWED);
   }
 
-  AddDeclFunc(scpos_statement_start, vsfunc);
+  OValSym * existing = cur_mod_scope->FindValSym(sid, nullptr, false);
+  if (vsfunc->attr_is_overload)
+  {
+    OValSymOverloadSet * ovset = dynamic_cast<OValSymOverloadSet *>(existing);
+    if (!existing)
+    {
+      ovset = new OValSymOverloadSet(scpos_statement_start, sid, g_builtins->type_func);
+      PrepareFuncDecl(scpos_statement_start, vsfunc);
+      ovset->AddFunc(vsfunc);
+      AddDeclOverloadSet(scpos_statement_start, ovset);
+    }
+    else if (ovset)
+    {
+      if (ovset->HasMatchingSignature(static_cast<OTypeFunc *>(vsfunc->ptype)))
+      {
+        Error(DQERR_OVERLOAD_DUP_SIGNATURE, sid);
+        SkipToModuleStatementStart();
+        curvsfunc = nullptr;
+        delete vsfunc;
+        return;
+      }
+
+      PrepareFuncDecl(scpos_statement_start, vsfunc);
+      ovset->AddFunc(vsfunc);
+    }
+    else
+    {
+      Error(DQERR_OVERLOAD_MIXED_DECL, sid);
+      SkipToModuleStatementStart();
+      curvsfunc = nullptr;
+      delete vsfunc;
+      return;
+    }
+  }
+  else
+  {
+    if (dynamic_cast<OValSymOverloadSet *>(existing))
+    {
+      Error(DQERR_OVERLOAD_MIXED_DECL, sid);
+      SkipToModuleStatementStart();
+      curvsfunc = nullptr;
+      delete vsfunc;
+      return;
+    }
+
+    AddDeclFunc(scpos_statement_start, vsfunc);
+  }
 
   if (vsfunc->is_external)
   {
@@ -2189,6 +2252,14 @@ OExpr * ODqCompParser::ParsePostfix(OExpr * base)
       OLValueVar * varref = dynamic_cast<OLValueVar *>(lval);
       if (varref)
       {
+        if (dynamic_cast<OValSymOverloadSet *>(varref->pvalsym) && scf->CheckSymbol("("))
+        {
+          SkipUnsupportedCallRecovery();
+          Error(DQERR_NOT_IMPLEMENTED_YET, format("Function overload resolution for \"{}\"", varref->pvalsym->name));
+          delete result;
+          return nullptr;
+        }
+
         OValSymFunc * vsfunc = dynamic_cast<OValSymFunc *>(varref->pvalsym);
         if (vsfunc && scf->CheckSymbol("("))
         {
@@ -2383,6 +2454,11 @@ OExpr * ODqCompParser::ParseExprPrimary()
       return nullptr;
     }
 
+    if (!scf->CheckSymbol("(", false) && RejectUnsupportedOverloadUse(vs, vs->name, &scpos_ns))
+    {
+      return nullptr;
+    }
+
     result = new OLValueVar(vs);
     if (vs->kind != VSK_FUNCTION and not vs->initialized)
     {
@@ -2450,6 +2526,11 @@ OExpr * ODqCompParser::ParseExprPrimary()
   {
     Error(DQERR_VS_UNKNOWN, sid);
     return result;
+  }
+
+  if (!scf->CheckSymbol("(", false) && RejectUnsupportedOverloadUse(vs, sid, &scpos_sid))
+  {
+    return nullptr;
   }
 
   result = new OLValueVar(vs);

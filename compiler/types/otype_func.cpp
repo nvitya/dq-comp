@@ -125,6 +125,31 @@ bool OTypeFunc::MatchesSignature(const OTypeFunc * other) const
   return true;
 }
 
+void OValSymOverloadSet::AddFunc(OValSymFunc * afunc)
+{
+  if (!afunc)
+  {
+    return;
+  }
+
+  afunc->generated_linkage_name = name + "__ovl" + to_string(funcs.size());
+  funcs.push_back(afunc);
+}
+
+bool OValSymOverloadSet::HasMatchingSignature(const OTypeFunc * atype) const
+{
+  for (OValSymFunc * fn : funcs)
+  {
+    OTypeFunc * ftype = dynamic_cast<OTypeFunc *>(fn ? fn->ptype : nullptr);
+    if (ftype && ftype->MatchesSignature(atype))
+    {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 LlType * OTypeFunc::CreateLlType()  // do not call GetLlType() until the function arguments fully prepared
 {
   vector<LlType *> ll_partypes;
@@ -182,7 +207,11 @@ void OValSymFunc::GenGlobalDecl(bool apublic, OValue * ainitval)
 
   LlFuncType *  ll_functype = (LlFuncType *)(ptype->GetLlType());  // calls CreateLlType()
 
-  string ll_name = (external_linkage_name.empty() ? name : external_linkage_name);
+  string ll_name = generated_linkage_name;
+  if (ll_name.empty())
+  {
+    ll_name = (external_linkage_name.empty() ? name : external_linkage_name);
+  }
   ll_func = LlFunction::Create(ll_functype, linktype, ll_name, ll_module);
   if (!attr_section_name.empty())
   {
