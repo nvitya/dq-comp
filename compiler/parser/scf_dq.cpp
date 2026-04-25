@@ -21,6 +21,7 @@
 #include <print>
 #include <format>
 #include <filesystem>
+#include <algorithm>
 
 #include "scf_dq.h"
 #include "scope_defines.h"
@@ -29,6 +30,32 @@
 #include "dqc.h"
 
 //---------------------------------------------------------
+
+static bool IsValidLinkLibName(const string & aname)
+{
+  if (aname.empty())
+  {
+    return false;
+  }
+
+  for (char c : aname)
+  {
+    if (    ((c >= 'A') && (c <= 'Z'))
+         || ((c >= 'a') && (c <= 'z'))
+         || ((c >= '0') && (c <= '9'))
+         || ('_' == c)
+         || ('-' == c)
+         || ('.' == c)
+         || ('+' == c) )
+    {
+      continue;
+    }
+
+    return false;
+  }
+
+  return true;
+}
 
 OScFeederDq::OScFeederDq()
 {
@@ -291,6 +318,10 @@ void OScFeederDq::ParseDirective()
   {
     ParseDirectiveInclude(); // already contains end
   }
+  else if ("linklib" == sid)
+  {
+    ParseDirectiveLinkLib();
+  }
   else if ("include_once" == sid)
   {
     FindDirectiveEnd();
@@ -357,6 +388,57 @@ void OScFeederDq::ParseDirectiveDefine()
     g_defines->DefineValSym(g_builtins->type_bool->CreateConst(scpos_start_directive, sid, true));
   }
   g_compiler->errorpos = nullptr;  // return to the default error position (statement start)
+}
+
+void OScFeederDq::ParseDirectiveLinkLib()
+{
+  // #linklib("name") or #linklib('name')
+  // note: linklib already consumed
+
+  string libname;
+
+  SkipSpaces(false);
+  if (not CheckSymbol("("))
+  {
+    PreprocError2(DQERR_CDIR_LINKLIB_SYNTAX);
+    return;
+  }
+
+  SkipSpaces(false);
+  if (not ReadQuotedString(libname))
+  {
+    PreprocError2(DQERR_CDIR_LINKLIB_SYNTAX);
+    return;
+  }
+
+  SkipSpaces(false);
+  if (not CheckSymbol(")"))
+  {
+    PreprocError2(DQERR_CDIR_LINKLIB_SYNTAX);
+    return;
+  }
+
+  if (not IsValidLinkLibName(libname))
+  {
+    PreprocError2(DQERR_CDIR_LINKLIB_INVALID, libname);
+    return;
+  }
+
+  if (not FindDirectiveEnd())
+  {
+    return;
+  }
+
+  if (g_opt.link_libraries.end() == find(g_opt.link_libraries.begin(), g_opt.link_libraries.end(), libname))
+  {
+    g_opt.link_libraries.push_back(libname);
+  }
+
+  if (g_opt.verblevel >= VERBLEVEL_INFO)
+  {
+    print("{}: ", scpos_start_directive.Format());
+    print("Linking library ({})\n", libname);
+  }
 }
 
 void OScFeederDq::ParseDirectiveInclude()

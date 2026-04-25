@@ -1,0 +1,21 @@
+// linked library test
+
+[[external]] function printf(fmt : ^cchar, ...) -> int;
+
+var fake_zlib_ver : cstring[20] = "v0.0.1-fake";
+
+function zlibVersion_fake() -> ^cchar:
+  result = &fake_zlib_ver[0];
+endfunc
+
+#linklib('z')
+
+[[external]] function zlibVersion() -> ^cchar;
+
+function main() -> int:
+  printf('Linked library test\n'); //?check('Linked library test')
+
+  printf('fake_zLibVersion = %s\n', zlibVersion_fake()); //?check('fake_zLibVersion', 'v0.0.1-fake')
+  printf('zLibVersion = %s\n', zlibVersion()); //?check('zLibVersion')
+  return 0;
+endfunc

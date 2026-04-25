@@ -11,10 +11,14 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.8.13"
+#define DQ_COMPILER_VERSION  "0.8.15"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.8.15:
+  - #linklib directive
+v0.8.14:
+  - Function return type parsing fix
 v0.8.13:
   - Function forward declarations
 v0.8.12:

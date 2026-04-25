@@ -1768,33 +1768,10 @@ bool ODqCompParser::ParseFunctionSignature(OTypeFunc * tfunc, bool atypespec, co
   scf->SkipWhite();
   if (scf->CheckSymbol("->"))
   {
-    if (atypespec)
+    tfunc->rettype = ParseTypeSpec(aemit_errors);
+    if (!tfunc->rettype)
     {
-      tfunc->rettype = ParseTypeSpec(aemit_errors);
-      if (!tfunc->rettype)
-      {
-        return false;
-      }
-    }
-    else
-    {
-      scf->SkipWhite();
-      string frtname;
-      if (!scf->ReadIdentifier(frtname))
-      {
-        if (aemit_errors)
-        {
-          Error(DQERR_FUNC_RETTYPE_EXPECTED);
-        }
-      }
-      else
-      {
-        tfunc->rettype = cur_mod_scope->FindType(frtname);
-        if (!tfunc->rettype && aemit_errors)
-        {
-          Error(DQERR_TYPE_UNKNOWN, frtname);
-        }
-      }
+      return false;
     }
   }
 

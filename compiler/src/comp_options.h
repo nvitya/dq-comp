@@ -53,6 +53,7 @@ public:
   bool     blockmode_braces = false;
 
   vector<OCmdLineDefine>  cmdline_defines;
+  vector<string>          link_libraries;
 
   // include dirs
   // module dirs

@@ -92,6 +92,7 @@ protected:
 
   void ParseDirectiveInclude();
   void ParseDirectiveDefine();
+  void ParseDirectiveLinkLib();
   bool FindDirectiveEnd();
 
   void StartConditionalBranch();
