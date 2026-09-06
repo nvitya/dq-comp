@@ -15,6 +15,8 @@
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.60.1:
+  - Module reexport .dqm_if serialization fix
 v0.60.0:
   - Libraries included for rv32imac_zicsr
   - Some targets renamed for consintent naming like '-bare'

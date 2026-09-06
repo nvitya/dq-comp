@@ -474,7 +474,8 @@ bool OValuePointer::CalculateConstant(OExpr * expr, bool emit_errors)
 
 bool OValue::WriteDqmIfValue(ODqmIfWriter & writer)
 {
-  return writer.Fail(format("Unsupported constant value type in DQM interface: {}", ptype ? ptype->name : "?"));
+  // Plain values are placeholders for constants stored in linked object data.
+  return writer.AddRecEmpty(DQMIF_VALUE_LINKED);
 }
 
 bool OValuePointer::WriteDqmIfValue(ODqmIfWriter & writer)

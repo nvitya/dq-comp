@@ -3,6 +3,7 @@
 const RE_VAL : int = 8
 const ONLY_VAL : int = 3
 const HIDDEN_VAL : int = 21
+const RE_ARRAY : [3]int = [4, 5, 6]
 
 var re_var : int = 4
 
@@ -11,4 +12,3 @@ func printf(fmt : ^char, ...) -> int [[external]]
 func re_func(a : int) -> int:
     result = a + re_var
 endfunc
-
