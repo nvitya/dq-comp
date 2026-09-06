@@ -1021,15 +1021,11 @@ bool OScFeederDq::ReadConditionalSymbol(const string & adirective, string & rnam
 bool OScFeederDq::ConditionalSymbolDefined(const string & anamespace, const string & asymbol, bool & rok)
 {
   rok = true;
-  if (anamespace.empty())
-  {
-    return g_defines->Defined(asymbol);
-  }
-
-  auto it = g_namespaces.find(anamespace);
+  string namespace_name = (anamespace.empty() ? "." : anamespace);
+  auto it = g_namespaces.find(namespace_name);
   if (it == g_namespaces.end())
   {
-    PreprocError2(DQERR_NS_UNKNOWN, "@" + anamespace);
+    PreprocError2(DQERR_NS_UNKNOWN, "@" + namespace_name);
     rok = false;
     return false;
   }

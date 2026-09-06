@@ -1,6 +1,6 @@
 #define DEFINE_ONLY = true
 
-var selected : int = #{if DEFINE_ONLY} 1 #{else} 0 #{endif} //?error(VsUnknown)
+var selected : int = #{if MISSING_VALUE} 1 #{else} 0 #{endif} //?error(VsUnknown)
 
 func *Main() -> int:
     return 0

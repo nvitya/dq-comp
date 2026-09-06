@@ -18,6 +18,7 @@
 #include <vector>
 #include "symbols.h"
 #include "scope_builtins.h"
+#include "scope_defines.h"
 #include "module_intf.h"
 
 using namespace std;
@@ -88,7 +89,7 @@ public:
 
   OModule()
   :
-    super(g_builtins, "module_pub")
+    super(g_defines, "module_pub")
   {
     scope_priv = new OScope(scope_pub,  "module_priv");
     scope_local = new OScope(nullptr, "module_local");

@@ -4570,7 +4570,7 @@ OExpr * ODqCompParserExpr::ParseBuiltinDefined()
   }
 
   scf->SkipWhite();
-  string namespace_name = "def";
+  string namespace_name = ".";
   string symbol_name;
   if (scf->CheckSymbol("@"))
   {

@@ -22,15 +22,13 @@ private:
 
 public:
 
-  OScopeDefines()
+  OScopeDefines(OScope * aparent)
   :
-    super(nullptr, "defines")
+    super(aparent, "defines")
   {
   }
 
   void Init();
-
-  bool Defined(const string aname);
 
 };
 

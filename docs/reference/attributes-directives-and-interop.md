@@ -78,16 +78,18 @@ value supplied by its source; code should not assume that every defined name has
 only the value `true`.
 
 Expressions in `#if` and `#elif` use ordinary DQ lexical name lookup at the
-directive location and must evaluate to a constant Boolean value. Access a
-preprocessor definition in such an expression through `@def.NAME`. The
+directive location and must evaluate to a constant Boolean value. The `@def`
+scope is an outer scope of the module, so preprocessor definitions participate
+in unqualified lookup; `@def.NAME` provides explicit access. The
 existence-testing directives (`#ifdef`, `#ifndef`, `#elifdef`, and `#elifndef`)
-take either an unqualified preprocessor-definition name or a namespace-qualified
-DQ value symbol such as `@.FEATURE` or `@module.FEATURE`.
+search the merged current-module namespace for an unqualified name, including
+module declarations, symbols merged by `use`, and preprocessor definitions.
 
 `Defined(NAME)` provides the same existence test as a constant Boolean
 expression, allowing tests to be combined with `and`, `or`, and `not` in `#if`
-or ordinary code. A bare name searches `@def`; namespace-qualified forms such
-as `Defined(@.FEATURE)` search the specified DQ scope.
+or ordinary code. A bare name searches the merged current-module namespace;
+namespace-qualified forms such as `Defined(@def.FEATURE)` or
+`Defined(@module.FEATURE)` search the specified scope.
 
 ## Include and Source Dependencies
 

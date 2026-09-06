@@ -148,14 +148,16 @@ constant expression and is validated even when an earlier constant is found.
 The result types are fixed: `FirstInt` returns `int`, `FirstFloat` returns
 `float`, and `FirstBool` returns `bool`. These intrinsics are always evaluated
 during compilation and can be used in ordinary expressions as well as `#if`
-and `#elif` conditions. Optional identifiers search DQ lexical scopes, not the
-`@def` namespace.
+and `#elif` conditions. Optional identifiers use normal lexical lookup, whose
+outer module scope includes preprocessor definitions. The optional-identifier
+syntax itself does not accept qualified names such as `@def.NAME`.
 
 ## Definition Test
 
 `Defined(NAME)` is a compile-time intrinsic that returns `true` when `NAME`
-exists in the preprocessor-definition scope and `false` otherwise. Like
-`#ifdef`, a bare name searches `@def`, regardless of the definition's value:
+exists in the merged current-module namespace and `false` otherwise. Like
+`#ifdef`, this includes module declarations, symbols merged by `use`, and
+preprocessor definitions, regardless of their values:
 
 ```dq
 #if Defined(FEATURE_A) or Defined(FEATURE_B)
@@ -163,9 +165,10 @@ exists in the preprocessor-definition scope and `false` otherwise. Like
 #endif
 ```
 
-A namespace-qualified argument tests a DQ value symbol instead, for example
-`Defined(@.MODULE_CONSTANT)` or `Defined(@module.CONSTANT)`. The result is a
-constant `bool`, so `Defined` can also be used in ordinary code.
+A namespace-qualified argument restricts the test to that named scope, for
+example `Defined(@def.FEATURE)`, `Defined(@.MODULE_CONSTANT)`, or
+`Defined(@module.CONSTANT)`. The result is a constant `bool`, so `Defined` can
+also be used in ordinary code.
 
 ## Object Type Test
 

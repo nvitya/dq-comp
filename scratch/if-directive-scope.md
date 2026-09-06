@@ -3,9 +3,9 @@
 ## Motivation
 
 Conditional compilation should be able to depend directly on DQ constants in
-the lexical scope containing the directive. Preprocessor definitions and DQ
-symbols are separate namespaces and should be referenced explicitly when that
-distinction matters.
+the lexical scope containing the directive. Preprocessor definitions retain
+the explicit `@def` namespace and are also merged as an outer scope of the
+normal module namespace.
 
 For example:
 
@@ -17,7 +17,7 @@ const BOARD_REVISION : int = 3
     // selected using a DQ constant
 #endif
 
-#if @def.TARGETVER > 4
+#if TARGETVER > 4
     // selected using a preprocessor definition
 #endif
 ```
@@ -54,23 +54,24 @@ The same rules apply to the inline `#{if ...}` and `#{elif ...}` forms.
 
 ## Preprocessor definitions
 
-Preprocessor definitions are accessed explicitly through the existing `@def`
-namespace in `#if` and `#elif` expressions:
+Preprocessor definitions are merged as an outer scope of the normal module
+namespace and therefore participate in unqualified lookup. They remain
+available explicitly through `@def`:
 
 ```dq
 #define TARGETVER = 5
 
-#if @def.TARGETVER > 4
+#if TARGETVER > 4
     // ...
 #endif
 ```
 
-A bare `TARGETVER` in this example is looked up as a DQ symbol, not as a
-preprocessor definition. If no visible DQ symbol has that name, the bare use is
-an error.
+A normal DQ declaration shadows a preprocessor definition with the same name.
+Use `@def.TARGETVER` when the definition must be selected explicitly.
 
-The existence-testing directives continue to operate on preprocessor
-definitions and do not change:
+The existence-testing directives search the merged current-module namespace,
+which includes normal module declarations, symbols merged by `use`, and
+preprocessor definitions:
 
 ```dq
 #ifdef TARGETVER
@@ -88,8 +89,8 @@ preserves constructs such as:
 #define NEXT_TARGETVER = TARGETVER + 1
 ```
 
-Thus, the scope change applies only to `#if` and `#elif` condition expressions,
-not to `#define` value expressions or the existence-testing directives.
+The `#define` value-expression rule is intentionally narrower than ordinary
+expression and existence-test lookup.
 
 ## Typed constant fallbacks with `FirstInt`, `FirstFloat`, and `FirstBool`
 
@@ -148,10 +149,9 @@ constant or fallback value is converted to that fixed type at compile time.
 The complete intrinsic is replaced with an ordinary typed constant expression;
 it does not generate a run-time call.
 
-The optional identifiers do not search the preprocessor-definition scope and
-cannot be `@def` expressions. Preprocessor definitions can instead be tested
-with `#ifdef` in directive code or accessed as `@def.NAME` in an ordinary
-expression. The fallback is an ordinary constant expression and may use
+The optional identifiers use normal lexical lookup, including preprocessor
+definitions in the outer module scope, but cannot use qualified syntax such as
+`@def.NAME`. The fallback is an ordinary constant expression and may use
 explicitly qualified names.
 
 Because the intrinsics are recognized in every expression context,
@@ -248,24 +248,25 @@ The compiler should diagnose at least the following cases:
 
 ## Compatibility
 
-This is a source-incompatible change for conditions that currently refer to
-preprocessor definitions without qualification:
+Preprocessor definitions that previously required qualification in `#if` and
+ordinary expressions can now be used unqualified:
 
 ```dq
 #define TARGETVER = 5
-#if TARGETVER > 4       // old form
+#if TARGETVER > 4
 #endif
 ```
 
-Such conditions must be migrated to:
+Explicit access remains supported:
 
 ```dq
 #if @def.TARGETVER > 4
 #endif
 ```
 
-`#ifdef` and related existence tests require no migration. `#define`
-expressions that refer to other definitions also require no migration.
+Bare `#ifdef`, related existence tests, and `Defined()` additionally recognize
+normal and imported module symbols. `#define` expressions that refer to other
+definitions retain their existing lookup behavior.
 
 The globally recognized `FirstInt`, `FirstFloat`, and `FirstBool` names are
 also reserved by this change. Existing ordinary functions with those names
@@ -273,11 +274,10 @@ must be renamed.
 
 ## Implementation outline
 
-The conditional-expression parser currently saves the active DQ scope and then
-temporarily replaces it with the preprocessor-definition scope. For `#if` and
-`#elif`, it should instead parse using the saved active DQ scope. Explicit
-`@def.NAME` references already use namespace lookup and can continue through
-that path.
+The module public scope uses the preprocessor-definition scope as its parent,
+and that scope in turn uses the built-in scope as its parent. Consequently,
+ordinary lexical lookup reaches definitions after normal module and imported
+symbols. Explicit `@def.NAME` references continue through named-scope lookup.
 
 `#define` value parsing should retain its current preprocessor-definition
 scope.

@@ -17,7 +17,7 @@ const MODULE_CONSTANT : int = 1
     const FALSE_VALUE_IS_STILL_DEFINED : int = 0
 #endif
 
-#if Defined(@.MODULE_CONSTANT) and not Defined(@.MISSING_CONSTANT)
+#if Defined(MODULE_CONSTANT) and not Defined(MISSING_CONSTANT)
     const QUALIFIED_RESULT : int = 13
 #else
     const QUALIFIED_RESULT : int = 0
@@ -28,6 +28,7 @@ func printf(fmt : ^char, ...) -> int [[external]]
 func *Main() -> int:
     var definition_exists : bool = Defined(FIRST_FEATURE)
     var definition_missing : bool = Defined(MISSING_FEATURE)
+    var unqualified_module_exists : bool = Defined(MODULE_CONSTANT)
     var qualified_exists : bool = Defined(@.MODULE_CONSTANT)
     var qualified_missing : bool = Defined(@.MISSING_CONSTANT)
 
@@ -36,6 +37,7 @@ func *Main() -> int:
     printf("qualified = %d\n", QUALIFIED_RESULT) //?check("qualified", 13)
     printf("definition exists = %d\n", definition_exists) //?check("definition exists", 1)
     printf("definition missing = %d\n", definition_missing) //?check("definition missing", 0)
+    printf("unqualified module exists = %d\n", unqualified_module_exists) //?check("unqualified module exists", 1)
     printf("qualified exists = %d\n", qualified_exists) //?check("qualified exists", 1)
     printf("qualified missing = %d\n", qualified_missing) //?check("qualified missing", 0)
     return 0

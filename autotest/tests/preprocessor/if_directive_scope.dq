@@ -10,6 +10,8 @@ const VERSION : int = 2
 #define NEXT_TARGET = BASE_TARGET + 1
 #define STILL_DEFINED
 
+const MERGED_DEFINE_VALUE : int = NEXT_TARGET
+
 #if MODULE_LEVEL >= 3
     const module_branch : int = 31
 #else
@@ -32,6 +34,12 @@ const VERSION : int = 2
     const ifdef_branch : int = 81
 #else
     const ifdef_branch : int = 0
+#endif
+
+#ifdef MODULE_LEVEL
+    const module_ifdef_branch : int = 82
+#else
+    const module_ifdef_branch : int = 0
 #endif
 
 #ifdef @.MODULE_LEVEL
@@ -109,7 +117,9 @@ func *Main() -> int:
     printf("inline branch = %d\n", inline_branch)             //?check("inline branch", 61)
     printf("DQ version = %d\n", dq_version_branch)            //?check("DQ version", 22)
     printf("define version = %d\n", define_branch)            //?check("define version", 71)
+    printf("merged define = %d\n", MERGED_DEFINE_VALUE)       //?check("merged define", 11)
     printf("ifdef branch = %d\n", ifdef_branch)               //?check("ifdef branch", 81)
+    printf("module ifdef = %d\n", module_ifdef_branch)         //?check("module ifdef", 82)
     printf("qualified ifdef = %d\n", qualified_ifdef_branch)   //?check("qualified ifdef", 91)
     printf("qualified define = %d\n", qualified_define_branch) //?check("qualified define", 95)
     printf("qualified ifndef = %d\n", qualified_ifndef_branch) //?check("qualified ifndef", 92)

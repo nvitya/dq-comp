@@ -19,7 +19,7 @@ OScopeDefines *  g_defines;
 
 void init_scope_defines()
 {
-  g_defines = new OScopeDefines();
+  g_defines = new OScopeDefines(g_builtins);
   g_defines->Init();
 }
 
@@ -82,13 +82,4 @@ void OScopeDefines::Init()
     DefineValSym(g_builtins->type_bool->CreateConst(scpos, "TARGET_64BIT", true));
     DefineValSym(g_builtins->native_int->CreateConst(scpos, "PTRSIZE", 8));
   }
-}
-
-bool OScopeDefines::Defined(const string aname)
-{
-  if (FindValSym(aname))
-  {
-    return true;
-  }
-  return false;
 }

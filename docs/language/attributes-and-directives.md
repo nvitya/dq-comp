@@ -141,10 +141,12 @@ or object and struct methods.
 #define BUFFER_SIZE = 4096
 ```
 
-Preprocessor symbols can be read through `@def`.
+Preprocessor symbols are merged into the module's normal lookup scope. They can
+be read by a bare name or explicitly through `@def`.
 
 ```dq
-var size : int = @def.BUFFER_SIZE
+var size : int = BUFFER_SIZE
+var explicit_size : int = @def.BUFFER_SIZE
 ```
 
 DQ does not provide C-style textual macro expansion.
@@ -183,7 +185,8 @@ var value : int = #{ifdef FAST} 1 #{else} 2 #{endif}
 `#if` and `#elif` expressions resolve unqualified names in the surrounding DQ
 lexical scope. The result must be a compile-time constant Boolean value, and
 only declarations already visible at the directive can be used. Preprocessor
-definitions are a separate namespace and are referenced explicitly:
+definitions form an outer scope of the module, so they are also available to
+unqualified lookup. Use `@def` when explicit access is useful:
 
 ```dq
 const API_LEVEL : int = 4
@@ -193,15 +196,17 @@ const API_LEVEL : int = 4
     const HAS_NEW_API : bool = true
 #endif
 
-#if @def.TARGET_VERSION >= 7
+#if TARGET_VERSION >= 7
     const HAS_NEW_TARGET : bool = true
 #endif
 ```
 
-`#ifdef`, `#ifndef`, `#elifdef`, and `#elifndef` test preprocessor definitions
-directly when given a bare name. They can also test a value symbol in any named
-scope, for example `#ifdef @.FEATURE` or `#ifdef @module.FEATURE`. Bare names in
-`#define` value expressions continue to refer to earlier preprocessor definitions.
+`#ifdef`, `#ifndef`, `#elifdef`, and `#elifndef` search the merged current-module
+namespace when given a bare name. This includes module declarations, symbols
+merged by `use`, and preprocessor definitions. A qualified name searches the
+specified scope, for example `#ifdef @def.FEATURE`, `#ifdef @.FEATURE`, or
+`#ifdef @module.FEATURE`. Bare names in `#define` value expressions refer to
+earlier preprocessor definitions.
 
 ## Include
 
