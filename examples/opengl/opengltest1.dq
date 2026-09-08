@@ -1,0 +1,54 @@
+// Simple OpenGL test displaying a moving triangle.
+// Build and run from the repository root with:
+//   build/dq-run examples/opengl/opengltest1.dq
+// Requires the GLFW development package and libGL (for example, libglfw3-dev
+// and libgl1-mesa-dev on Debian/Ubuntu).
+
+use print
+use ./openglutils
+use math
+
+func *Main() -> int:
+    if GlfwInit() == GLFW_FALSE:
+        PrintLn('Could not initialize GLFW')
+        return 1
+    endif
+
+    // Request an old enough context that supports the compact immediate-mode
+    // rendering below. A later example can replace this with shaders.
+    GlfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2)
+    GlfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1)
+
+    var window : pointer = GlfwCreateWindow(800, 600, 'DQ OpenGL: moving triangle', nil, nil)
+    if window == nil:
+        PrintLn('Could not create the OpenGL window')
+        GlfwTerminate()
+        return 1
+    endif
+
+    GlfwMakeContextCurrent(window)
+    GlfwSwapInterval(1) // enable vertical sync
+
+    while GlfwWindowShouldClose(window) == GLFW_FALSE:
+        var x : float32 = float32(Sin(GlfwGetTime()) * 0.5)
+
+        GlClearColor(0.06, 0.08, 0.14, 1.0)
+        GlClear(GL_COLOR_BUFFER_BIT)
+
+        GlBegin(GL_TRIANGLES)
+        GlColor3f(1.0, 0.25, 0.2)
+        GlVertex2f(x, 0.55)
+        GlColor3f(0.2, 0.9, 0.35)
+        GlVertex2f(x - 0.35, -0.30)
+        GlColor3f(0.25, 0.5, 1.0)
+        GlVertex2f(x + 0.35, -0.30)
+        GlEnd()
+
+        GlfwSwapBuffers(window)  // this call blocks until the next refresh
+        GlfwPollEvents()
+    endwhile
+
+    GlfwDestroyWindow(window)
+    GlfwTerminate()
+    return 0
+endfunc
