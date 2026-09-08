@@ -117,10 +117,11 @@ func *Main() -> int:
         return 1
     endif
 
-    // DdGfx currently uses the OpenGL compatibility API while its public
-    // scene-graph interface is being ported.
-    GlfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2)
-    GlfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1)
+    // DdGfx uses shaders, vertex-array objects, and vertex buffers.  A
+    // compatibility profile keeps the legacy GL_ALPHA text texture format.
+    GlfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3)
+    GlfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3)
+    GlfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE)
 
     var window : pointer = GlfwCreateWindow(original_width, original_height, 'DdGfx test 1 for DQ', nil, nil)
     if window == nil:

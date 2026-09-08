@@ -2,98 +2,9 @@
 // It rasterizes UTF-8 text into OAlphaMap; shaping and kerning are deliberately
 // out of scope for this first port, matching the simple bitmap use of ddgfx.
 
+use ./freetype_min
 use ./ddgfx
 use rtl/strfunc
-
-#linklib('freetype')
-
-const FT_LOAD_RENDER : int32 = 0x00000004
-
-// Public portions of the FreeType records used by this module.  FT_Long is
-// a C long, hence int64 on the supported x86_64 Linux host target.
-struct SFreeTypeBitmap:
-    rows         : uint32
-    width        : uint32
-    pitch        : int32
-    buffer       : ^uint8
-    num_grays    : uint16
-    pixel_mode   : uint8
-    palette_mode : uint8
-    palette      : pointer
-endstruct
-
-struct SFreeTypeSizeMetrics:
-    x_ppem : uint16
-    y_ppem : uint16
-    x_scale : int64
-    y_scale : int64
-    ascender : int64
-    descender : int64
-    height : int64
-    max_advance : int64
-endstruct
-
-struct SFreeTypeSize:
-    face : pointer
-    generic_data : pointer
-    generic_finalizer : pointer
-    metrics : SFreeTypeSizeMetrics
-    internal : pointer
-endstruct
-
-struct SFreeTypeFace:
-    num_faces   : int64
-    face_index  : int64
-    face_flags  : int64
-    style_flags : int64
-    num_glyphs  : int64
-    family_name : pointer
-    style_name  : pointer
-    num_fixed_sizes : int32
-    available_sizes  : pointer
-    num_charmaps : int32
-    charmaps     : pointer
-    generic_data : pointer
-    generic_finalizer : pointer
-    bbox : [4]int64
-    units_per_em : uint16
-    ascender     : int16
-    descender    : int16
-    height       : int16
-    max_advance_width  : int16
-    max_advance_height : int16
-    underline_position : int16
-    underline_thickness : int16
-    glyph : pointer
-    size  : pointer
-endstruct
-
-struct SFreeTypeGlyphSlot:
-    library : pointer
-    face    : pointer
-    next    : pointer
-    glyph_index : uint32
-    reserved : uint32
-    generic_data : pointer
-    generic_finalizer : pointer
-    metrics : [8]int64
-    linear_hori_advance : int64
-    linear_vert_advance : int64
-    advance_x : int64
-    advance_y : int64
-    format : uint32
-    format_padding : uint32
-    bitmap : SFreeTypeBitmap
-    bitmap_left : int32
-    bitmap_top  : int32
-endstruct
-
-func FtInitFreeType(library : ^pointer) -> int32 [[external('FT_Init_FreeType')]]
-func FtDoneFreeType(library : pointer) -> int32 [[external('FT_Done_FreeType')]]
-func FtNewFace(library : pointer, filename : ^char, face_index : int64, face : ^pointer) -> int32 [[external('FT_New_Face')]]
-func FtDoneFace(face : pointer) -> int32 [[external('FT_Done_Face')]]
-func FtSetPixelSizes(face : pointer, width : uint32, height : uint32) -> int32 [[external('FT_Set_Pixel_Sizes')]]
-func FtLoadChar(face : pointer, char_code : uint32, load_flags : int32) -> int32 [[external('FT_Load_Char')]]
 
 object OFont:
     face       : pointer = nil
@@ -128,6 +39,10 @@ object OTextBox(OAlphaMap):
 
     property Text : str read ftext write SetText
 endobject
+
+
+implementation
+
 
 func OFont.*Create(library : pointer, filename : strview):
     var path : str = filename
@@ -221,7 +136,7 @@ func OFont.RenderToAlphaMap(text : strview, target : OAlphaMap):
             for column : int = 0 count glyph.bitmap.width:
                 var target_x : int = pen_x + glyph.bitmap_left + column
                 if target_x >= 0 and target_x < target.width:
-                    target.data[target_y * target.width + target_x] = glyph.bitmap.buffer[row * glyph.bitmap.pitch + column]^ 
+                    target.data[target_y * target.width + target_x] = glyph.bitmap.buffer[row * glyph.bitmap.pitch + column]^
                 endif
             endfor
         endfor

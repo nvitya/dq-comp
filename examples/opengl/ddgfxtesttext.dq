@@ -9,6 +9,7 @@ use ./ddgfx_font
 
 const window_width  : int = 800
 const window_height : int = 600
+
 func *Main() -> int:
     PrintLn('DdGfx for DQ text test')
 
@@ -17,8 +18,9 @@ func *Main() -> int:
         return 1
     endif
 
-    GlfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2)
-    GlfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1)
+    GlfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3)
+    GlfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3)
+    GlfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE)
     var window : pointer = GlfwCreateWindow(window_width, window_height, 'DdGfx text test for DQ', nil, nil)
     if window == nil:
         PrintLn('Could not create the OpenGL window')
@@ -45,16 +47,16 @@ func *Main() -> int:
     endif
 
     var text : OTextBox = new OTextBox(scene.root, small_font, 'Hello World! éáőúöüóÉÁŐÚŰÖÜÓ Agy')
-    text.x = 10.0
-    text.y = 10.0
+    text.x = 10
+    text.y = 10
 
     var text2 : OTextBox = new OTextBox(scene.root, large_font, 'Text 2')
-    text2.x = 100.0
-    text2.y = 100.0
+    text2.x = 100
+    text2.y = 100
 
     var alpha_map : OAlphaMap = scene.root.NewAlphaMap(403, 303)
-    alpha_map.x = 32.0
-    alpha_map.y = 32.0
+    alpha_map.x = 32
+    alpha_map.y = 32
     alpha_map.Clear(0)
     for index : int = 0 to alpha_map.data.length - 1 step 77:
         alpha_map.data[index] = 255
@@ -62,11 +64,11 @@ func *Main() -> int:
     alpha_map.needsUpdate = true
     alpha_map.visible = false
 
-    var time : float64 = 0.0
+    var time : float64 = 0
     while GlfwWindowShouldClose(window) == GLFW_FALSE:
         time += 1.0
         text2.Text = Format('txt2 value = {}', [time])
-        text.Text = Format('Hello World! éáőúöüóÉÁŐÚŰÖÜÓ Agy{}', [Floor(time) rem 20])
+        text.Text = Format('Hello World! éáőúöüóÉÁŐÚŰÖÜÓ Agy{}', [Floor(time) rem 32])
 
         var width : int32 = 0
         var height : int32 = 0

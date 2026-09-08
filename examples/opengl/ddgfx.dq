@@ -1,14 +1,33 @@
-// A small 2D scene graph derived from ddgfx.pas.
-//
-// The Lazarus TOpenGLControl wrapper is intentionally replaced by
-// ODdScene: the caller owns the GLFW window and drives BeginFrame and
-// EndFrame from its normal event loop.
+/* -----------------------------------------------------------------------------
+ * Copyright (c) 2022, 2026 Viktor Guath-Nagy, nvitya
+ *
+ * This software is provided 'as-is', without any express or implied warranty.
+ * In no event will the authors be held liable for any damages arising from
+ * the use of this software. Permission is granted to anyone to use this
+ * software for any purpose, including commercial applications, and to alter
+ * it and redistribute it freely, subject to the following restrictions:
+ *
+ * 1. The origin of this software must not be misrepresented; you must not
+ *    claim that you wrote the original software. If you use this software in
+ *    a product, an acknowledgment in the product documentation would be
+ *    appreciated but is not required.
+ *
+ * 2. Altered source versions must be plainly marked as such, and must not be
+ *    misrepresented as being the original software.
+ *
+ * 3. This notice may not be removed or altered from any source distribution.
+ * ---------------------------------------------------------------------------
+ *  file:     ddgfx.dq
+ *  brief:    ddGfx main module, a small 2D scene graph
+ *            derived from ddgfx.pas at https://github.com/nvitya/ddgfx
+ *  date:     2022-09-09, 2026-09-08
+ *  authors:  nvitya
+*/
 
 use math
 use ./openglutils
 
-struct SDdMatrix:
-    // A 2D affine matrix: xx, xy, yx, yy, tx, ty.
+struct SDdMatrix:         // A 2D affine matrix: xx, xy, yx, yy, tx, ty.
     values : [6]float32
 
     func SetIdentity():
@@ -39,6 +58,178 @@ struct SDdColor:
         alpha = aalpha
     endfunc
 endstruct
+
+func DdColor(red : float32, green : float32, blue : float32, alpha : float32 = 1.0) -> SDdColor;
+func DdMatIdentity() -> SDdMatrix;
+func DdMatMultiply(first : SDdMatrix, second : SDdMatrix) -> SDdMatrix;
+func DdMatTransformPoint(matrix : SDdMatrix, point : SDdVertex) -> SDdVertex;
+func DdMatProjection(width : int, height : int) -> SDdMatrix;
+
+//-----------------------------------------------------------------------------
+
+object ODrawable:
+    parent  : ODrawable = nil
+    x       : float32 = 0.0
+    y       : float32 = 0.0
+    scaleX  : float32 = 1.0
+    scaleY  : float32 = 1.0
+    rotation : float32 = 0.0 // degrees
+    alpha   : float32 = 1.0
+    visible : bool = true
+
+    func *Create(parent : ODrawable)
+    func *Destroy()
+    func Matrix() -> SDdMatrix
+    func Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[virtual]]
+endobject
+
+object OPrimitive:
+    mode     : uint32 = GL_TRIANGLES
+    vertices : [*]SDdVertex
+    vao      : uint32 = 0
+    vbo      : uint32 = 0
+    bufferReady : bool = false
+
+    func *Create(mode : uint32, vertices : []SDdVertex)
+    func *Destroy()
+    func Draw()
+endobject
+
+object OShape(ODrawable):
+    color     : SDdColor = DdColor(1.0, 1.0, 1.0)
+    lineWidth : float32 = 1.0
+    primitives : [*]OPrimitive
+
+    func *Create(parent : ODrawable)
+    func *Destroy()
+    func AddPrimitive(mode : uint32, vertices : []SDdVertex) -> OPrimitive
+    func Clear()
+    func Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[override]]
+endobject
+
+object OClonedShape(ODrawable):
+    original : OShape = nil
+    color    : SDdColor = DdColor(1.0, 1.0, 1.0)
+
+    func *Create(parent : ODrawable, original : OShape)
+    func Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[override]]
+endobject
+
+object OPixmap(ODrawable):
+    width       : int = 0
+    height      : int = 0
+    data        : [*]uint32
+    needsUpdate : bool = true
+    texture     : uint32 = 0
+    vao         : uint32 = 0
+    positionVbo : uint32 = 0
+    texcoordVbo : uint32 = 0
+    geometryReady : bool = false
+
+    func *Create(parent : ODrawable, width : int, height : int)
+    func *Destroy()
+    func Clear(color : uint32)
+    func UpdateGeometry()
+    func UpdateTexture()
+    func Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[override]]
+endobject
+
+object OAlphaMap(ODrawable):
+    width       : int = 0
+    height      : int = 0
+    data        : [*]uint8
+    needsUpdate : bool = true
+    texture     : uint32 = 0
+    vao         : uint32 = 0
+    positionVbo : uint32 = 0
+    texcoordVbo : uint32 = 0
+    geometryReady : bool = false
+    color       : SDdColor = DdColor(1.0, 1.0, 1.0)
+
+    func *Create(parent : ODrawable, width : int, height : int)
+    func *Destroy()
+    func Clear(value : uint8)
+    func SetSize(width : int, height : int)
+    func UpdateGeometry()
+    func UpdateTexture()
+    func Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[override]]
+endobject
+
+object OClonedGroup(ODrawable):
+    // Keeping this as the base type breaks the otherwise circular DQ type
+    // declaration between a group and a clone of a group.
+    original : ODrawable = nil
+
+    func *Create(parent : ODrawable, original : ODrawable)
+    func Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[override]]
+endobject
+
+object ODrawGroup(ODrawable):
+    children : [*]ODrawable
+
+    func *Create(parent : ODrawable)
+    func *Destroy()
+    func AddChild(child : ODrawable)
+    func RemoveChild(child : ODrawable)
+    func NewGroup() -> ODrawGroup
+    func NewShape() -> OShape
+    func NewPixmap(width : int, height : int) -> OPixmap
+    func NewAlphaMap(width : int, height : int) -> OAlphaMap
+    func CloneShape(original : OShape) -> OClonedShape
+    func CloneGroup(original : ODrawGroup) -> OClonedGroup
+    func Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[override]]
+endobject
+
+// The shaders apply the scene matrix on the GPU.  Vertex data stays in local
+// object coordinates, so changing an object's transform does not re-upload it.
+object OColorProgram:
+    program       : uint32 = 0
+    vertexShader  : uint32 = 0
+    fragmentShader : uint32 = 0
+    matrixLocation : int32 = -1
+    colorLocation  : int32 = -1
+
+    func *Create()
+    func *Destroy()
+    func Activate()
+    func SetMatrix(matrix : SDdMatrix)
+    func SetColor(color : SDdColor, alpha : float32)
+endobject
+
+object OTextureProgram:
+    program       : uint32 = 0
+    vertexShader  : uint32 = 0
+    fragmentShader : uint32 = 0
+    matrixLocation : int32 = -1
+    colorLocation  : int32 = -1
+    textureLocation : int32 = -1
+    alphaMapLocation : int32 = -1
+
+    func *Create()
+    func *Destroy()
+    func Activate()
+    func SetMatrix(matrix : SDdMatrix)
+    func SetColor(color : SDdColor, alpha : float32)
+    func SetAlphaMap(value : int32)
+endobject
+
+object ODdScene:
+    window     : pointer = nil
+    root       : ODrawGroup = nil
+    background : SDdColor = DdColor(0.0, 0.0, 0.0)
+    projection : SDdMatrix
+
+    func *Create(window : pointer)
+    func *Destroy()
+    func BeginFrame(width : int, height : int)
+    func EndFrame()
+endobject
+
+var g_colorProgram   : OColorProgram   = nil
+var g_textureProgram : OTextureProgram = nil
+
+implementation
+
 
 func DdColor(red : float32, green : float32, blue : float32, alpha : float32 = 1.0) -> SDdColor:
     result.red = red
@@ -71,123 +262,194 @@ func DdMatTransformPoint(matrix : SDdMatrix, point : SDdVertex) -> SDdVertex:
 endfunc
 
 func DdMatProjection(width : int, height : int) -> SDdMatrix:
-    result = DdMatIdentity()
     result.values[0] =  2.0 / width
+    result.values[1] = 0
+    result.values[2] = 0
     result.values[3] = -2.0 / height
     result.values[4] = -1.0 + 0.5 / width
     result.values[5] =  1.0 - 0.5 / height
 endfunc
 
-object ODrawable:
-    parent  : ODrawable = nil
-    x       : float32 = 0.0
-    y       : float32 = 0.0
-    scaleX  : float32 = 1.0
-    scaleY  : float32 = 1.0
-    rotation : float32 = 0.0 // degrees
-    alpha   : float32 = 1.0
-    visible : bool = true
 
-    func *Create(parent : ODrawable)
-    func *Destroy()
-    func Matrix() -> SDdMatrix
-    func Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[virtual]]
-endobject
+func DdCompileShader(shader_type : uint32, source : strview) -> uint32:
+    result = GlCreateShader(shader_type)
+    var shader_source  : str = source
+    var source_pointer : ^char = shader_source.pchar
+    var source_length  : int32 = shader_source.length
+    GlShaderSource(result, 1, %source_pointer, %source_length)
+    GlCompileShader(result)
 
-object OPrimitive:
-    mode     : uint32 = GL_TRIANGLES
-    vertices : [*]SDdVertex
+    var status : int32 = 0
+    GlGetShaderiv(result, GL_COMPILE_STATUS, %status)
+    if status == 0:
+        GlDeleteShader(result)
+        result = 0
+    endif
+endfunc
 
-    func *Create(mode : uint32, vertices : []SDdVertex)
-    func Draw(matrix : SDdMatrix)
-endobject
+//-----------------------------------------------------------------------------
 
-object OShape(ODrawable):
-    color     : SDdColor = DdColor(1.0, 1.0, 1.0)
-    lineWidth : float32 = 1.0
-    primitives : [*]OPrimitive
+func OColorProgram.*Create():
+    use *
+    vertexShader = DdCompileShader(GL_VERTEX_SHADER,
+        'uniform mat3 u_MVPMatrix; attribute vec2 a_Position;'
+        + 'void main() { vec3 point = u_MVPMatrix * vec3(a_Position, 1.0);'
+        + 'gl_Position = vec4(point.xy, 0.0, 1.0); }')
+    fragmentShader = DdCompileShader(GL_FRAGMENT_SHADER,
+        'uniform vec4 u_Color; void main() { gl_FragColor = u_Color; }')
+    if vertexShader == 0 or fragmentShader == 0:
+        return
+    endif
 
-    func *Create(parent : ODrawable)
-    func *Destroy()
-    func AddPrimitive(mode : uint32, vertices : []SDdVertex) -> OPrimitive
-    func Clear()
-    func Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[override]]
-endobject
+    program = GlCreateProgram()
+    var position_name : str = 'a_Position'
+    GlAttachShader(program, vertexShader)
+    GlAttachShader(program, fragmentShader)
+    GlBindAttribLocation(program, 0, position_name.pchar)
+    GlLinkProgram(program)
 
-object OClonedShape(ODrawable):
-    original : OShape = nil
-    color    : SDdColor = DdColor(1.0, 1.0, 1.0)
+    var status : int32 = 0
+    GlGetProgramiv(program, GL_LINK_STATUS, %status)
+    if status == 0:
+        GlDeleteProgram(program)
+        program = 0
+        return
+    endif
 
-    func *Create(parent : ODrawable, original : OShape)
-    func Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[override]]
-endobject
+    var matrix_name : str = 'u_MVPMatrix'
+    var color_name : str = 'u_Color'
+    matrixLocation = GlGetUniformLocation(program, matrix_name.pchar)
+    colorLocation = GlGetUniformLocation(program, color_name.pchar)
+endfunc
 
-object OPixmap(ODrawable):
-    width       : int = 0
-    height      : int = 0
-    data        : [*]uint32
-    needsUpdate : bool = true
-    texture     : uint32 = 0
+func OColorProgram.*Destroy():
+    use *
+    if program <> 0:
+        GlDeleteProgram(program)
+    endif
+    if vertexShader <> 0:
+        GlDeleteShader(vertexShader)
+    endif
+    if fragmentShader <> 0:
+        GlDeleteShader(fragmentShader)
+    endif
+endfunc
 
-    func *Create(parent : ODrawable, width : int, height : int)
-    func *Destroy()
-    func Clear(color : uint32)
-    func UpdateTexture()
-    func Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[override]]
-endobject
+func OColorProgram.Activate():
+    use *
+    GlUseProgram(program)
+endfunc
 
-object OAlphaMap(ODrawable):
-    width       : int = 0
-    height      : int = 0
-    data        : [*]uint8
-    needsUpdate : bool = true
-    texture     : uint32 = 0
-    color       : SDdColor = DdColor(1.0, 1.0, 1.0)
+func OColorProgram.SetMatrix(matrix : SDdMatrix):
+    use *
+    var values : [9]float32
+    values[0] = matrix.values[0]
+    values[1] = matrix.values[1]
+    values[2] = 0
+    values[3] = matrix.values[2]
+    values[4] = matrix.values[3]
+    values[5] = 0
+    values[6] = matrix.values[4]
+    values[7] = matrix.values[5]
+    values[8] = 1
+    GlUniformMatrix3fv(matrixLocation, 1, 0, %values[0])
+endfunc
 
-    func *Create(parent : ODrawable, width : int, height : int)
-    func *Destroy()
-    func Clear(value : uint8)
-    func SetSize(width : int, height : int)
-    func UpdateTexture()
-    func Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[override]]
-endobject
+func OColorProgram.SetColor(color : SDdColor, alpha : float32):
+    use *
+    GlUniform4f(colorLocation, color.red, color.green, color.blue, color.alpha * alpha)
+endfunc
 
-object OClonedGroup(ODrawable):
-    // Keeping this as the base type breaks the otherwise circular DQ type
-    // declaration between a group and a clone of a group.
-    original : ODrawable = nil
+//-----------------------------------------------------------------------------
 
-    func *Create(parent : ODrawable, original : ODrawable)
-    func Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[override]]
-endobject
+func OTextureProgram.*Create():
+    use *
+    vertexShader = DdCompileShader(GL_VERTEX_SHADER,
+        'uniform mat3 u_MVPMatrix; attribute vec2 a_Position; attribute vec2 a_TexCoordinate;'
+        + 'varying vec2 v_TexCoordinate; void main() {'
+        + 'vec3 point = u_MVPMatrix * vec3(a_Position, 1.0);'
+        + 'gl_Position = vec4(point.xy, 0.0, 1.0); v_TexCoordinate = a_TexCoordinate; }')
+    fragmentShader = DdCompileShader(GL_FRAGMENT_SHADER,
+        'uniform sampler2D u_Texture; uniform vec4 u_Color; varying vec2 v_TexCoordinate;'
+        + 'uniform int u_AlphaMap; void main() { vec4 sample = texture2D(u_Texture, v_TexCoordinate);'
+        + 'if (u_AlphaMap != 0) gl_FragColor = vec4(u_Color.rgb, u_Color.a * sample.a);'
+        + 'else gl_FragColor = sample * u_Color; }')
+    if vertexShader == 0 or fragmentShader == 0:
+        return
+    endif
 
-object ODrawGroup(ODrawable):
-    children : [*]ODrawable
+    program = GlCreateProgram()
+    var position_name : str = 'a_Position'
+    var texcoord_name : str = 'a_TexCoordinate'
+    GlAttachShader(program, vertexShader)
+    GlAttachShader(program, fragmentShader)
+    GlBindAttribLocation(program, 0, position_name.pchar)
+    GlBindAttribLocation(program, 1, texcoord_name.pchar)
+    GlLinkProgram(program)
 
-    func *Create(parent : ODrawable)
-    func *Destroy()
-    func AddChild(child : ODrawable)
-    func RemoveChild(child : ODrawable)
-    func NewGroup() -> ODrawGroup
-    func NewShape() -> OShape
-    func NewPixmap(width : int, height : int) -> OPixmap
-    func NewAlphaMap(width : int, height : int) -> OAlphaMap
-    func CloneShape(original : OShape) -> OClonedShape
-    func CloneGroup(original : ODrawGroup) -> OClonedGroup
-    func Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[override]]
-endobject
+    var status : int32 = 0
+    GlGetProgramiv(program, GL_LINK_STATUS, %status)
+    if status == 0:
+        GlDeleteProgram(program)
+        program = 0
+        return
+    endif
 
-object ODdScene:
-    window     : pointer = nil
-    root       : ODrawGroup = nil
-    background : SDdColor = DdColor(0.0, 0.0, 0.0)
-    projection : SDdMatrix
+    var matrix_name : str = 'u_MVPMatrix'
+    var color_name : str = 'u_Color'
+    var texture_name : str = 'u_Texture'
+    var alpha_map_name : str = 'u_AlphaMap'
+    matrixLocation = GlGetUniformLocation(program, matrix_name.pchar)
+    colorLocation = GlGetUniformLocation(program, color_name.pchar)
+    textureLocation = GlGetUniformLocation(program, texture_name.pchar)
+    alphaMapLocation = GlGetUniformLocation(program, alpha_map_name.pchar)
+endfunc
 
-    func *Create(window : pointer)
-    func *Destroy()
-    func BeginFrame(width : int, height : int)
-    func EndFrame()
-endobject
+func OTextureProgram.*Destroy():
+    use *
+    if program <> 0:
+        GlDeleteProgram(program)
+    endif
+    if vertexShader <> 0:
+        GlDeleteShader(vertexShader)
+    endif
+    if fragmentShader <> 0:
+        GlDeleteShader(fragmentShader)
+    endif
+endfunc
+
+func OTextureProgram.Activate():
+    use *
+    GlUseProgram(program)
+    GlUniform1i(textureLocation, 0)
+endfunc
+
+func OTextureProgram.SetMatrix(matrix : SDdMatrix):
+    use *
+    var values : [9]float32
+    values[0] = matrix.values[0]
+    values[1] = matrix.values[1]
+    values[2] = 0
+    values[3] = matrix.values[2]
+    values[4] = matrix.values[3]
+    values[5] = 0
+    values[6] = matrix.values[4]
+    values[7] = matrix.values[5]
+    values[8] = 1
+    GlUniformMatrix3fv(matrixLocation, 1, 0, %values[0])
+endfunc
+
+func OTextureProgram.SetColor(color : SDdColor, alpha : float32):
+    use *
+    GlUniform4f(colorLocation, color.red, color.green, color.blue, color.alpha * alpha)
+endfunc
+
+func OTextureProgram.SetAlphaMap(value : int32):
+    use *
+    GlUniform1i(alphaMapLocation, value)
+endfunc
+
+//-----------------------------------------------------------------------------
 
 func ODrawable.*Create(parent : ODrawable):
     self.parent = parent
@@ -220,6 +482,8 @@ endfunc
 func ODrawable.Draw(parent_matrix : SDdMatrix, parent_alpha : float32):
 endfunc
 
+//-----------------------------------------------------------------------------
+
 func OPrimitive.*Create(mode : uint32, vertices : []SDdVertex):
     self.mode = mode
     var index : int = 0
@@ -229,17 +493,36 @@ func OPrimitive.*Create(mode : uint32, vertices : []SDdVertex):
     endwhile
 endfunc
 
-func OPrimitive.Draw(matrix : SDdMatrix):
+func OPrimitive.*Destroy():
     use *
-    GlBegin(mode)
-    var index : int = 0
-    while index < vertices.length:
-        var point : SDdVertex = DdMatTransformPoint(matrix, vertices[index])
-        GlVertex2f(point.x, point.y)
-        index += 1
-    endwhile
-    GlEnd()
+    if vao <> 0:
+        GlDeleteVertexArrays(1, %vao)
+    endif
+    if vbo <> 0:
+        GlDeleteBuffers(1, %vbo)
+    endif
 endfunc
+
+func OPrimitive.Draw():
+    use *
+    if not bufferReady:
+        if vertices.length == 0:
+            return
+        endif
+        GlGenVertexArrays(1, %vao)
+        GlGenBuffers(1, %vbo)
+        GlBindVertexArray(vao)
+        GlBindBuffer(GL_ARRAY_BUFFER, vbo)
+        GlBufferData(GL_ARRAY_BUFFER, uint(vertices.length * SizeOf(SDdVertex)), %vertices[0], GL_STATIC_DRAW)
+        GlEnableVertexAttribArray(0)
+        GlVertexAttribPointer(0, 2, GL_FLOAT, 0, SizeOf(SDdVertex), nil)
+        bufferReady = true
+    endif
+    GlBindVertexArray(vao)
+    GlDrawArrays(mode, 0, vertices.length)
+endfunc
+
+//-----------------------------------------------------------------------------
 
 func OShape.*Create(parent : ODrawable):
     inherited Create(parent)
@@ -264,13 +547,17 @@ endfunc
 func OShape.Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[override]]:
     use *
     var matrix : SDdMatrix = DdMatMultiply(Matrix(), parent_matrix)
-    GlColor4f(color.red, color.green, color.blue, color.alpha * parent_alpha * alpha)
+    g_colorProgram.Activate()
+    g_colorProgram.SetMatrix(matrix)
+    g_colorProgram.SetColor(color, parent_alpha * alpha)
     GlLineWidth(lineWidth)
 
     for index : int = 0 count primitives.length:
-        primitives[index].Draw(matrix)
+        primitives[index].Draw()
     endfor
 endfunc
+
+//-----------------------------------------------------------------------------
 
 func OClonedShape.*Create(parent : ODrawable, original : OShape):
     inherited Create(parent)
@@ -295,43 +582,17 @@ func OClonedShape.Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[over
     use *
 
     var matrix : SDdMatrix = DdMatMultiply(Matrix(), parent_matrix)
-    GlColor4f(color.red, color.green, color.blue, color.alpha * parent_alpha * alpha)
+    g_colorProgram.Activate()
+    g_colorProgram.SetMatrix(matrix)
+    g_colorProgram.SetColor(color, parent_alpha * alpha)
     GlLineWidth(original.lineWidth)
 
     for index : int = 0 count original.primitives.length:
-        original.primitives[index].Draw(matrix)
+        original.primitives[index].Draw()
     endfor
 endfunc
 
-func DdDrawTexturedQuad(matrix : SDdMatrix, width : int, height : int):
-    var point : SDdVertex
-
-    GlBegin(GL_TRIANGLE_FAN)
-    GlTexCoord2f(0.0, 0.0)
-    point.x = 0.0
-    point.y = 0.0
-    point = DdMatTransformPoint(matrix, point)
-    GlVertex2f(point.x, point.y)
-
-    GlTexCoord2f(1.0, 0.0)
-    point.x = width
-    point.y = 0.0
-    point = DdMatTransformPoint(matrix, point)
-    GlVertex2f(point.x, point.y)
-
-    GlTexCoord2f(1.0, 1.0)
-    point.x = width
-    point.y = height
-    point = DdMatTransformPoint(matrix, point)
-    GlVertex2f(point.x, point.y)
-
-    GlTexCoord2f(0.0, 1.0)
-    point.x = 0.0
-    point.y = height
-    point = DdMatTransformPoint(matrix, point)
-    GlVertex2f(point.x, point.y)
-    GlEnd()
-endfunc
+//-----------------------------------------------------------------------------
 
 func OPixmap.*Create(parent : ODrawable, width : int, height : int):
     inherited Create(parent)
@@ -343,9 +604,18 @@ func OPixmap.*Create(parent : ODrawable, width : int, height : int):
 endfunc
 
 func OPixmap.*Destroy():
+    use *
     if texture <> 0:
-        use *
         GlDeleteTextures(1, %texture)
+    endif
+    if vao <> 0:
+        GlDeleteVertexArrays(1, %vao)
+    endif
+    if positionVbo <> 0:
+        GlDeleteBuffers(1, %positionVbo)
+    endif
+    if texcoordVbo <> 0:
+        GlDeleteBuffers(1, %texcoordVbo)
     endif
     inherited Destroy()
 endfunc
@@ -355,6 +625,43 @@ func OPixmap.Clear(color : uint32):
         data[index] = color
     endfor
     needsUpdate = true
+endfunc
+
+func OPixmap.UpdateGeometry():
+    use *
+    if geometryReady:
+        return
+    endif
+    if width <= 0 or height <= 0:
+        return
+    endif
+
+    var positions : [4]SDdVertex
+    positions[1].x = width
+    positions[2].x = width
+    positions[2].y = height
+    positions[3].y = height
+    var texcoords : [4]SDdVertex
+    texcoords[1].x = 1
+    texcoords[2].x = 1
+    texcoords[2].y = 1
+    texcoords[3].y = 1
+
+    if vao == 0:
+        GlGenVertexArrays(1, %vao)
+        GlGenBuffers(1, %positionVbo)
+        GlGenBuffers(1, %texcoordVbo)
+    endif
+    GlBindVertexArray(vao)
+    GlBindBuffer(GL_ARRAY_BUFFER, positionVbo)
+    GlBufferData(GL_ARRAY_BUFFER, uint(SizeOf(positions)), %positions[0], GL_STATIC_DRAW)
+    GlEnableVertexAttribArray(0)
+    GlVertexAttribPointer(0, 2, GL_FLOAT, 0, SizeOf(SDdVertex), nil)
+    GlBindBuffer(GL_ARRAY_BUFFER, texcoordVbo)
+    GlBufferData(GL_ARRAY_BUFFER, uint(SizeOf(texcoords)), %texcoords[0], GL_STATIC_DRAW)
+    GlEnableVertexAttribArray(1)
+    GlVertexAttribPointer(1, 2, GL_FLOAT, 0, SizeOf(SDdVertex), nil)
+    geometryReady = true
 endfunc
 
 func OPixmap.UpdateTexture():
@@ -380,16 +687,22 @@ func OPixmap.Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[override]
     if needsUpdate:
         UpdateTexture()
     endif
+    UpdateGeometry()
     if texture == 0:
         return
     endif
 
-    GlEnable(GL_TEXTURE_2D)
+    g_textureProgram.Activate()
+    g_textureProgram.SetMatrix(DdMatMultiply(Matrix(), parent_matrix))
+    g_textureProgram.SetColor(DdColor(1.0, 1.0, 1.0), parent_alpha * alpha)
+    g_textureProgram.SetAlphaMap(0)
+    GlActiveTexture(GL_TEXTURE0)
     GlBindTexture(GL_TEXTURE_2D, texture)
-    GlColor4f(1.0, 1.0, 1.0, parent_alpha * alpha)
-    DdDrawTexturedQuad(DdMatMultiply(Matrix(), parent_matrix), width, height)
-    GlDisable(GL_TEXTURE_2D)
+    GlBindVertexArray(vao)
+    GlDrawArrays(GL_TRIANGLE_FAN, 0, 4)
 endfunc
+
+//-----------------------------------------------------------------------------
 
 func OAlphaMap.*Create(parent : ODrawable, width : int, height : int):
     inherited Create(parent)
@@ -397,9 +710,18 @@ func OAlphaMap.*Create(parent : ODrawable, width : int, height : int):
 endfunc
 
 func OAlphaMap.*Destroy():
+    use *
     if texture <> 0:
-        use *
         GlDeleteTextures(1, %texture)
+    endif
+    if vao <> 0:
+        GlDeleteVertexArrays(1, %vao)
+    endif
+    if positionVbo <> 0:
+        GlDeleteBuffers(1, %positionVbo)
+    endif
+    if texcoordVbo <> 0:
+        GlDeleteBuffers(1, %texcoordVbo)
     endif
     inherited Destroy()
 endfunc
@@ -416,6 +738,44 @@ func OAlphaMap.SetSize(width : int, height : int):
     self.height = height
     data.SetLength(width * height)
     needsUpdate = true
+    geometryReady = false
+endfunc
+
+func OAlphaMap.UpdateGeometry():
+    use *
+    if geometryReady:
+        return
+    endif
+    if width <= 0 or height <= 0:
+        return
+    endif
+
+    var positions : [4]SDdVertex
+    positions[1].x = width
+    positions[2].x = width
+    positions[2].y = height
+    positions[3].y = height
+    var texcoords : [4]SDdVertex
+    texcoords[1].x = 1
+    texcoords[2].x = 1
+    texcoords[2].y = 1
+    texcoords[3].y = 1
+
+    if vao == 0:
+        GlGenVertexArrays(1, %vao)
+        GlGenBuffers(1, %positionVbo)
+        GlGenBuffers(1, %texcoordVbo)
+    endif
+    GlBindVertexArray(vao)
+    GlBindBuffer(GL_ARRAY_BUFFER, positionVbo)
+    GlBufferData(GL_ARRAY_BUFFER, uint(SizeOf(positions)), %positions[0], GL_STATIC_DRAW)
+    GlEnableVertexAttribArray(0)
+    GlVertexAttribPointer(0, 2, GL_FLOAT, 0, SizeOf(SDdVertex), nil)
+    GlBindBuffer(GL_ARRAY_BUFFER, texcoordVbo)
+    GlBufferData(GL_ARRAY_BUFFER, uint(SizeOf(texcoords)), %texcoords[0], GL_STATIC_DRAW)
+    GlEnableVertexAttribArray(1)
+    GlVertexAttribPointer(1, 2, GL_FLOAT, 0, SizeOf(SDdVertex), nil)
+    geometryReady = true
 endfunc
 
 func OAlphaMap.UpdateTexture():
@@ -442,16 +802,22 @@ func OAlphaMap.Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[overrid
     if needsUpdate:
         UpdateTexture()
     endif
+    UpdateGeometry()
     if texture == 0:
         return
     endif
 
-    GlEnable(GL_TEXTURE_2D)
+    g_textureProgram.Activate()
+    g_textureProgram.SetMatrix(DdMatMultiply(Matrix(), parent_matrix))
+    g_textureProgram.SetColor(color, parent_alpha * alpha)
+    g_textureProgram.SetAlphaMap(1)
+    GlActiveTexture(GL_TEXTURE0)
     GlBindTexture(GL_TEXTURE_2D, texture)
-    GlColor4f(color.red, color.green, color.blue, color.alpha * parent_alpha * alpha)
-    DdDrawTexturedQuad(DdMatMultiply(Matrix(), parent_matrix), width, height)
-    GlDisable(GL_TEXTURE_2D)
+    GlBindVertexArray(vao)
+    GlDrawArrays(GL_TRIANGLE_FAN, 0, 4)
 endfunc
+
+//-----------------------------------------------------------------------------
 
 func ODrawGroup.*Create(parent : ODrawable):
     inherited Create(parent)
@@ -513,6 +879,8 @@ func ODrawGroup.Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[overri
     endfor
 endfunc
 
+//-----------------------------------------------------------------------------
+
 func OClonedGroup.*Create(parent : ODrawable, original : ODrawable):
     inherited Create(parent)
     self.original = original
@@ -528,11 +896,10 @@ func OClonedGroup.*Create(parent : ODrawable, original : ODrawable):
 endfunc
 
 func OClonedGroup.Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[override]]:
-    if not (original is ODrawGroup):
+    var group : ODrawGroup tryfrom original
+    if group == nil:
         return
     endif
-
-    var group : ODrawGroup tryfrom original
 
     var matrix : SDdMatrix = @.DdMatMultiply(Matrix(), parent_matrix)
     var child_alpha : float32 = parent_alpha * alpha
@@ -543,21 +910,29 @@ func OClonedGroup.Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[over
     endfor
 endfunc
 
+//-----------------------------------------------------------------------------
+
 func ODdScene.*Create(window : pointer):
     use *
     self.window = window
     root = new ODrawGroup(nil)
     projection = DdMatIdentity()
+    g_colorProgram = new OColorProgram()
+    g_textureProgram = new OTextureProgram()
     GlEnable(GL_BLEND)
     GlBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 endfunc
 
 func ODdScene.*Destroy():
     delete root
+    use .
+    delete g_textureProgram = nil
+    delete g_colorProgram = nil
 endfunc
 
 func ODdScene.BeginFrame(width : int, height : int):
     use *
+    GlViewport(0, 0, width, height)
     projection = DdMatProjection(width, height)
     GlClearColor(background.red, background.green, background.blue, background.alpha)
     GlClear(GL_COLOR_BUFFER_BIT)

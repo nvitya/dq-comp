@@ -16,8 +16,9 @@ func *Main() -> int:
         return 1
     endif
 
-    GlfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2)
-    GlfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1)
+    GlfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3)
+    GlfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3)
+    GlfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE)
     var window : pointer = GlfwCreateWindow(original_width, original_height, 'DdGfx bitmap test for DQ', nil, nil)
     if window == nil:
         PrintLn('Could not create the OpenGL window')
