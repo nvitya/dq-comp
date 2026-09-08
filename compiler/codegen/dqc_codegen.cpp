@@ -553,6 +553,20 @@ void ODqCompCodegen::OptimizeIr()
     return;
   }
 
+  if (OPTLEVEL_O1 == aoptlevel)
+  {
+    // Keep O1 inlining opt-in, including generated functions and full LTO:
+    // the attribute travels with each definition in its bitcode sidecar.
+    for (LlFunction & func : ll_module->functions())
+    {
+      if (!func.isDeclaration() && !func.hasFnAttribute(llvm::Attribute::InlineHint)
+          && !func.hasFnAttribute(llvm::Attribute::AlwaysInline))
+      {
+        func.addFnAttr(llvm::Attribute::NoInline);
+      }
+    }
+  }
+
   if (g_opt.OptimizesForSize())
   {
     for (LlFunction & func : ll_module->functions())

@@ -39,6 +39,10 @@ be combined.
 `inline` is an LLVM inlining hint, not a guarantee. It is considered at `-O1`
 and higher when compiling a module. Cross-module inlining additionally requires
 full LTO (`--lto=full`), which makes the callee body available during linking.
+At `-O1`, only definitions marked `inline` or `always_inline` are eligible for
+inlining; unmarked definitions receive LLVM's `noinline` attribute, including
+in full LTO builds. `noinline` still prevents inlining of an `inline` function.
+Higher optimization levels can also inline unmarked functions.
 
 `used` applies to functions and global storage. It preserves the emitted
 definition through compilation and linking, including LTO. Use it when a symbol

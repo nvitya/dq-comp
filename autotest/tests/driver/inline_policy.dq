@@ -1,0 +1,56 @@
+//?exitcode(0)
+
+use dqautotest
+
+var run <- OTestRun()
+
+func CheckLocal():
+    var output : str = TempPath('.o')
+    run.RunCompiler([
+        '--target=arm_m7f-bare', '--no-use-sys', '-O1', '-ir', '-c',
+        '-o', output, SourcePath('../target/inline_policy.dq')
+    ])
+    run.ExpectExitCode(0)
+    run.ExpectOutputContains('call i32 @LocalPlain(')
+    run.ExpectOutputContains('call i32 @LocalBlocked(')
+    run.ExpectOutputNotContains('call i32 @LocalHint(')
+    run.ExpectOutputNotContains('call i32 @LocalAlways(')
+    RemoveTemp(output)
+endfunc
+
+func CheckLto(option : strview, expect_plain : bool):
+    var binary : str = TempPath('.elf')
+    var opt : str = option
+    run.RunCompiler([
+        '--target=arm_m7f-bare', '--no-use-sys', '--link', '--lto=full', opt,
+        '--linker-arg=--entry=InlineEntry', '-o', binary,
+        SourcePath('../target/inline_policy.dq')
+    ])
+    run.ExpectExitCode(0)
+    if run.exitcode == 0:
+        run.RunTool(['nm', binary])
+        run.ExpectExitCode(0)
+        run.ExpectOutputContains('InlineEntry')
+        run.ExpectOutputContains('LocalBlocked')
+        run.ExpectOutputContains('ImportedBlocked')
+        if expect_plain:
+            run.ExpectOutputContains('LocalPlain')
+            run.ExpectOutputContains('ImportedPlain')
+        else:
+            run.ExpectOutputNotContains('LocalPlain')
+            run.ExpectOutputNotContains('ImportedPlain')
+        endif
+        run.ExpectOutputNotContains('LocalHint')
+        run.ExpectOutputNotContains('LocalAlways')
+        run.ExpectOutputNotContains('ImportedHint')
+        run.ExpectOutputNotContains('ImportedAlways')
+    endif
+    RemoveTemp(binary)
+endfunc
+
+func *Main() -> int:
+    CheckLocal()
+    CheckLto('-O1', true)
+    CheckLto('-O2', false)
+    return TestResult()
+endfunc

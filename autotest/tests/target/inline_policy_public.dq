@@ -1,0 +1,17 @@
+//?notest
+
+func ImportedPlain(value : int) -> int [[cexport]]:
+    return value + 1
+endfunc
+
+func ImportedHint(value : int) -> int [[cexport, inline]]:
+    return value + 2
+endfunc
+
+func ImportedAlways(value : int) -> int [[cexport, always_inline]]:
+    return value + 3
+endfunc
+
+func ImportedBlocked(value : int) -> int [[cexport, inline, noinline]]:
+    return value + 4
+endfunc

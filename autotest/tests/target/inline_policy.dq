@@ -1,0 +1,24 @@
+//?notest
+
+use ./inline_policy_public
+
+func LocalPlain(value : int) -> int [[cexport]]:
+    return value + 5
+endfunc
+
+func LocalHint(value : int) -> int [[cexport, inline]]:
+    return value + 6
+endfunc
+
+func LocalAlways(value : int) -> int [[cexport, always_inline]]:
+    return value + 7
+endfunc
+
+func LocalBlocked(value : int) -> int [[cexport, inline, noinline]]:
+    return value + 8
+endfunc
+
+func InlineEntry(value : int) -> int [[cexport, used]]:
+    return ImportedPlain(ImportedHint(ImportedAlways(ImportedBlocked(
+        LocalPlain(LocalHint(LocalAlways(LocalBlocked(value))))))))
+endfunc
