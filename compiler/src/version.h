@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.61.0"
+#define DQ_COMPILER_VERSION  "0.61.1"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.61.1:
+  - -O1 optimization level does the inlining (so far it happened from -O2 and above)
 v0.61.0:
   - @def namespace merged into the normal module namespace
 v0.60.1:

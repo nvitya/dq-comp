@@ -36,6 +36,10 @@ An attribute cannot override an incompatible language contract. For example, an
 external function has no DQ body, and mutually exclusive inlining choices cannot
 be combined.
 
+`inline` is an LLVM inlining hint, not a guarantee. It is considered at `-O1`
+and higher when compiling a module. Cross-module inlining additionally requires
+full LTO (`--lto=full`), which makes the callee body available during linking.
+
 `used` applies to functions and global storage. It preserves the emitted
 definition through compilation and linking, including LTO. Use it when a symbol
 is reached only through assembly, a linker script, a hardware table, or another

@@ -339,6 +339,14 @@ bool ODqCompiler::BuildLinkArgs(const string & object_filename, const string & e
   {
     rargs.push_back("-flto=full");
     rargs.push_back(string("-O") + g_opt.OptimizationLevelName());
+    if (OPTLEVEL_O1 == g_opt.optlevel)
+    {
+      // LLD's regular full-LTO O1 pipeline does not run the cost-based
+      // inliner.  Run it after the normal O1 pipeline so inline-hinted calls
+      // can be inlined once all module bodies are available.
+      rargs.push_back("-Xlinker");
+      rargs.push_back("--lto-newpm-passes=default<O1>,cgscc(inline)");
+    }
     if (g_opt.target.IsArm())
     {
       rargs.push_back("-mcpu=" + g_opt.target.llvm_cpu);

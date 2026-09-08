@@ -1,0 +1,5 @@
+//?notest
+
+func AddOne(value : int) -> int [[inline]]:
+    return value + 1
+endfunc
