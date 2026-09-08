@@ -7,6 +7,108 @@ use math
 use ./openglutils
 use ./ddgfx
 
+const original_width  : int = 800
+const original_height : int = 600
+
+//-----------------------------------------------------------------------------
+
+object OTestScene(ODdGfxScene):
+public
+    time : float64 = 0
+
+    original_shape : OShape
+    original_group : ODrawGroup
+    group_clones   : [*]OClonedGroup
+
+    func *Create(window : pointer)
+    func *Destroy()
+
+    func Step(width : int, height : int)
+
+protected
+    triangle : [3]SDdVertex
+
+endobject
+
+func OTestScene.*Create(window : pointer):
+    inherited Create(window)
+
+    use *
+    background = DdColor(0.4, 0.4, 0.2)
+
+    triangle[0].x = 0
+    triangle[0].y = 0
+    triangle[1].x = 1
+    triangle[1].y = 0
+    triangle[2].x = 1
+    triangle[2].y = 1
+
+    original_shape = new OShape(nil)
+    original_shape.AddPrimitive(GL_TRIANGLES, triangle)
+    original_shape.scaleX = 100
+    original_shape.scaleY = 100
+    original_shape.alpha = 0.5
+    original_shape.color = DdColor(1.0, 0.0, 0.0)
+
+    original_group = new ODrawGroup(nil)
+    original_group.CloneShape(original_shape)
+
+    var clone_shape : OClonedShape
+    clone_shape = original_group.CloneShape(original_shape)
+    clone_shape.x += 50
+    clone_shape.rotation = 20
+    clone_shape.color = DdColor(0.0, 1.0, 0.0, 0.4)
+
+    clone_shape = original_group.CloneShape(original_shape)
+    clone_shape.x += 70
+    clone_shape.rotation = 30
+    clone_shape.color = DdColor(0.0, 0.0, 1.0, 0.4)
+
+    var clone_group : OClonedGroup
+    clone_group = root.CloneGroup(original_group)
+    clone_group.x = 100
+    clone_group.y = 100
+    group_clones.Append(clone_group)
+
+    clone_group = root.CloneGroup(original_group)
+    clone_group.x = 200
+    clone_group.y = 150
+    clone_group.alpha = 0.5
+    group_clones.Append(clone_group)
+
+    clone_group = root.CloneGroup(original_group)
+    clone_group.x = 300
+    clone_group.y = 170
+    clone_group.alpha = 0.3
+    group_clones.Append(clone_group)
+endfunc
+
+func OTestScene.*Destroy():
+    delete original_group
+    delete original_shape
+    inherited Destroy()
+endfunc
+
+func OTestScene.Step(width : int, height : int):
+    use *
+    time += 1.0
+
+    for index : int = 0 count group_clones.length:
+        var clone :? = group_clones[index]
+        clone.alpha = 1 - index * 0.2 + 0.5 * Sin(index * time / 50)
+        clone.scaleX = Sin((index + 1) * time / 100)
+    endfor
+
+    root.x = 100 + 50 * Sin(time / 20)
+    root.y =  50 + 50 * Cos(time / 20)
+    root.scaleX = width  / original_width
+    root.scaleY = height / original_height
+endfunc
+
+//-----------------------------------------------------------------------------
+
+var g_scene : OTestScene
+
 func *Main() -> int:
     PrintLn('DdGfx for DQ Test 1')
 
@@ -20,7 +122,7 @@ func *Main() -> int:
     GlfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2)
     GlfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1)
 
-    var window : pointer = GlfwCreateWindow(800, 600, 'DdGfx test 1 for DQ', nil, nil)
+    var window : pointer = GlfwCreateWindow(original_width, original_height, 'DdGfx test 1 for DQ', nil, nil)
     if window == nil:
         PrintLn('Could not create the OpenGL window')
         GlfwTerminate()
@@ -30,87 +132,21 @@ func *Main() -> int:
     GlfwMakeContextCurrent(window)
     GlfwSwapInterval(1)
 
-    var scene : ODdGfxScene = new ODdGfxScene(window)
-    scene.background = DdGfxColor(0.4, 0.4, 0.2)
-
-    var triangle : [3]SDdGfxVertex
-    triangle[0].x = 0.0
-    triangle[0].y = 0.0
-    triangle[1].x = 1.0
-    triangle[1].y = 0.0
-    triangle[2].x = 1.0
-    triangle[2].y = 1.0
-
-    var original_shape : ODdGfxShape = new ODdGfxShape(nil)
-    original_shape.AddPrimitive(GL_TRIANGLES, triangle)
-    original_shape.scaleX = 100.0
-    original_shape.scaleY = 100.0
-    original_shape.alpha = 0.5
-    original_shape.color = DdGfxColor(1.0, 0.0, 0.0)
-
-    var original_group : ODdGfxDrawGroup = new ODdGfxDrawGroup(nil)
-    original_group.CloneShape(original_shape)
-
-    var clone_shape : ODdGfxClonedShape = original_group.CloneShape(original_shape)
-    clone_shape.x += 50.0
-    clone_shape.rotation = 20.0
-    clone_shape.color = DdGfxColor(0.0, 1.0, 0.0, 0.4)
-
-    clone_shape = original_group.CloneShape(original_shape)
-    clone_shape.x += 70.0
-    clone_shape.rotation = 30.0
-    clone_shape.color = DdGfxColor(0.0, 0.0, 1.0, 0.4)
-
-    var group_clones : [*]ODdGfxClonedGroup
-    var clone_group : ODdGfxClonedGroup = scene.root.CloneGroup(original_group)
-    clone_group.x = 100.0
-    clone_group.y = 100.0
-    group_clones.Append(clone_group)
-
-    clone_group = scene.root.CloneGroup(original_group)
-    clone_group.x = 200.0
-    clone_group.y = 150.0
-    clone_group.alpha = 0.5
-    group_clones.Append(clone_group)
-
-    clone_group = scene.root.CloneGroup(original_group)
-    clone_group.x = 300.0
-    clone_group.y = 170.0
-    clone_group.alpha = 0.3
-    group_clones.Append(clone_group)
-
-    const original_width : float32 = 800.0
-    const original_height : float32 = 600.0
-    var time : float64 = 0.0
+    g_scene = new OTestScene(window)
 
     while GlfwWindowShouldClose(window) == GLFW_FALSE:
-        time += 1.0
-
-        var index : int = 0
-        while index < group_clones.length:
-            var clone : ODdGfxClonedGroup = group_clones[index]
-            clone.alpha = 1.0 - index * 0.2 + 0.5 * Sin(index * time / 50.0)
-            clone.scaleX = Sin((index + 1) * time / 100.0)
-            index += 1
-        endwhile
-
-        var width : int32 = 0
+        var width  : int32 = 0
         var height : int32 = 0
         GlfwGetFramebufferSize(window, %width, %height)
 
-        scene.root.x = 100.0 + 50.0 * Sin(time / 20.0)
-        scene.root.y = 50.0 + 50.0 * Cos(time / 20.0)
-        scene.root.scaleX = width / original_width
-        scene.root.scaleY = height / original_height
+        g_scene.Step(width, height)
 
-        scene.BeginFrame(width, height)
-        scene.EndFrame()
+        g_scene.BeginFrame(width, height)
+        g_scene.EndFrame()
         GlfwPollEvents()
     endwhile
 
-    delete scene
-    delete original_group
-    delete original_shape
+    delete g_scene = nil
     GlfwDestroyWindow(window)
     GlfwTerminate()
     return 0
