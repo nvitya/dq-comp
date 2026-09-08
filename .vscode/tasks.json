@@ -2,6 +2,27 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "dq: build DdGfx test 1 debug",
+      "type": "shell",
+      "command": "build/dq-comp",
+      "args": [
+        "-g",
+        "-O0",
+        "--build",
+        "vscode_ddgfx",
+        "--pkg-path",
+        "${workspaceFolder}/stdpkg",
+        "examples/opengl/ddgfxtest1.dq",
+        "-o",
+        "examples/opengl/ddgfxtest1"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
       "label": "dq: build configured target",
       "type": "shell",
       "command": "build/dq-comp",

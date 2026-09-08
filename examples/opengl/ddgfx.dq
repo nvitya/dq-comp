@@ -22,6 +22,13 @@ struct SDdGfxColor:
     green : float32
     blue  : float32
     alpha : float32
+
+    func Set(ared : float32, agreen : float32, ablue : float32, aalpha : float32 = 1.0):
+        red   = ared
+        green = agreen
+        blue  = ablue
+        alpha = aalpha
+    endfunc
 endstruct
 
 func DdGfxColor(red : float32, green : float32, blue : float32, alpha : float32 = 1.0) -> SDdGfxColor:
@@ -208,7 +215,7 @@ endfunc
 
 func ODdGfxShape.Clear():
     while primitives.length > 0:
-        delete primitives[0]
+        delete primitives.PopFirst()
     endwhile
 endfunc
 
@@ -217,11 +224,9 @@ func ODdGfxShape.Draw(parent_matrix : SDdGfxMatrix, parent_alpha : float32) [[ov
     @openglutils.GlColor4f(color.red, color.green, color.blue, color.alpha * parent_alpha * alpha)
     @openglutils.GlLineWidth(lineWidth)
 
-    var index : int = 0
-    while index < primitives.length:
+    for index : int = 0 count primitives.length:
         primitives[index].Draw(matrix)
-        index += 1
-    endwhile
+    endfor
 endfunc
 
 func ODdGfxClonedShape.*Create(parent : ODdGfxDrawable, original : ODdGfxShape):
@@ -248,11 +253,9 @@ func ODdGfxClonedShape.Draw(parent_matrix : SDdGfxMatrix, parent_alpha : float32
     @openglutils.GlColor4f(color.red, color.green, color.blue, color.alpha * parent_alpha * alpha)
     @openglutils.GlLineWidth(original.lineWidth)
 
-    var index : int = 0
-    while index < original.primitives.length:
+    for index : int = 0 count original.primitives.length:
         original.primitives[index].Draw(matrix)
-        index += 1
-    endwhile
+    endfor
 endfunc
 
 func ODdGfxDrawGroup.*Create(parent : ODdGfxDrawable):
@@ -261,7 +264,7 @@ endfunc
 
 func ODdGfxDrawGroup.*Destroy():
     while children.length > 0:
-        delete children[0]
+        delete children.PopFirst()
     endwhile
     inherited Destroy()
 endfunc
@@ -272,15 +275,13 @@ func ODdGfxDrawGroup.AddChild(child : ODdGfxDrawable):
 endfunc
 
 func ODdGfxDrawGroup.RemoveChild(child : ODdGfxDrawable):
-    var index : int = 0
-    while index < children.length:
+    for index : int = 0 count children.length:
         if children[index] == child:
             children.Delete(index)
             child.parent = nil
             return
         endif
-        index += 1
-    endwhile
+    endfor
 endfunc
 
 func ODdGfxDrawGroup.NewGroup() -> ODdGfxDrawGroup:
@@ -302,13 +303,11 @@ endfunc
 func ODdGfxDrawGroup.Draw(parent_matrix : SDdGfxMatrix, parent_alpha : float32) [[override]]:
     var matrix : SDdGfxMatrix = @.DdMatMultiply(Matrix(), parent_matrix)
     var child_alpha : float32 = parent_alpha * alpha
-    var index : int = 0
-    while index < children.length:
+    for index : int = 0 count children.length:
         if children[index].visible:
             children[index].Draw(matrix, child_alpha)
         endif
-        index += 1
-    endwhile
+    endfor
 endfunc
 
 func ODdGfxClonedGroup.*Create(parent : ODdGfxDrawable, original : ODdGfxDrawable):
@@ -334,13 +333,11 @@ func ODdGfxClonedGroup.Draw(parent_matrix : SDdGfxMatrix, parent_alpha : float32
 
     var matrix : SDdGfxMatrix = @.DdMatMultiply(Matrix(), parent_matrix)
     var child_alpha : float32 = parent_alpha * alpha
-    var index : int = 0
-    while index < group.children.length:
+    for index : int = 0 count group.children.length:
         if group.children[index].visible:
             group.children[index].Draw(matrix, child_alpha)
         endif
-        index += 1
-    endwhile
+    endfor
 endfunc
 
 func ODdGfxScene.*Create(window : pointer):

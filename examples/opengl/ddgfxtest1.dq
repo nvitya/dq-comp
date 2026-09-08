@@ -8,6 +8,8 @@ use ./openglutils
 use ./ddgfx
 
 func *Main() -> int:
+    PrintLn('DdGfx for DQ Test 1')
+
     if GlfwInit() == GLFW_FALSE:
         PrintLn('Could not initialize GLFW')
         return 1

@@ -2,6 +2,46 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "DQ: Debug DdGfx test 1 cleanup",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/examples/opengl/ddgfxtest1",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "${workspaceFolder}/.vscode/gdb_wrapper.sh",
+            "preLaunchTask": "dq: build DdGfx test 1 debug",
+            "sourceFileMap": {
+                "/lindata/workvc/dq-lang": "${workspaceFolder}"
+            },
+            "setupCommands": [
+                {
+                    "description": "Enable GDB pretty-printers",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Stop at scene cleanup",
+                    "text": "break 'opengl::ddgfx::ODdGfxScene::Destroy'"
+                },
+                {
+                    "description": "Trace group cleanup",
+                    "text": "break 'opengl::ddgfx::ODdGfxDrawGroup::Destroy'"
+                },
+                {
+                    "description": "Trace child removal",
+                    "text": "break 'opengl::ddgfx::ODdGfxDrawGroup::RemoveChild'"
+                },
+                {
+                    "description": "Trace drawable cleanup",
+                    "text": "break 'opengl::ddgfx::ODdGfxDrawable::Destroy'"
+                }
+            ]
+        },
+        {
             "name": "DQ: Debug configured target",
             "type": "cppdbg",
             "request": "launch",
