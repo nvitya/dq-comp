@@ -1,7 +1,7 @@
 // A small 2D scene graph derived from ddgfx.pas.
 //
 // The Lazarus TOpenGLControl wrapper is intentionally replaced by
-// ODdGfxScene: the caller owns the GLFW window and drives BeginFrame and
+// ODdScene: the caller owns the GLFW window and drives BeginFrame and
 // EndFrame from its normal event loop.
 
 use math
@@ -10,6 +10,15 @@ use ./openglutils
 struct SDdMatrix:
     // A 2D affine matrix: xx, xy, yx, yy, tx, ty.
     values : [6]float32
+
+    func SetIdentity():
+        values[0] = 1
+        values[1] = 0
+        values[2] = 0
+        values[3] = 1
+        values[4] = 0
+        values[5] = 0
+    endfunc
 endstruct
 
 struct SDdVertex:
@@ -39,12 +48,12 @@ func DdColor(red : float32, green : float32, blue : float32, alpha : float32 = 1
 endfunc
 
 func DdMatIdentity() -> SDdMatrix:
-    result.values[0] = 1.0
-    result.values[1] = 0.0
-    result.values[2] = 0.0
-    result.values[3] = 1.0
-    result.values[4] = 0.0
-    result.values[5] = 0.0
+    result.values[0] = 1
+    result.values[1] = 0
+    result.values[2] = 0
+    result.values[3] = 1
+    result.values[4] = 0
+    result.values[5] = 0
 endfunc
 
 func DdMatMultiply(first : SDdMatrix, second : SDdMatrix) -> SDdMatrix:
@@ -63,10 +72,10 @@ endfunc
 
 func DdMatProjection(width : int, height : int) -> SDdMatrix:
     result = DdMatIdentity()
-    result.values[0] = 2.0 / width
+    result.values[0] =  2.0 / width
     result.values[3] = -2.0 / height
     result.values[4] = -1.0 + 0.5 / width
-    result.values[5] = 1.0 - 0.5 / height
+    result.values[5] =  1.0 - 0.5 / height
 endfunc
 
 object ODrawable:
@@ -136,7 +145,7 @@ object ODrawGroup(ODrawable):
     func Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[override]]
 endobject
 
-object ODdGfxScene:
+object ODdScene:
     window     : pointer = nil
     root       : ODrawGroup = nil
     background : SDdColor = DdColor(0.0, 0.0, 0.0)
@@ -344,7 +353,7 @@ func OClonedGroup.Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[over
     endfor
 endfunc
 
-func ODdGfxScene.*Create(window : pointer):
+func ODdScene.*Create(window : pointer):
     use *
     self.window = window
     root = new ODrawGroup(nil)
@@ -353,11 +362,11 @@ func ODdGfxScene.*Create(window : pointer):
     GlBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 endfunc
 
-func ODdGfxScene.*Destroy():
+func ODdScene.*Destroy():
     delete root
 endfunc
 
-func ODdGfxScene.BeginFrame(width : int, height : int):
+func ODdScene.BeginFrame(width : int, height : int):
     use *
     projection = DdMatProjection(width, height)
     GlClearColor(background.red, background.green, background.blue, background.alpha)
@@ -365,7 +374,7 @@ func ODdGfxScene.BeginFrame(width : int, height : int):
     root.Draw(projection, 1.0)
 endfunc
 
-func ODdGfxScene.EndFrame():
+func ODdScene.EndFrame():
     use *
     GlfwSwapBuffers(window)
 endfunc

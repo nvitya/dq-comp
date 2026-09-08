@@ -12,7 +12,7 @@ const original_height : int = 600
 
 //-----------------------------------------------------------------------------
 
-object OTestScene(ODdGfxScene):
+object OTestScene(ODdScene):
 public
     time : float64 = 0
 
