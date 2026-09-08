@@ -68,14 +68,14 @@ func DdMatProjection(width : int, height : int) -> SDdMatrix;
 //-----------------------------------------------------------------------------
 
 object ODrawable:
-    parent  : ODrawable = nil
-    x       : float32 = 0.0
-    y       : float32 = 0.0
-    scaleX  : float32 = 1.0
-    scaleY  : float32 = 1.0
+    parent   : ODrawable = nil
+    x        : float32 = 0.0
+    y        : float32 = 0.0
+    scalex   : float32 = 1.0
+    scaley   : float32 = 1.0
     rotation : float32 = 0.0 // degrees
-    alpha   : float32 = 1.0
-    visible : bool = true
+    alpha    : float32 = 1.0
+    visible  : bool = true
 
     func *Create(parent : ODrawable)
     func *Destroy()
@@ -88,7 +88,8 @@ object OPrimitive:
     vertices : [*]SDdVertex
     vao      : uint32 = 0
     vbo      : uint32 = 0
-    bufferReady : bool = false
+
+    buffer_ready : bool = false
 
     func *Create(mode : uint32, vertices : []SDdVertex)
     func *Destroy()
@@ -96,8 +97,8 @@ object OPrimitive:
 endobject
 
 object OShape(ODrawable):
-    color     : SDdColor = DdColor(1.0, 1.0, 1.0)
-    lineWidth : float32 = 1.0
+    color      : SDdColor = DdColor(1.0, 1.0, 1.0)
+    line_width : float32 = 1.0
     primitives : [*]OPrimitive
 
     func *Create(parent : ODrawable)
@@ -119,12 +120,14 @@ object OPixmap(ODrawable):
     width       : int = 0
     height      : int = 0
     data        : [*]uint32
-    needsUpdate : bool = true
     texture     : uint32 = 0
-    vao         : uint32 = 0
-    positionVbo : uint32 = 0
-    texcoordVbo : uint32 = 0
-    geometryReady : bool = false
+
+    vao          : uint32 = 0
+    position_vbo : uint32 = 0
+    texcoord_vbo : uint32 = 0
+
+    needs_update   : bool = true
+    geometry_ready : bool = false
 
     func *Create(parent : ODrawable, width : int, height : int)
     func *Destroy()
@@ -135,16 +138,18 @@ object OPixmap(ODrawable):
 endobject
 
 object OAlphaMap(ODrawable):
-    width       : int = 0
-    height      : int = 0
-    data        : [*]uint8
-    needsUpdate : bool = true
-    texture     : uint32 = 0
-    vao         : uint32 = 0
-    positionVbo : uint32 = 0
-    texcoordVbo : uint32 = 0
-    geometryReady : bool = false
-    color       : SDdColor = DdColor(1.0, 1.0, 1.0)
+    width   : int = 0
+    height  : int = 0
+    data    : [*]uint8
+    color   : SDdColor = DdColor(1.0, 1.0, 1.0)
+
+    texture        : uint32 = 0
+    vao            : uint32 = 0
+    position_vbo   : uint32 = 0
+    texcoord_vbo   : uint32 = 0
+
+    needs_update   : bool   = true
+    geometry_ready : bool   = false
 
     func *Create(parent : ODrawable, width : int, height : int)
     func *Destroy()
@@ -183,11 +188,11 @@ endobject
 // The shaders apply the scene matrix on the GPU.  Vertex data stays in local
 // object coordinates, so changing an object's transform does not re-upload it.
 object OColorProgram:
-    program       : uint32 = 0
-    vertexShader  : uint32 = 0
-    fragmentShader : uint32 = 0
-    matrixLocation : int32 = -1
-    colorLocation  : int32 = -1
+    program         : uint32 = 0
+    vertex_shader   : uint32 = 0
+    fragment_shader : uint32 = 0
+    matrix_location : int32 = -1
+    color_location  : int32 = -1
 
     func *Create()
     func *Destroy()
@@ -197,13 +202,13 @@ object OColorProgram:
 endobject
 
 object OTextureProgram:
-    program       : uint32 = 0
-    vertexShader  : uint32 = 0
-    fragmentShader : uint32 = 0
-    matrixLocation : int32 = -1
-    colorLocation  : int32 = -1
-    textureLocation : int32 = -1
-    alphaMapLocation : int32 = -1
+    program           : uint32 = 0
+    vertex_shader     : uint32 = 0
+    fragment_shader   : uint32 = 0
+    matrix_location   : int32 = -1
+    color_location    : int32 = -1
+    texture_location  : int32 = -1
+    alphamap_location : int32 = -1
 
     func *Create()
     func *Destroy()
@@ -291,20 +296,20 @@ endfunc
 
 func OColorProgram.*Create():
     use *
-    vertexShader = DdCompileShader(GL_VERTEX_SHADER,
+    vertex_shader = DdCompileShader(GL_VERTEX_SHADER,
         'uniform mat3 u_MVPMatrix; attribute vec2 a_Position;'
         + 'void main() { vec3 point = u_MVPMatrix * vec3(a_Position, 1.0);'
         + 'gl_Position = vec4(point.xy, 0.0, 1.0); }')
-    fragmentShader = DdCompileShader(GL_FRAGMENT_SHADER,
+    fragment_shader = DdCompileShader(GL_FRAGMENT_SHADER,
         'uniform vec4 u_Color; void main() { gl_FragColor = u_Color; }')
-    if vertexShader == 0 or fragmentShader == 0:
+    if vertex_shader == 0 or fragment_shader == 0:
         return
     endif
 
     program = GlCreateProgram()
     var position_name : str = 'a_Position'
-    GlAttachShader(program, vertexShader)
-    GlAttachShader(program, fragmentShader)
+    GlAttachShader(program, vertex_shader)
+    GlAttachShader(program, fragment_shader)
     GlBindAttribLocation(program, 0, position_name.pchar)
     GlLinkProgram(program)
 
@@ -316,10 +321,8 @@ func OColorProgram.*Create():
         return
     endif
 
-    var matrix_name : str = 'u_MVPMatrix'
-    var color_name : str = 'u_Color'
-    matrixLocation = GlGetUniformLocation(program, matrix_name.pchar)
-    colorLocation = GlGetUniformLocation(program, color_name.pchar)
+    matrix_location = GlGetUniformLocation(program, 'u_MVPMatrix')
+    color_location = GlGetUniformLocation(program, 'u_Color')
 endfunc
 
 func OColorProgram.*Destroy():
@@ -327,11 +330,11 @@ func OColorProgram.*Destroy():
     if program <> 0:
         GlDeleteProgram(program)
     endif
-    if vertexShader <> 0:
-        GlDeleteShader(vertexShader)
+    if vertex_shader <> 0:
+        GlDeleteShader(vertex_shader)
     endif
-    if fragmentShader <> 0:
-        GlDeleteShader(fragmentShader)
+    if fragment_shader <> 0:
+        GlDeleteShader(fragment_shader)
     endif
 endfunc
 
@@ -352,39 +355,37 @@ func OColorProgram.SetMatrix(matrix : SDdMatrix):
     values[6] = matrix.values[4]
     values[7] = matrix.values[5]
     values[8] = 1
-    GlUniformMatrix3fv(matrixLocation, 1, 0, %values[0])
+    GlUniformMatrix3fv(matrix_location, 1, 0, %values[0])
 endfunc
 
 func OColorProgram.SetColor(color : SDdColor, alpha : float32):
     use *
-    GlUniform4f(colorLocation, color.red, color.green, color.blue, color.alpha * alpha)
+    GlUniform4f(color_location, color.red, color.green, color.blue, color.alpha * alpha)
 endfunc
 
 //-----------------------------------------------------------------------------
 
 func OTextureProgram.*Create():
     use *
-    vertexShader = DdCompileShader(GL_VERTEX_SHADER,
+    vertex_shader = DdCompileShader(GL_VERTEX_SHADER,
         'uniform mat3 u_MVPMatrix; attribute vec2 a_Position; attribute vec2 a_TexCoordinate;'
         + 'varying vec2 v_TexCoordinate; void main() {'
         + 'vec3 point = u_MVPMatrix * vec3(a_Position, 1.0);'
         + 'gl_Position = vec4(point.xy, 0.0, 1.0); v_TexCoordinate = a_TexCoordinate; }')
-    fragmentShader = DdCompileShader(GL_FRAGMENT_SHADER,
+    fragment_shader = DdCompileShader(GL_FRAGMENT_SHADER,
         'uniform sampler2D u_Texture; uniform vec4 u_Color; varying vec2 v_TexCoordinate;'
         + 'uniform int u_AlphaMap; void main() { vec4 sample = texture2D(u_Texture, v_TexCoordinate);'
         + 'if (u_AlphaMap != 0) gl_FragColor = vec4(u_Color.rgb, u_Color.a * sample.a);'
         + 'else gl_FragColor = sample * u_Color; }')
-    if vertexShader == 0 or fragmentShader == 0:
+    if vertex_shader == 0 or fragment_shader == 0:
         return
     endif
 
     program = GlCreateProgram()
-    var position_name : str = 'a_Position'
-    var texcoord_name : str = 'a_TexCoordinate'
-    GlAttachShader(program, vertexShader)
-    GlAttachShader(program, fragmentShader)
-    GlBindAttribLocation(program, 0, position_name.pchar)
-    GlBindAttribLocation(program, 1, texcoord_name.pchar)
+    GlAttachShader(program, vertex_shader)
+    GlAttachShader(program, fragment_shader)
+    GlBindAttribLocation(program, 0, 'a_Position')
+    GlBindAttribLocation(program, 1, 'a_TexCoordinate')
     GlLinkProgram(program)
 
     var status : int32 = 0
@@ -395,14 +396,10 @@ func OTextureProgram.*Create():
         return
     endif
 
-    var matrix_name : str = 'u_MVPMatrix'
-    var color_name : str = 'u_Color'
-    var texture_name : str = 'u_Texture'
-    var alpha_map_name : str = 'u_AlphaMap'
-    matrixLocation = GlGetUniformLocation(program, matrix_name.pchar)
-    colorLocation = GlGetUniformLocation(program, color_name.pchar)
-    textureLocation = GlGetUniformLocation(program, texture_name.pchar)
-    alphaMapLocation = GlGetUniformLocation(program, alpha_map_name.pchar)
+    matrix_location = GlGetUniformLocation(program, 'u_MVPMatrix')
+    color_location = GlGetUniformLocation(program, 'u_Color')
+    texture_location = GlGetUniformLocation(program, 'u_Texture')
+    alphamap_location = GlGetUniformLocation(program, 'u_AlphaMap')
 endfunc
 
 func OTextureProgram.*Destroy():
@@ -410,18 +407,18 @@ func OTextureProgram.*Destroy():
     if program <> 0:
         GlDeleteProgram(program)
     endif
-    if vertexShader <> 0:
-        GlDeleteShader(vertexShader)
+    if vertex_shader <> 0:
+        GlDeleteShader(vertex_shader)
     endif
-    if fragmentShader <> 0:
-        GlDeleteShader(fragmentShader)
+    if fragment_shader <> 0:
+        GlDeleteShader(fragment_shader)
     endif
 endfunc
 
 func OTextureProgram.Activate():
     use *
     GlUseProgram(program)
-    GlUniform1i(textureLocation, 0)
+    GlUniform1i(texture_location, 0)
 endfunc
 
 func OTextureProgram.SetMatrix(matrix : SDdMatrix):
@@ -436,17 +433,17 @@ func OTextureProgram.SetMatrix(matrix : SDdMatrix):
     values[6] = matrix.values[4]
     values[7] = matrix.values[5]
     values[8] = 1
-    GlUniformMatrix3fv(matrixLocation, 1, 0, %values[0])
+    GlUniformMatrix3fv(matrix_location, 1, 0, %values[0])
 endfunc
 
 func OTextureProgram.SetColor(color : SDdColor, alpha : float32):
     use *
-    GlUniform4f(colorLocation, color.red, color.green, color.blue, color.alpha * alpha)
+    GlUniform4f(color_location, color.red, color.green, color.blue, color.alpha * alpha)
 endfunc
 
 func OTextureProgram.SetAlphaMap(value : int32):
     use *
-    GlUniform1i(alphaMapLocation, value)
+    GlUniform1i(alphamap_location, value)
 endfunc
 
 //-----------------------------------------------------------------------------
@@ -471,10 +468,10 @@ func ODrawable.Matrix() -> SDdMatrix:
     var cosine : float32  = @math.Cos(radians)
     var sine : float32    = @math.Sin(radians)
 
-    result.values[0] = scaleX * cosine
-    result.values[1] = -scaleY * sine
-    result.values[2] = scaleX * sine
-    result.values[3] = scaleY * cosine
+    result.values[0] = scalex * cosine
+    result.values[1] = -scaley * sine
+    result.values[2] = scalex * sine
+    result.values[3] = scaley * cosine
     result.values[4] = x
     result.values[5] = y
 endfunc
@@ -505,7 +502,7 @@ endfunc
 
 func OPrimitive.Draw():
     use *
-    if not bufferReady:
+    if not buffer_ready:
         if vertices.length == 0:
             return
         endif
@@ -516,7 +513,7 @@ func OPrimitive.Draw():
         GlBufferData(GL_ARRAY_BUFFER, uint(vertices.length * SizeOf(SDdVertex)), %vertices[0], GL_STATIC_DRAW)
         GlEnableVertexAttribArray(0)
         GlVertexAttribPointer(0, 2, GL_FLOAT, 0, SizeOf(SDdVertex), nil)
-        bufferReady = true
+        buffer_ready = true
     endif
     GlBindVertexArray(vao)
     GlDrawArrays(mode, 0, vertices.length)
@@ -550,7 +547,7 @@ func OShape.Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[override]]
     g_colorProgram.Activate()
     g_colorProgram.SetMatrix(matrix)
     g_colorProgram.SetColor(color, parent_alpha * alpha)
-    GlLineWidth(lineWidth)
+    GlLineWidth(line_width)
 
     for index : int = 0 count primitives.length:
         primitives[index].Draw()
@@ -566,8 +563,8 @@ func OClonedShape.*Create(parent : ODrawable, original : OShape):
         color = original.color
         x = original.x
         y = original.y
-        scaleX = original.scaleX
-        scaleY = original.scaleY
+        scalex = original.scalex
+        scaley = original.scaley
         rotation = original.rotation
         alpha = original.alpha
         visible = original.visible
@@ -585,7 +582,7 @@ func OClonedShape.Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[over
     g_colorProgram.Activate()
     g_colorProgram.SetMatrix(matrix)
     g_colorProgram.SetColor(color, parent_alpha * alpha)
-    GlLineWidth(original.lineWidth)
+    GlLineWidth(original.line_width)
 
     for index : int = 0 count original.primitives.length:
         original.primitives[index].Draw()
@@ -611,11 +608,11 @@ func OPixmap.*Destroy():
     if vao <> 0:
         GlDeleteVertexArrays(1, %vao)
     endif
-    if positionVbo <> 0:
-        GlDeleteBuffers(1, %positionVbo)
+    if position_vbo <> 0:
+        GlDeleteBuffers(1, %position_vbo)
     endif
-    if texcoordVbo <> 0:
-        GlDeleteBuffers(1, %texcoordVbo)
+    if texcoord_vbo <> 0:
+        GlDeleteBuffers(1, %texcoord_vbo)
     endif
     inherited Destroy()
 endfunc
@@ -624,12 +621,12 @@ func OPixmap.Clear(color : uint32):
     for index : int = 0 count data.length:
         data[index] = color
     endfor
-    needsUpdate = true
+    needs_update = true
 endfunc
 
 func OPixmap.UpdateGeometry():
     use *
-    if geometryReady:
+    if geometry_ready:
         return
     endif
     if width <= 0 or height <= 0:
@@ -649,19 +646,19 @@ func OPixmap.UpdateGeometry():
 
     if vao == 0:
         GlGenVertexArrays(1, %vao)
-        GlGenBuffers(1, %positionVbo)
-        GlGenBuffers(1, %texcoordVbo)
+        GlGenBuffers(1, %position_vbo)
+        GlGenBuffers(1, %texcoord_vbo)
     endif
     GlBindVertexArray(vao)
-    GlBindBuffer(GL_ARRAY_BUFFER, positionVbo)
+    GlBindBuffer(GL_ARRAY_BUFFER, position_vbo)
     GlBufferData(GL_ARRAY_BUFFER, uint(SizeOf(positions)), %positions[0], GL_STATIC_DRAW)
     GlEnableVertexAttribArray(0)
     GlVertexAttribPointer(0, 2, GL_FLOAT, 0, SizeOf(SDdVertex), nil)
-    GlBindBuffer(GL_ARRAY_BUFFER, texcoordVbo)
+    GlBindBuffer(GL_ARRAY_BUFFER, texcoord_vbo)
     GlBufferData(GL_ARRAY_BUFFER, uint(SizeOf(texcoords)), %texcoords[0], GL_STATIC_DRAW)
     GlEnableVertexAttribArray(1)
     GlVertexAttribPointer(1, 2, GL_FLOAT, 0, SizeOf(SDdVertex), nil)
-    geometryReady = true
+    geometry_ready = true
 endfunc
 
 func OPixmap.UpdateTexture():
@@ -679,12 +676,12 @@ func OPixmap.UpdateTexture():
         GlTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
                      GL_RGBA, GL_UNSIGNED_BYTE, %data[0])
     endif
-    needsUpdate = false
+    needs_update = false
 endfunc
 
 func OPixmap.Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[override]]:
     use *
-    if needsUpdate:
+    if needs_update:
         UpdateTexture()
     endif
     UpdateGeometry()
@@ -717,11 +714,11 @@ func OAlphaMap.*Destroy():
     if vao <> 0:
         GlDeleteVertexArrays(1, %vao)
     endif
-    if positionVbo <> 0:
-        GlDeleteBuffers(1, %positionVbo)
+    if position_vbo <> 0:
+        GlDeleteBuffers(1, %position_vbo)
     endif
-    if texcoordVbo <> 0:
-        GlDeleteBuffers(1, %texcoordVbo)
+    if texcoord_vbo <> 0:
+        GlDeleteBuffers(1, %texcoord_vbo)
     endif
     inherited Destroy()
 endfunc
@@ -730,20 +727,20 @@ func OAlphaMap.Clear(value : uint8):
     for index : int = 0 count data.length:
         data[index] = value
     endfor
-    needsUpdate = true
+    needs_update = true
 endfunc
 
 func OAlphaMap.SetSize(width : int, height : int):
     self.width = width
     self.height = height
     data.SetLength(width * height)
-    needsUpdate = true
-    geometryReady = false
+    needs_update = true
+    geometry_ready = false
 endfunc
 
 func OAlphaMap.UpdateGeometry():
     use *
-    if geometryReady:
+    if geometry_ready:
         return
     endif
     if width <= 0 or height <= 0:
@@ -763,19 +760,19 @@ func OAlphaMap.UpdateGeometry():
 
     if vao == 0:
         GlGenVertexArrays(1, %vao)
-        GlGenBuffers(1, %positionVbo)
-        GlGenBuffers(1, %texcoordVbo)
+        GlGenBuffers(1, %position_vbo)
+        GlGenBuffers(1, %texcoord_vbo)
     endif
     GlBindVertexArray(vao)
-    GlBindBuffer(GL_ARRAY_BUFFER, positionVbo)
+    GlBindBuffer(GL_ARRAY_BUFFER, position_vbo)
     GlBufferData(GL_ARRAY_BUFFER, uint(SizeOf(positions)), %positions[0], GL_STATIC_DRAW)
     GlEnableVertexAttribArray(0)
     GlVertexAttribPointer(0, 2, GL_FLOAT, 0, SizeOf(SDdVertex), nil)
-    GlBindBuffer(GL_ARRAY_BUFFER, texcoordVbo)
+    GlBindBuffer(GL_ARRAY_BUFFER, texcoord_vbo)
     GlBufferData(GL_ARRAY_BUFFER, uint(SizeOf(texcoords)), %texcoords[0], GL_STATIC_DRAW)
     GlEnableVertexAttribArray(1)
     GlVertexAttribPointer(1, 2, GL_FLOAT, 0, SizeOf(SDdVertex), nil)
-    geometryReady = true
+    geometry_ready = true
 endfunc
 
 func OAlphaMap.UpdateTexture():
@@ -794,12 +791,12 @@ func OAlphaMap.UpdateTexture():
         GlTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0,
                      GL_ALPHA, GL_UNSIGNED_BYTE, %data[0])
     endif
-    needsUpdate = false
+    needs_update = false
 endfunc
 
 func OAlphaMap.Draw(parent_matrix : SDdMatrix, parent_alpha : float32) [[override]]:
     use *
-    if needsUpdate:
+    if needs_update:
         UpdateTexture()
     endif
     UpdateGeometry()
@@ -887,8 +884,8 @@ func OClonedGroup.*Create(parent : ODrawable, original : ODrawable):
     if original <> nil:
         x = original.x
         y = original.y
-        scaleX = original.scaleX
-        scaleY = original.scaleY
+        scalex = original.scalex
+        scaley = original.scaley
         rotation = original.rotation
         alpha = original.alpha
         visible = original.visible

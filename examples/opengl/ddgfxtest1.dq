@@ -45,8 +45,8 @@ func OTestScene.*Create(window : pointer):
 
     original_shape = new OShape(nil)
     original_shape.AddPrimitive(GL_TRIANGLES, triangle)
-    original_shape.scaleX = 100
-    original_shape.scaleY = 100
+    original_shape.scalex = 100
+    original_shape.scaley = 100
     original_shape.alpha = 0.5
     original_shape.color = DdColor(1.0, 0.0, 0.0)
 
@@ -96,13 +96,13 @@ func OTestScene.Step(width : int, height : int):
     for index : int = 0 count group_clones.length:
         var clone :? = group_clones[index]
         clone.alpha = 1 - index * 0.2 + 0.5 * Sin(index * time / 50)
-        clone.scaleX = Sin((index + 1) * time / 100)
+        clone.scalex = Sin((index + 1) * time / 100)
     endfor
 
     root.x = 100 + 50 * Sin(time / 20)
     root.y =  50 + 50 * Cos(time / 20)
-    root.scaleX = width  / original_width
-    root.scaleY = height / original_height
+    root.scalex = width  / original_width
+    root.scaley = height / original_height
 endfunc
 
 //-----------------------------------------------------------------------------

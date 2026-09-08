@@ -42,9 +42,9 @@ func *Main() -> int:
         bitmap.data[index] = color
         color += 16
     endfor
-    bitmap.needsUpdate = true
-    bitmap.scaleX = 2.0
-    bitmap.scaleY = 2.0
+    bitmap.needs_update = true
+    bitmap.scalex = 2.0
+    bitmap.scaley = 2.0
     bitmap.alpha = 0.5
 
     var alpha_map : OAlphaMap = scene.root.NewAlphaMap(100, 100)
@@ -54,14 +54,14 @@ func *Main() -> int:
     for index : int = 0 count alpha_map.data.length:
         alpha_map.data[index] = uint8(index)
     endfor
-    alpha_map.needsUpdate = true
+    alpha_map.needs_update = true
 
     var time : float64 = 0.0
     while GlfwWindowShouldClose(window) == GLFW_FALSE:
         time += 1.0
         bitmap.alpha = float32(1.0 + 0.9 * Sin(time / 50.0))
-        bitmap.scaleX = float32(1.0 + 0.5 * Sin(time / 100.0))
-        bitmap.scaleY = bitmap.scaleX
+        bitmap.scalex = float32(1.0 + 0.5 * Sin(time / 100.0))
+        bitmap.scaley = bitmap.scalex
         bitmap.rotation = float32(20.0 + 40.0 * Sin(time / 70.0))
 
         var width : int32 = 0
@@ -69,8 +69,8 @@ func *Main() -> int:
         GlfwGetFramebufferSize(window, %width, %height)
         scene.root.x = float32(100.0 + 50.0 * Sin(time / 20.0))
         scene.root.y = float32(50.0 + 50.0 * Cos(time / 20.0))
-        scene.root.scaleX = float32(width) / original_width
-        scene.root.scaleY = float32(height) / original_height
+        scene.root.scalex = float32(width) / original_width
+        scene.root.scaley = float32(height) / original_height
 
         scene.BeginFrame(width, height)
         scene.EndFrame()

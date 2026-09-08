@@ -142,7 +142,7 @@ func OFont.RenderToAlphaMap(text : strview, target : OAlphaMap):
         endfor
         pen_x += glyph.advance_x div 64
     endfor
-    target.needsUpdate = true
+    target.needs_update = true
 endfunc
 
 func OFontManager.*Create():

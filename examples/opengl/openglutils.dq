@@ -7,36 +7,44 @@
 const GLFW_FALSE : int32 = 0
 const GLFW_TRUE  : int32 = 1
 
-const GLFW_CONTEXT_VERSION_MAJOR : int32 = 0x00022002
-const GLFW_CONTEXT_VERSION_MINOR : int32 = 0x00022003
-const GLFW_OPENGL_PROFILE        : int32 = 0x00022008
-const GLFW_OPENGL_COMPAT_PROFILE : int32 = 0x00032002
+const(int32):
+    GLFW_CONTEXT_VERSION_MAJOR = 0x00022002
+    GLFW_CONTEXT_VERSION_MINOR = 0x00022003
+    GLFW_OPENGL_PROFILE        = 0x00022008
+    GLFW_OPENGL_COMPAT_PROFILE = 0x00032002
+endconst
 
-const GL_COLOR_BUFFER_BIT : uint32 = 0x00004000
-const GL_BLEND            : uint32 = 0x00000BE2
-const GL_SRC_ALPHA        : uint32 = 0x00000302
-const GL_ONE_MINUS_SRC_ALPHA : uint32 = 0x00000303
-const GL_LINES            : uint32 = 0x0001
-const GL_LINE_STRIP       : uint32 = 0x0003
-const GL_TRIANGLES        : uint32 = 0x0004
-const GL_TRIANGLE_STRIP   : uint32 = 0x0005
-const GL_TRIANGLE_FAN     : uint32 = 0x0006
-const GL_TEXTURE_2D       : uint32 = 0x00000DE1
-const GL_TEXTURE_MIN_FILTER : uint32 = 0x00002801
-const GL_TEXTURE_MAG_FILTER : uint32 = 0x00002800
-const GL_LINEAR           : int32 = 0x00002601
-const GL_RGBA             : int32 = 0x00001908
-const GL_ALPHA            : int32 = 0x00001906
-const GL_UNSIGNED_BYTE    : uint32 = 0x00001401
-const GL_UNPACK_ALIGNMENT : uint32 = 0x00000CF5
-const GL_ARRAY_BUFFER     : uint32 = 0x00008892
-const GL_STATIC_DRAW       : uint32 = 0x000088E4
-const GL_FLOAT             : uint32 = 0x00001406
-const GL_VERTEX_SHADER     : uint32 = 0x00008B31
-const GL_FRAGMENT_SHADER   : uint32 = 0x00008B30
-const GL_COMPILE_STATUS    : uint32 = 0x00008B81
-const GL_LINK_STATUS       : uint32 = 0x00008B82
-const GL_TEXTURE0          : uint32 = 0x000084C0
+const(uint32):
+    GL_COLOR_BUFFER_BIT     = 0x00004000
+    GL_BLEND                = 0x00000BE2
+    GL_SRC_ALPHA            = 0x00000302
+    GL_ONE_MINUS_SRC_ALPHA  = 0x00000303
+    GL_LINES                = 0x0001
+    GL_LINE_STRIP           = 0x0003
+    GL_TRIANGLES            = 0x0004
+    GL_TRIANGLE_STRIP       = 0x0005
+    GL_TRIANGLE_FAN         = 0x0006
+    GL_TEXTURE_2D           = 0x00000DE1
+    GL_TEXTURE_MIN_FILTER   = 0x00002801
+    GL_TEXTURE_MAG_FILTER   = 0x00002800
+    GL_UNSIGNED_BYTE        = 0x00001401
+    GL_UNPACK_ALIGNMENT     = 0x00000CF5
+    GL_ARRAY_BUFFER         = 0x00008892
+    GL_STATIC_DRAW          = 0x000088E4
+    GL_FLOAT                = 0x00001406
+    GL_VERTEX_SHADER        = 0x00008B31
+    GL_FRAGMENT_SHADER      = 0x00008B30
+    GL_COMPILE_STATUS       = 0x00008B81
+    GL_LINK_STATUS          = 0x00008B82
+    GL_TEXTURE0             = 0x000084C0
+endconst
+
+const(int32):
+    GL_LINEAR  = 0x00002601
+    GL_RGBA    = 0x00001908
+    GL_ALPHA   = 0x00001906
+endconst
+
 
 // GLFW's GLFWwindow is opaque to DQ.
 func GlfwInit() -> int32 [[external('glfwInit')]]
