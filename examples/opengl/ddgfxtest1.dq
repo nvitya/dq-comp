@@ -1,0 +1,115 @@
+// GLFW version of /workvc/ddgfx/tests/test1/formmain.pas.
+// It demonstrates an original shape, three cloned shapes, and three cloned
+// groups animated independently within a DdGfx scene.
+
+use print
+use math
+use ./openglutils
+use ./ddgfx
+
+func *Main() -> int:
+    if GlfwInit() == GLFW_FALSE:
+        PrintLn('Could not initialize GLFW')
+        return 1
+    endif
+
+    // DdGfx currently uses the OpenGL compatibility API while its public
+    // scene-graph interface is being ported.
+    GlfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2)
+    GlfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1)
+
+    var window : pointer = GlfwCreateWindow(800, 600, 'DdGfx test 1 for DQ', nil, nil)
+    if window == nil:
+        PrintLn('Could not create the OpenGL window')
+        GlfwTerminate()
+        return 1
+    endif
+
+    GlfwMakeContextCurrent(window)
+    GlfwSwapInterval(1)
+
+    var scene : ODdGfxScene = new ODdGfxScene(window)
+    scene.background = DdGfxColor(0.4, 0.4, 0.2)
+
+    var triangle : [3]SDdGfxVertex
+    triangle[0].x = 0.0
+    triangle[0].y = 0.0
+    triangle[1].x = 1.0
+    triangle[1].y = 0.0
+    triangle[2].x = 1.0
+    triangle[2].y = 1.0
+
+    var original_shape : ODdGfxShape = new ODdGfxShape(nil)
+    original_shape.AddPrimitive(GL_TRIANGLES, triangle)
+    original_shape.scaleX = 100.0
+    original_shape.scaleY = 100.0
+    original_shape.alpha = 0.5
+    original_shape.color = DdGfxColor(1.0, 0.0, 0.0)
+
+    var original_group : ODdGfxDrawGroup = new ODdGfxDrawGroup(nil)
+    original_group.CloneShape(original_shape)
+
+    var clone_shape : ODdGfxClonedShape = original_group.CloneShape(original_shape)
+    clone_shape.x += 50.0
+    clone_shape.rotation = 20.0
+    clone_shape.color = DdGfxColor(0.0, 1.0, 0.0, 0.4)
+
+    clone_shape = original_group.CloneShape(original_shape)
+    clone_shape.x += 70.0
+    clone_shape.rotation = 30.0
+    clone_shape.color = DdGfxColor(0.0, 0.0, 1.0, 0.4)
+
+    var group_clones : [*]ODdGfxClonedGroup
+    var clone_group : ODdGfxClonedGroup = scene.root.CloneGroup(original_group)
+    clone_group.x = 100.0
+    clone_group.y = 100.0
+    group_clones.Append(clone_group)
+
+    clone_group = scene.root.CloneGroup(original_group)
+    clone_group.x = 200.0
+    clone_group.y = 150.0
+    clone_group.alpha = 0.5
+    group_clones.Append(clone_group)
+
+    clone_group = scene.root.CloneGroup(original_group)
+    clone_group.x = 300.0
+    clone_group.y = 170.0
+    clone_group.alpha = 0.3
+    group_clones.Append(clone_group)
+
+    const original_width : float32 = 800.0
+    const original_height : float32 = 600.0
+    var time : float64 = 0.0
+
+    while GlfwWindowShouldClose(window) == GLFW_FALSE:
+        time += 1.0
+
+        var index : int = 0
+        while index < group_clones.length:
+            var clone : ODdGfxClonedGroup = group_clones[index]
+            clone.alpha = 1.0 - index * 0.2 + 0.5 * Sin(index * time / 50.0)
+            clone.scaleX = Sin((index + 1) * time / 100.0)
+            index += 1
+        endwhile
+
+        var width : int32 = 0
+        var height : int32 = 0
+        GlfwGetFramebufferSize(window, %width, %height)
+
+        scene.root.x = 100.0 + 50.0 * Sin(time / 20.0)
+        scene.root.y = 50.0 + 50.0 * Cos(time / 20.0)
+        scene.root.scaleX = width / original_width
+        scene.root.scaleY = height / original_height
+
+        scene.BeginFrame(width, height)
+        scene.EndFrame()
+        GlfwPollEvents()
+    endwhile
+
+    delete scene
+    delete original_group
+    delete original_shape
+    GlfwDestroyWindow(window)
+    GlfwTerminate()
+    return 0
+endfunc

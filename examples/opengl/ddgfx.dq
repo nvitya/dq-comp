@@ -1,0 +1,367 @@
+// A small 2D scene graph derived from ddgfx.pas.
+//
+// The Lazarus TOpenGLControl wrapper is intentionally replaced by
+// ODdGfxScene: the caller owns the GLFW window and drives BeginFrame and
+// EndFrame from its normal event loop.
+
+use math
+use ./openglutils
+
+struct SDdGfxMatrix:
+    // A 2D affine matrix: xx, xy, yx, yy, tx, ty.
+    values : [6]float32
+endstruct
+
+struct SDdGfxVertex:
+    x : float32
+    y : float32
+endstruct
+
+struct SDdGfxColor:
+    red   : float32
+    green : float32
+    blue  : float32
+    alpha : float32
+endstruct
+
+func DdGfxColor(red : float32, green : float32, blue : float32, alpha : float32 = 1.0) -> SDdGfxColor:
+    result.red = red
+    result.green = green
+    result.blue = blue
+    result.alpha = alpha
+endfunc
+
+func DdMatIdentity() -> SDdGfxMatrix:
+    result.values[0] = 1.0
+    result.values[1] = 0.0
+    result.values[2] = 0.0
+    result.values[3] = 1.0
+    result.values[4] = 0.0
+    result.values[5] = 0.0
+endfunc
+
+func DdMatMultiply(first : SDdGfxMatrix, second : SDdGfxMatrix) -> SDdGfxMatrix:
+    result.values[0] = first.values[0] * second.values[0] + first.values[1] * second.values[2]
+    result.values[1] = first.values[0] * second.values[1] + first.values[1] * second.values[3]
+    result.values[2] = first.values[2] * second.values[0] + first.values[3] * second.values[2]
+    result.values[3] = first.values[2] * second.values[1] + first.values[3] * second.values[3]
+    result.values[4] = first.values[4] * second.values[0] + first.values[5] * second.values[2] + second.values[4]
+    result.values[5] = first.values[4] * second.values[1] + first.values[5] * second.values[3] + second.values[5]
+endfunc
+
+func DdMatTransformPoint(matrix : SDdGfxMatrix, point : SDdGfxVertex) -> SDdGfxVertex:
+    result.x = point.x * matrix.values[0] + point.y * matrix.values[2] + matrix.values[4]
+    result.y = point.x * matrix.values[1] + point.y * matrix.values[3] + matrix.values[5]
+endfunc
+
+func DdMatProjection(width : int, height : int) -> SDdGfxMatrix:
+    result = DdMatIdentity()
+    result.values[0] = 2.0 / width
+    result.values[3] = -2.0 / height
+    result.values[4] = -1.0 + 0.5 / width
+    result.values[5] = 1.0 - 0.5 / height
+endfunc
+
+object ODdGfxDrawable:
+    parent  : ODdGfxDrawable = nil
+    x       : float32 = 0.0
+    y       : float32 = 0.0
+    scaleX  : float32 = 1.0
+    scaleY  : float32 = 1.0
+    rotation : float32 = 0.0 // degrees
+    alpha   : float32 = 1.0
+    visible : bool = true
+
+    func *Create(parent : ODdGfxDrawable)
+    func *Destroy()
+    func Matrix() -> SDdGfxMatrix
+    func Draw(parent_matrix : SDdGfxMatrix, parent_alpha : float32) [[virtual]]
+endobject
+
+object ODdGfxPrimitive:
+    mode     : uint32 = GL_TRIANGLES
+    vertices : [*]SDdGfxVertex
+
+    func *Create(mode : uint32, vertices : []SDdGfxVertex)
+    func Draw(matrix : SDdGfxMatrix)
+endobject
+
+object ODdGfxShape(ODdGfxDrawable):
+    color     : SDdGfxColor = DdGfxColor(1.0, 1.0, 1.0)
+    lineWidth : float32 = 1.0
+    primitives : [*]ODdGfxPrimitive
+
+    func *Create(parent : ODdGfxDrawable)
+    func *Destroy()
+    func AddPrimitive(mode : uint32, vertices : []SDdGfxVertex) -> ODdGfxPrimitive
+    func Clear()
+    func Draw(parent_matrix : SDdGfxMatrix, parent_alpha : float32) [[override]]
+endobject
+
+object ODdGfxClonedShape(ODdGfxDrawable):
+    original : ODdGfxShape = nil
+    color    : SDdGfxColor = DdGfxColor(1.0, 1.0, 1.0)
+
+    func *Create(parent : ODdGfxDrawable, original : ODdGfxShape)
+    func Draw(parent_matrix : SDdGfxMatrix, parent_alpha : float32) [[override]]
+endobject
+
+object ODdGfxClonedGroup(ODdGfxDrawable):
+    // Keeping this as the base type breaks the otherwise circular DQ type
+    // declaration between a group and a clone of a group.
+    original : ODdGfxDrawable = nil
+
+    func *Create(parent : ODdGfxDrawable, original : ODdGfxDrawable)
+    func Draw(parent_matrix : SDdGfxMatrix, parent_alpha : float32) [[override]]
+endobject
+
+object ODdGfxDrawGroup(ODdGfxDrawable):
+    children : [*]ODdGfxDrawable
+
+    func *Create(parent : ODdGfxDrawable)
+    func *Destroy()
+    func AddChild(child : ODdGfxDrawable)
+    func RemoveChild(child : ODdGfxDrawable)
+    func NewGroup() -> ODdGfxDrawGroup
+    func NewShape() -> ODdGfxShape
+    func CloneShape(original : ODdGfxShape) -> ODdGfxClonedShape
+    func CloneGroup(original : ODdGfxDrawGroup) -> ODdGfxClonedGroup
+    func Draw(parent_matrix : SDdGfxMatrix, parent_alpha : float32) [[override]]
+endobject
+
+object ODdGfxScene:
+    window     : pointer = nil
+    root       : ODdGfxDrawGroup = nil
+    background : SDdGfxColor = DdGfxColor(0.0, 0.0, 0.0)
+    projection : SDdGfxMatrix
+
+    func *Create(window : pointer)
+    func *Destroy()
+    func BeginFrame(width : int, height : int)
+    func EndFrame()
+endobject
+
+func ODdGfxDrawable.*Create(parent : ODdGfxDrawable):
+    self.parent = parent
+    if parent is ODdGfxDrawGroup:
+        var group : ODdGfxDrawGroup tryfrom parent
+        group.AddChild(self)
+    endif
+endfunc
+
+func ODdGfxDrawable.*Destroy():
+    if parent is ODdGfxDrawGroup:
+        var group : ODdGfxDrawGroup tryfrom parent
+        group.RemoveChild(self)
+    endif
+endfunc
+
+func ODdGfxDrawable.Matrix() -> SDdGfxMatrix:
+    var radians : float64 = float64(rotation) * 3.141592653589793 / 180.0
+    var cosine : float32 = float32(@math.Cos(radians))
+    var sine : float32 = float32(@math.Sin(radians))
+
+    result.values[0] = scaleX * cosine
+    result.values[1] = -scaleY * sine
+    result.values[2] = scaleX * sine
+    result.values[3] = scaleY * cosine
+    result.values[4] = x
+    result.values[5] = y
+endfunc
+
+func ODdGfxDrawable.Draw(parent_matrix : SDdGfxMatrix, parent_alpha : float32):
+endfunc
+
+func ODdGfxPrimitive.*Create(mode : uint32, vertices : []SDdGfxVertex):
+    self.mode = mode
+    var index : int = 0
+    while index < vertices.length:
+        self.vertices.Append(vertices[index])
+        index += 1
+    endwhile
+endfunc
+
+func ODdGfxPrimitive.Draw(matrix : SDdGfxMatrix):
+    @openglutils.GlBegin(mode)
+    var index : int = 0
+    while index < vertices.length:
+        var point : SDdGfxVertex = @.DdMatTransformPoint(matrix, vertices[index])
+        @openglutils.GlVertex2f(point.x, point.y)
+        index += 1
+    endwhile
+    @openglutils.GlEnd()
+endfunc
+
+func ODdGfxShape.*Create(parent : ODdGfxDrawable):
+    inherited Create(parent)
+endfunc
+
+func ODdGfxShape.*Destroy():
+    Clear()
+    inherited Destroy()
+endfunc
+
+func ODdGfxShape.AddPrimitive(mode : uint32, vertices : []SDdGfxVertex) -> ODdGfxPrimitive:
+    result = new ODdGfxPrimitive(mode, vertices)
+    primitives.Append(result)
+endfunc
+
+func ODdGfxShape.Clear():
+    while primitives.length > 0:
+        delete primitives[0]
+    endwhile
+endfunc
+
+func ODdGfxShape.Draw(parent_matrix : SDdGfxMatrix, parent_alpha : float32) [[override]]:
+    var matrix : SDdGfxMatrix = @.DdMatMultiply(Matrix(), parent_matrix)
+    @openglutils.GlColor4f(color.red, color.green, color.blue, color.alpha * parent_alpha * alpha)
+    @openglutils.GlLineWidth(lineWidth)
+
+    var index : int = 0
+    while index < primitives.length:
+        primitives[index].Draw(matrix)
+        index += 1
+    endwhile
+endfunc
+
+func ODdGfxClonedShape.*Create(parent : ODdGfxDrawable, original : ODdGfxShape):
+    inherited Create(parent)
+    self.original = original
+    if original <> nil:
+        color = original.color
+        x = original.x
+        y = original.y
+        scaleX = original.scaleX
+        scaleY = original.scaleY
+        rotation = original.rotation
+        alpha = original.alpha
+        visible = original.visible
+    endif
+endfunc
+
+func ODdGfxClonedShape.Draw(parent_matrix : SDdGfxMatrix, parent_alpha : float32) [[override]]:
+    if original == nil:
+        return
+    endif
+
+    var matrix : SDdGfxMatrix = @.DdMatMultiply(Matrix(), parent_matrix)
+    @openglutils.GlColor4f(color.red, color.green, color.blue, color.alpha * parent_alpha * alpha)
+    @openglutils.GlLineWidth(original.lineWidth)
+
+    var index : int = 0
+    while index < original.primitives.length:
+        original.primitives[index].Draw(matrix)
+        index += 1
+    endwhile
+endfunc
+
+func ODdGfxDrawGroup.*Create(parent : ODdGfxDrawable):
+    inherited Create(parent)
+endfunc
+
+func ODdGfxDrawGroup.*Destroy():
+    while children.length > 0:
+        delete children[0]
+    endwhile
+    inherited Destroy()
+endfunc
+
+func ODdGfxDrawGroup.AddChild(child : ODdGfxDrawable):
+    children.Append(child)
+    child.parent = self
+endfunc
+
+func ODdGfxDrawGroup.RemoveChild(child : ODdGfxDrawable):
+    var index : int = 0
+    while index < children.length:
+        if children[index] == child:
+            children.Delete(index)
+            child.parent = nil
+            return
+        endif
+        index += 1
+    endwhile
+endfunc
+
+func ODdGfxDrawGroup.NewGroup() -> ODdGfxDrawGroup:
+    return new ODdGfxDrawGroup(self)
+endfunc
+
+func ODdGfxDrawGroup.NewShape() -> ODdGfxShape:
+    return new ODdGfxShape(self)
+endfunc
+
+func ODdGfxDrawGroup.CloneShape(original : ODdGfxShape) -> ODdGfxClonedShape:
+    return new ODdGfxClonedShape(self, original)
+endfunc
+
+func ODdGfxDrawGroup.CloneGroup(original : ODdGfxDrawGroup) -> ODdGfxClonedGroup:
+    return new ODdGfxClonedGroup(self, original)
+endfunc
+
+func ODdGfxDrawGroup.Draw(parent_matrix : SDdGfxMatrix, parent_alpha : float32) [[override]]:
+    var matrix : SDdGfxMatrix = @.DdMatMultiply(Matrix(), parent_matrix)
+    var child_alpha : float32 = parent_alpha * alpha
+    var index : int = 0
+    while index < children.length:
+        if children[index].visible:
+            children[index].Draw(matrix, child_alpha)
+        endif
+        index += 1
+    endwhile
+endfunc
+
+func ODdGfxClonedGroup.*Create(parent : ODdGfxDrawable, original : ODdGfxDrawable):
+    inherited Create(parent)
+    self.original = original
+    if original <> nil:
+        x = original.x
+        y = original.y
+        scaleX = original.scaleX
+        scaleY = original.scaleY
+        rotation = original.rotation
+        alpha = original.alpha
+        visible = original.visible
+    endif
+endfunc
+
+func ODdGfxClonedGroup.Draw(parent_matrix : SDdGfxMatrix, parent_alpha : float32) [[override]]:
+    if not (original is ODdGfxDrawGroup):
+        return
+    endif
+
+    var group : ODdGfxDrawGroup tryfrom original
+
+    var matrix : SDdGfxMatrix = @.DdMatMultiply(Matrix(), parent_matrix)
+    var child_alpha : float32 = parent_alpha * alpha
+    var index : int = 0
+    while index < group.children.length:
+        if group.children[index].visible:
+            group.children[index].Draw(matrix, child_alpha)
+        endif
+        index += 1
+    endwhile
+endfunc
+
+func ODdGfxScene.*Create(window : pointer):
+    self.window = window
+    root = new ODdGfxDrawGroup(nil)
+    projection = @.DdMatIdentity()
+    @openglutils.GlEnable(@openglutils.GL_BLEND)
+    @openglutils.GlBlendFunc(@openglutils.GL_SRC_ALPHA, @openglutils.GL_ONE_MINUS_SRC_ALPHA)
+endfunc
+
+func ODdGfxScene.*Destroy():
+    delete root
+endfunc
+
+func ODdGfxScene.BeginFrame(width : int, height : int):
+    projection = @.DdMatProjection(width, height)
+    @openglutils.GlClearColor(background.red, background.green, background.blue, background.alpha)
+    @openglutils.GlClear(@openglutils.GL_COLOR_BUFFER_BIT)
+    root.Draw(projection, 1.0)
+endfunc
+
+func ODdGfxScene.EndFrame():
+    @openglutils.GlfwSwapBuffers(window)
+endfunc
