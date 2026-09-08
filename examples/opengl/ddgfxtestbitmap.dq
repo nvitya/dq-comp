@@ -1,0 +1,83 @@
+// GLFW version of /workvc/ddgfx/tests/test_bitmap/formmain.pas.
+
+use print
+use math
+use ./openglutils
+use ./ddgfx
+
+const original_width  : int = 800
+const original_height : int = 600
+
+func *Main() -> int:
+    PrintLn('DdGfx for DQ bitmap test')
+
+    if GlfwInit() == GLFW_FALSE:
+        PrintLn('Could not initialize GLFW')
+        return 1
+    endif
+
+    GlfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2)
+    GlfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1)
+    var window : pointer = GlfwCreateWindow(original_width, original_height, 'DdGfx bitmap test for DQ', nil, nil)
+    if window == nil:
+        PrintLn('Could not create the OpenGL window')
+        GlfwTerminate()
+        return 1
+    endif
+
+    GlfwMakeContextCurrent(window)
+    GlfwSwapInterval(1)
+
+    var scene : ODdScene = new ODdScene(window)
+    scene.background = DdColor(0.4, 0.4, 0.2)
+
+    var bitmap : OPixmap = scene.root.NewPixmap(200, 100)
+    bitmap.x = 100.0
+    bitmap.y = 50.0
+    bitmap.Clear(0xFF008000)
+
+    var color : uint32 = 0xFF000000
+    for index : int = 0 count bitmap.data.length:
+        bitmap.data[index] = color
+        color += 16
+    endfor
+    bitmap.needsUpdate = true
+    bitmap.scaleX = 2.0
+    bitmap.scaleY = 2.0
+    bitmap.alpha = 0.5
+
+    var alpha_map : OAlphaMap = scene.root.NewAlphaMap(100, 100)
+    alpha_map.x = 10.0
+    alpha_map.y = 10.0
+    alpha_map.alpha = 0.2
+    for index : int = 0 count alpha_map.data.length:
+        alpha_map.data[index] = uint8(index)
+    endfor
+    alpha_map.needsUpdate = true
+
+    var time : float64 = 0.0
+    while GlfwWindowShouldClose(window) == GLFW_FALSE:
+        time += 1.0
+        bitmap.alpha = float32(1.0 + 0.9 * Sin(time / 50.0))
+        bitmap.scaleX = float32(1.0 + 0.5 * Sin(time / 100.0))
+        bitmap.scaleY = bitmap.scaleX
+        bitmap.rotation = float32(20.0 + 40.0 * Sin(time / 70.0))
+
+        var width : int32 = 0
+        var height : int32 = 0
+        GlfwGetFramebufferSize(window, %width, %height)
+        scene.root.x = float32(100.0 + 50.0 * Sin(time / 20.0))
+        scene.root.y = float32(50.0 + 50.0 * Cos(time / 20.0))
+        scene.root.scaleX = float32(width) / original_width
+        scene.root.scaleY = float32(height) / original_height
+
+        scene.BeginFrame(width, height)
+        scene.EndFrame()
+        GlfwPollEvents()
+    endwhile
+
+    delete scene = nil
+    GlfwDestroyWindow(window)
+    GlfwTerminate()
+    return 0
+endfunc

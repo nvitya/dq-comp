@@ -1,0 +1,84 @@
+// GLFW version of /workvc/ddgfx/tests/test_text/formmain.pas.
+
+use print
+use math
+use strutils
+use ./openglutils
+use ./ddgfx
+use ./ddgfx_font
+
+const window_width  : int = 800
+const window_height : int = 600
+func *Main() -> int:
+    PrintLn('DdGfx for DQ text test')
+
+    if GlfwInit() == GLFW_FALSE:
+        PrintLn('Could not initialize GLFW')
+        return 1
+    endif
+
+    GlfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2)
+    GlfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1)
+    var window : pointer = GlfwCreateWindow(window_width, window_height, 'DdGfx text test for DQ', nil, nil)
+    if window == nil:
+        PrintLn('Could not create the OpenGL window')
+        GlfwTerminate()
+        return 1
+    endif
+
+    GlfwMakeContextCurrent(window)
+    GlfwSwapInterval(1)
+
+    var scene : ODdScene = new ODdScene(window)
+    scene.background = DdColor(0.4, 0.4, 0.2)
+
+    var font_manager : OFontManager = new OFontManager()
+    var small_font : OFont = font_manager.GetFont('/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf')
+    var large_font : OFont = font_manager.GetFont('/usr/share/fonts/truetype/open-sans/OpenSans-Regular.ttf')
+    if not small_font.SetPixelSize(12) or not large_font.SetPixelSize(27):
+        PrintLn('Could not load a test font')
+        delete font_manager
+        delete scene
+        GlfwDestroyWindow(window)
+        GlfwTerminate()
+        return 1
+    endif
+
+    var text : OTextBox = new OTextBox(scene.root, small_font, 'Hello World! éáőúöüóÉÁŐÚŰÖÜÓ Agy')
+    text.x = 10.0
+    text.y = 10.0
+
+    var text2 : OTextBox = new OTextBox(scene.root, large_font, 'Text 2')
+    text2.x = 100.0
+    text2.y = 100.0
+
+    var alpha_map : OAlphaMap = scene.root.NewAlphaMap(403, 303)
+    alpha_map.x = 32.0
+    alpha_map.y = 32.0
+    alpha_map.Clear(0)
+    for index : int = 0 to alpha_map.data.length - 1 step 77:
+        alpha_map.data[index] = 255
+    endfor
+    alpha_map.needsUpdate = true
+    alpha_map.visible = false
+
+    var time : float64 = 0.0
+    while GlfwWindowShouldClose(window) == GLFW_FALSE:
+        time += 1.0
+        text2.Text = Format('txt2 value = {}', [time])
+        text.Text = Format('Hello World! éáőúöüóÉÁŐÚŰÖÜÓ Agy{}', [Floor(time) rem 20])
+
+        var width : int32 = 0
+        var height : int32 = 0
+        GlfwGetFramebufferSize(window, %width, %height)
+        scene.BeginFrame(width, height)
+        scene.EndFrame()
+        GlfwPollEvents()
+    endwhile
+
+    delete font_manager
+    delete scene = nil
+    GlfwDestroyWindow(window)
+    GlfwTerminate()
+    return 0
+endfunc

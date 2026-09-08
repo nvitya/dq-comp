@@ -19,6 +19,14 @@ const GL_LINE_STRIP       : uint32 = 0x0003
 const GL_TRIANGLES        : uint32 = 0x0004
 const GL_TRIANGLE_STRIP   : uint32 = 0x0005
 const GL_TRIANGLE_FAN     : uint32 = 0x0006
+const GL_TEXTURE_2D       : uint32 = 0x00000DE1
+const GL_TEXTURE_MIN_FILTER : uint32 = 0x00002801
+const GL_TEXTURE_MAG_FILTER : uint32 = 0x00002800
+const GL_LINEAR           : int32 = 0x00002601
+const GL_RGBA             : int32 = 0x00001908
+const GL_ALPHA            : int32 = 0x00001906
+const GL_UNSIGNED_BYTE    : uint32 = 0x00001401
+const GL_UNPACK_ALIGNMENT : uint32 = 0x00000CF5
 
 // GLFW's GLFWwindow is opaque to DQ.
 func GlfwInit() -> int32 [[external('glfwInit')]]
@@ -47,3 +55,13 @@ func GlEnd() [[external('glEnd')]]
 func GlLineWidth(width : float32) [[external('glLineWidth')]]
 func GlEnable(capability : uint32) [[external('glEnable')]]
 func GlBlendFunc(source : uint32, destination : uint32) [[external('glBlendFunc')]]
+func GlDisable(capability : uint32) [[external('glDisable')]]
+func GlGenTextures(count : int32, textures : ^uint32) [[external('glGenTextures')]]
+func GlDeleteTextures(count : int32, textures : ^uint32) [[external('glDeleteTextures')]]
+func GlBindTexture(target : uint32, texture : uint32) [[external('glBindTexture')]]
+func GlTexParameteri(target : uint32, pname : uint32, value : int32) [[external('glTexParameteri')]]
+func GlTexImage2D(target : uint32, level : int32, internal_format : int32,
+                  width : int32, height : int32, border : int32,
+                  format : uint32, pixel_type : uint32, pixels : pointer) [[external('glTexImage2D')]]
+func GlTexCoord2f(s : float32, t : float32) [[external('glTexCoord2f')]]
+func GlPixelStorei(pname : uint32, value : int32) [[external('glPixelStorei')]]

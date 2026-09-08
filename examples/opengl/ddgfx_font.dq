@@ -1,0 +1,280 @@
+// Minimal FreeType text support for the local DdGfx examples.
+// It rasterizes UTF-8 text into OAlphaMap; shaping and kerning are deliberately
+// out of scope for this first port, matching the simple bitmap use of ddgfx.
+
+use ./ddgfx
+use rtl/strfunc
+
+#linklib('freetype')
+
+const FT_LOAD_RENDER : int32 = 0x00000004
+
+// Public portions of the FreeType records used by this module.  FT_Long is
+// a C long, hence int64 on the supported x86_64 Linux host target.
+struct SFreeTypeBitmap:
+    rows         : uint32
+    width        : uint32
+    pitch        : int32
+    buffer       : ^uint8
+    num_grays    : uint16
+    pixel_mode   : uint8
+    palette_mode : uint8
+    palette      : pointer
+endstruct
+
+struct SFreeTypeSizeMetrics:
+    x_ppem : uint16
+    y_ppem : uint16
+    x_scale : int64
+    y_scale : int64
+    ascender : int64
+    descender : int64
+    height : int64
+    max_advance : int64
+endstruct
+
+struct SFreeTypeSize:
+    face : pointer
+    generic_data : pointer
+    generic_finalizer : pointer
+    metrics : SFreeTypeSizeMetrics
+    internal : pointer
+endstruct
+
+struct SFreeTypeFace:
+    num_faces   : int64
+    face_index  : int64
+    face_flags  : int64
+    style_flags : int64
+    num_glyphs  : int64
+    family_name : pointer
+    style_name  : pointer
+    num_fixed_sizes : int32
+    available_sizes  : pointer
+    num_charmaps : int32
+    charmaps     : pointer
+    generic_data : pointer
+    generic_finalizer : pointer
+    bbox : [4]int64
+    units_per_em : uint16
+    ascender     : int16
+    descender    : int16
+    height       : int16
+    max_advance_width  : int16
+    max_advance_height : int16
+    underline_position : int16
+    underline_thickness : int16
+    glyph : pointer
+    size  : pointer
+endstruct
+
+struct SFreeTypeGlyphSlot:
+    library : pointer
+    face    : pointer
+    next    : pointer
+    glyph_index : uint32
+    reserved : uint32
+    generic_data : pointer
+    generic_finalizer : pointer
+    metrics : [8]int64
+    linear_hori_advance : int64
+    linear_vert_advance : int64
+    advance_x : int64
+    advance_y : int64
+    format : uint32
+    format_padding : uint32
+    bitmap : SFreeTypeBitmap
+    bitmap_left : int32
+    bitmap_top  : int32
+endstruct
+
+func FtInitFreeType(library : ^pointer) -> int32 [[external('FT_Init_FreeType')]]
+func FtDoneFreeType(library : pointer) -> int32 [[external('FT_Done_FreeType')]]
+func FtNewFace(library : pointer, filename : ^char, face_index : int64, face : ^pointer) -> int32 [[external('FT_New_Face')]]
+func FtDoneFace(face : pointer) -> int32 [[external('FT_Done_Face')]]
+func FtSetPixelSizes(face : pointer, width : uint32, height : uint32) -> int32 [[external('FT_Set_Pixel_Sizes')]]
+func FtLoadChar(face : pointer, char_code : uint32, load_flags : int32) -> int32 [[external('FT_Load_Char')]]
+
+object OFont:
+    face       : pointer = nil
+    pixel_size : int = 0
+    filename   : str = ''
+
+    func *Create(library : pointer, filename : strview)
+    func *Destroy()
+    func SetPixelSize(size : int) -> bool
+    func Glyph(codepoint : uint32) -> ^SFreeTypeGlyphSlot
+    func TextWidth(text : strview) -> int
+    func Height() -> int
+    func Ascender() -> int
+    func RenderToAlphaMap(text : strview, target : OAlphaMap)
+endobject
+
+object OFontManager:
+    library : pointer = nil
+    fonts   : [*]OFont
+
+    func *Create()
+    func *Destroy()
+    func GetFont(filename : strview) -> OFont
+endobject
+
+object OTextBox(OAlphaMap):
+    font  : OFont = nil
+    ftext : str = ''
+
+    func *Create(parent : ODrawable, font : OFont, text : strview)
+    func SetText(text : str)
+
+    property Text : str read ftext write SetText
+endobject
+
+func OFont.*Create(library : pointer, filename : strview):
+    var path : str = filename
+    self.filename = path
+    if @.FtNewFace(library, path.pchar, 0, %face) <> 0:
+        face = nil
+    endif
+endfunc
+
+func OFont.*Destroy():
+    if face <> nil:
+        @.FtDoneFace(face)
+    endif
+endfunc
+
+func OFont.SetPixelSize(size : int) -> bool:
+    if face == nil or size <= 0:
+        return false
+    endif
+    if pixel_size == size:
+        return true
+    endif
+    if @.FtSetPixelSizes(face, 0, size) <> 0:
+        return false
+    endif
+    pixel_size = size
+    return true
+endfunc
+
+func OFont.Glyph(codepoint : uint32) -> ^SFreeTypeGlyphSlot:
+    if face == nil or @.FtLoadChar(face, codepoint, @.FT_LOAD_RENDER) <> 0:
+        return nil
+    endif
+    var ft_face : ^SFreeTypeFace = ^SFreeTypeFace(face)
+    return ^SFreeTypeGlyphSlot(ft_face.glyph)
+endfunc
+
+func OFont.TextWidth(text : strview) -> int:
+    var source : str = text
+    var chars : [*]char16 = @strfunc.StrfToUtf16(source)
+    var pen_x : int = 0
+    var max_x : int = 0
+    for index : int = 0 count chars.length - 1:
+        var glyph : ^SFreeTypeGlyphSlot = Glyph(uint32(Ord(chars[index])))
+        if glyph <> nil:
+            pen_x += glyph.bitmap_left
+            max_x = pen_x + glyph.bitmap.width
+            pen_x += glyph.advance_x div 64
+        endif
+    endfor
+    return max_x
+endfunc
+
+func OFont.Height() -> int:
+    if face == nil:
+        return 0
+    endif
+    var ft_face : ^SFreeTypeFace = ^SFreeTypeFace(face)
+    var ft_size : ^SFreeTypeSize = ^SFreeTypeSize(ft_face.size)
+    return ft_size.metrics.height div 64
+endfunc
+
+func OFont.Ascender() -> int:
+    if face == nil:
+        return 0
+    endif
+    var ft_face : ^SFreeTypeFace = ^SFreeTypeFace(face)
+    var ft_size : ^SFreeTypeSize = ^SFreeTypeSize(ft_face.size)
+    return ft_size.metrics.ascender div 64
+endfunc
+
+func OFont.RenderToAlphaMap(text : strview, target : OAlphaMap):
+    target.Clear(0)
+    var source : str = text
+    var chars : [*]char16 = @strfunc.StrfToUtf16(source)
+    var pen_x : int = 0
+    var pen_y : int = Ascender()
+
+    for index : int = 0 count chars.length - 1:
+        var glyph : ^SFreeTypeGlyphSlot = Glyph(uint32(Ord(chars[index])))
+        if glyph == nil:
+            continue
+        endif
+
+        for row : int = 0 count glyph.bitmap.rows:
+            var target_y : int = pen_y + 1 - glyph.bitmap_top + row
+            if target_y < 0 or target_y >= target.height:
+                continue
+            endif
+
+            for column : int = 0 count glyph.bitmap.width:
+                var target_x : int = pen_x + glyph.bitmap_left + column
+                if target_x >= 0 and target_x < target.width:
+                    target.data[target_y * target.width + target_x] = glyph.bitmap.buffer[row * glyph.bitmap.pitch + column]^ 
+                endif
+            endfor
+        endfor
+        pen_x += glyph.advance_x div 64
+    endfor
+    target.needsUpdate = true
+endfunc
+
+func OFontManager.*Create():
+    @.FtInitFreeType(%library)
+endfunc
+
+func OFontManager.*Destroy():
+    while fonts.length > 0:
+        delete fonts.PopFirst()
+    endwhile
+    if library <> nil:
+        @.FtDoneFreeType(library)
+    endif
+endfunc
+
+func OFontManager.GetFont(filename : strview) -> OFont:
+    var path : str = filename
+    for index : int = 0 count fonts.length:
+        if fonts[index].filename == path:
+            return fonts[index]
+        endif
+    endfor
+    result = new OFont(library, path)
+    fonts.Append(result)
+endfunc
+
+func OTextBox.*Create(parent : ODrawable, font : OFont, text : strview):
+    inherited Create(parent, 1, 1)
+    self.font = font
+    SetText(text)
+endfunc
+
+func OTextBox.SetText(text : str):
+    ftext = text
+    if font == nil:
+        SetSize(1, 1)
+        Clear(0)
+        return
+    endif
+    var width : int = font.TextWidth(text)
+    var height : int = font.Height()
+    if width < 1:
+        width = 1
+    endif
+    if height < 1:
+        height = 1
+    endif
+    SetSize(width, height)
+    font.RenderToAlphaMap(text, self)
+endfunc
