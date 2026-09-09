@@ -23,10 +23,8 @@ func Init() [[cexport]]:
     WgpuWriteBuffer(vertex_buffer, %vertices[0], SizeOf(vertices))
 
     frame_buffer = WgpuCreateBuffer(SizeOf(frame_data), WGPU_BUFFER_USAGE_UNIFORM | WGPU_BUFFER_USAGE_COPY_DST)
-
-    var vertex_shader_source   : cstring(639) = "struct Frame {\n  offset: vec2f,\n  padding: vec2f,\n}\n\n@group(0) @binding(0) var<uniform> frame: Frame;\n\nstruct VertexOutput {\n  @builtin(position) position: vec4f,\n  @location(0) color: vec3f,\n}\n\n@vertex\nfn vs_main(@location(0) position: vec2f, @location(1) color: vec3f) -> VertexOutput {\n  var result: VertexOutput;\n  result.position = vec4f(position + frame.offset, 0.0, 1.0);\n  result.color = color;\n  return result;\n}\n"
-/*
-    var vertex_shader_source   : cstring(639) = """
+    
+    var vertex_shader_source   : cstring(1023) = """
         struct Frame {
             offset: vec2f,
             padding: vec2f,
@@ -47,8 +45,12 @@ func Init() [[cexport]]:
             return result;
         }
         """
-*/
-    var fragment_shader_source : cstring(159) = "@fragment\nfn fs_main(@location(0) color: vec3f) -> @location(0) vec4f {\n  return vec4f(color, 1.0);\n}\n"
+    var fragment_shader_source : cstring(1023) = """
+        @fragment
+        fn fs_main(@location(0) color: vec3f) -> @location(0) vec4f {
+            return vec4f(color, 1.0);
+        }
+        """
     var vertex_shader   : uint32 = WgpuCreateShader(vertex_shader_source.pchar, vertex_shader_source.length)
     var fragment_shader : uint32 = WgpuCreateShader(fragment_shader_source.pchar, fragment_shader_source.length)
     pipeline = WgpuCreateRenderPipeline(vertex_shader, fragment_shader)

@@ -297,11 +297,23 @@ endfunc
 func OColorProgram.*Create():
     use *
     vertex_shader = DdCompileShader(GL_VERTEX_SHADER,
-        'uniform mat3 u_MVPMatrix; attribute vec2 a_Position;'
-        + 'void main() { vec3 point = u_MVPMatrix * vec3(a_Position, 1.0);'
-        + 'gl_Position = vec4(point.xy, 0.0, 1.0); }')
+        """
+        uniform mat3 u_MVPMatrix;
+        attribute vec2 a_Position;
+        void main() {
+            vec3 point = u_MVPMatrix * vec3(a_Position, 1.0);
+            gl_Position = vec4(point.xy, 0.0, 1.0);
+        }
+        """
+    )
     fragment_shader = DdCompileShader(GL_FRAGMENT_SHADER,
-        'uniform vec4 u_Color; void main() { gl_FragColor = u_Color; }')
+        """
+        uniform vec4 u_Color;
+        void main() {
+            gl_FragColor = u_Color;
+        }
+        """
+    )
     if vertex_shader == 0 or fragment_shader == 0:
         return
     endif
@@ -368,15 +380,31 @@ endfunc
 func OTextureProgram.*Create():
     use *
     vertex_shader = DdCompileShader(GL_VERTEX_SHADER,
-        'uniform mat3 u_MVPMatrix; attribute vec2 a_Position; attribute vec2 a_TexCoordinate;'
-        + 'varying vec2 v_TexCoordinate; void main() {'
-        + 'vec3 point = u_MVPMatrix * vec3(a_Position, 1.0);'
-        + 'gl_Position = vec4(point.xy, 0.0, 1.0); v_TexCoordinate = a_TexCoordinate; }')
+        """
+        uniform mat3 u_MVPMatrix;
+        attribute vec2 a_Position;
+        attribute vec2 a_TexCoordinate;
+        varying vec2 v_TexCoordinate;
+        void main() {
+            vec3 point = u_MVPMatrix * vec3(a_Position, 1.0);
+            gl_Position = vec4(point.xy, 0.0, 1.0);
+            v_TexCoordinate = a_TexCoordinate;
+        }
+        """
+    )
     fragment_shader = DdCompileShader(GL_FRAGMENT_SHADER,
-        'uniform sampler2D u_Texture; uniform vec4 u_Color; varying vec2 v_TexCoordinate;'
-        + 'uniform int u_AlphaMap; void main() { vec4 sample = texture2D(u_Texture, v_TexCoordinate);'
-        + 'if (u_AlphaMap != 0) gl_FragColor = vec4(u_Color.rgb, u_Color.a * sample.a);'
-        + 'else gl_FragColor = sample * u_Color; }')
+        """
+        uniform sampler2D u_Texture;
+        uniform vec4 u_Color;
+        varying vec2 v_TexCoordinate;
+        uniform int u_AlphaMap;
+        void main() {
+            vec4 sample = texture2D(u_Texture, v_TexCoordinate);
+            if (u_AlphaMap != 0) gl_FragColor = vec4(u_Color.rgb, u_Color.a * sample.a);
+            else gl_FragColor = sample * u_Color;
+        }
+        """
+    )
     if vertex_shader == 0 or fragment_shader == 0:
         return
     endif
