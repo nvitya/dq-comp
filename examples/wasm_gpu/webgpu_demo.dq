@@ -1,0 +1,79 @@
+// A wasm32-bare WebGPU equivalent of the moving OpenGL triangle example.
+// Build with: build/dq-comp examples/wasm_gpu/webgpu_demo.dqproj
+
+use ./webgpu
+
+var vertices : [15]float32 = [
+     0.00,  0.58, 1.00, 0.25, 0.20,
+    -0.42, -0.34, 0.20, 0.90, 0.35,
+     0.42, -0.34, 0.25, 0.50, 1.00
+]
+
+// WGSL requires uniform buffers to be 16-byte aligned.  offset occupies the
+// first two floats; the remaining values are padding.
+var frame_data    : [4]float32
+var vertex_buffer : uint32
+var frame_buffer  : uint32
+var pipeline      : uint32
+var direction     : float32 = 1.0
+var offset        : float32 = 0.0
+
+func Init() [[cexport]]:
+    vertex_buffer = WgpuCreateBuffer(SizeOf(vertices), WGPU_BUFFER_USAGE_VERTEX | WGPU_BUFFER_USAGE_COPY_DST)
+    WgpuWriteBuffer(vertex_buffer, %vertices[0], SizeOf(vertices))
+
+    frame_buffer = WgpuCreateBuffer(SizeOf(frame_data), WGPU_BUFFER_USAGE_UNIFORM | WGPU_BUFFER_USAGE_COPY_DST)
+
+    var vertex_shader_source   : cstring(639) = "struct Frame {\n  offset: vec2f,\n  padding: vec2f,\n}\n\n@group(0) @binding(0) var<uniform> frame: Frame;\n\nstruct VertexOutput {\n  @builtin(position) position: vec4f,\n  @location(0) color: vec3f,\n}\n\n@vertex\nfn vs_main(@location(0) position: vec2f, @location(1) color: vec3f) -> VertexOutput {\n  var result: VertexOutput;\n  result.position = vec4f(position + frame.offset, 0.0, 1.0);\n  result.color = color;\n  return result;\n}\n"
+/*
+    var vertex_shader_source   : cstring(639) = """
+        struct Frame {
+            offset: vec2f,
+            padding: vec2f,
+        }
+
+        @group(0) @binding(0) var<uniform> frame: Frame;
+
+        struct VertexOutput {
+            @builtin(position) position: vec4f,
+            @location(0) color: vec3f,
+        }
+
+        @vertex
+        fn vs_main(@location(0) position: vec2f, @location(1) color: vec3f) -> VertexOutput {
+            var result: VertexOutput;
+            result.position = vec4f(position + frame.offset, 0.0, 1.0);
+            result.color = color;
+            return result;
+        }
+        """
+*/
+    var fragment_shader_source : cstring(159) = "@fragment\nfn fs_main(@location(0) color: vec3f) -> @location(0) vec4f {\n  return vec4f(color, 1.0);\n}\n"
+    var vertex_shader   : uint32 = WgpuCreateShader(vertex_shader_source.pchar, vertex_shader_source.length)
+    var fragment_shader : uint32 = WgpuCreateShader(fragment_shader_source.pchar, fragment_shader_source.length)
+    pipeline = WgpuCreateRenderPipeline(vertex_shader, fragment_shader)
+endfunc
+
+// Called by requestAnimationFrame.  The host supplies elapsed seconds since the
+// page loaded; DQ advances the animation and encodes all rendering commands.
+func Render(seconds : float32) [[cexport]]:
+    offset += direction * seconds * 0.25
+    if offset >= 0.45:
+        offset = 0.45
+        direction = -1.0
+    elif offset <= -0.45:
+        offset = -0.45
+        direction = 1.0
+    endif
+
+    frame_data[0] = offset
+    frame_data[1] = 0.0
+    WgpuWriteBuffer(frame_buffer, %frame_data[0], SizeOf(frame_data))
+
+    WgpuBeginFrame(0.06, 0.08, 0.14, 1.0)
+    WgpuSetPipeline(pipeline)
+    WgpuSetVertexBuffer(vertex_buffer)
+    WgpuSetUniformBuffer(frame_buffer)
+    WgpuDraw(3)
+    WgpuEndFrame()
+endfunc

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DQ WebGPU example</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #111827; color: #e5e7eb; }
+    body { min-height: 100vh; margin: 0; display: grid; place-content: center; gap: 1rem; }
+    h1, p { margin: 0; }
+    canvas { width: min(80vw, 800px); aspect-ratio: 16 / 9; border: 1px solid #475569; border-radius: .5rem; background: #0f172a; box-shadow: 0 1rem 3rem #0008; }
+    #status { color: #fca5a5; }
+  </style>
+</head>
+<body>
+  <h1>DQ bare WebAssembly + WebGPU</h1>
+  <canvas id="screen"></canvas>
+  <p id="status">Loading WebGPU…</p>
+  <script type="module" src="webgpu.js"></script>
+</body>
+</html>
