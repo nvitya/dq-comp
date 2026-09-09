@@ -37,7 +37,7 @@ object OTextBox(OAlphaMap):
     func *Create(parent : ODrawable, font : OFont, text : strview)
     func SetText(text : str)
 
-    property Text : str read ftext write SetText
+    property text : str read ftext write SetText
 endobject
 
 
