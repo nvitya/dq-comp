@@ -39,35 +39,17 @@ void OScPosition::RecalcLineCol()  // this is slow
     return;
   }
 
-  char *  p       = pos;
-  char *  pstart  = scfile->pstart;
-
-  int     linenum = 1;
-  int     colnum  = 0;
-
-  // colum counting
-  while (p > pstart)
-  {
-    if ((*p == '\n') or (*p == '\r'))
-    {
-      break;
-    }
-    --p;
-    ++colnum;
-  }
-
-  // line counting
-  while (p > pstart)
+  char * line_start = scfile->pstart;
+  line = 1;
+  for (char * p = scfile->pstart; p < pos; ++p)
   {
     if (*p == '\n')
     {
-      ++linenum;
+      ++line;
+      line_start = p + 1;
     }
-    --p;
   }
-
-  line = linenum;
-  col  = colnum;
+  col = int(pos - line_start) + 1;
 }
 
 string OScPosition::Format()

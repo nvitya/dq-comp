@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.62.0"
+#define DQ_COMPILER_VERSION  "0.62.1"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.62.1:
+  - Compiler error reporting line number fix
 v0.62.0:
   - Multi-line literals using """ ... """ with auto-deindentation
 v0.61.2:
