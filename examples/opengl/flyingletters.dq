@@ -10,7 +10,7 @@ use ./openglutils
 use ./ddgfx
 use ./ddgfx_font
 
-const letter_count   : int = 1000
+const letter_count   : int = 2000
 const speed_scale    : float = 200
 const rotation_scale : float = 100
 const szspeed_scale  : float = 10

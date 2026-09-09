@@ -11,10 +11,12 @@
  * brief:   DQ Compiler Version Description
  */
 
-#define DQ_COMPILER_VERSION  "0.61.2"
+#define DQ_COMPILER_VERSION  "0.62.0"
 
 /* CHANGE LOG
 ------------------------------------------------------------------------------------
+v0.62.0:
+  - Multi-line literals using """ ... """ with auto-deindentation
 v0.61.2:
   - Only functions marked with [[inline]] will be inlined at -O1
 v0.61.1:

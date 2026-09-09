@@ -672,74 +672,162 @@ bool OScFeederBase::ReadQuotedString(string & rvalue)
     return false;
   }
 
-  string result = "";
+  OScPosition savedpos = prevpos;
+  char startquote = *curp;
+  bool triple_quoted = (curp + 2 < bufend) && (curp[1] == startquote) && (curp[2] == startquote);
+  char * content_start = curp + (triple_quoted ? 3 : 1);
+  char * p = content_start;
+  char * content_end = nullptr;
 
-  char *  savedpos = curp;
-  char    startquote = *curp;  // single or double
-  char    stopchars[5] = {startquote, '\\', '\n', '\r', 0};
-
-  ++curp;  // skip "
-
-  while (true)
+  while (p < bufend)
   {
-    prevp = curp;
-
-    if (not ReadTo(&stopchars[0]))  // should not happen
+    if (*p == '\\')
     {
-      curp = savedpos;
-      return false;
+      // A quote preceded by a backslash is part of the content.  Newlines
+      // remain invalid in ordinary (non-triple-quoted) string literals.
+      if ((p + 1 >= bufend) || ((!triple_quoted) && ((p[1] == '\n') || (p[1] == '\r'))))
+      {
+        break;
+      }
+      p += 2;
+      continue;
     }
 
-    result += PrevStr();
-
-    if (startquote == *curp)  // end found !
+    if (!triple_quoted && ((*p == '\n') || (*p == '\r')))
     {
-      ++curp; // skip the closing
-      last_token_end_line = curline;
       break;
     }
-    else if ('\\' == *curp) // escape char
+
+    if (*p == startquote)
     {
-      if (CheckSymbol("\\\"")) // Escaped " within the string literal
+      if (!triple_quoted)
       {
-        result += "\"";
+        content_end = p;
+        ++p;
+        break;
       }
-      else if (CheckSymbol("\\\'")) // Escaped ' within the string literal
+      if ((p + 2 < bufend) && (p[1] == startquote) && (p[2] == startquote))
       {
-        result += "\'";
-      }
-      else if (CheckSymbol("\\n"))
-      {
-        result += "\n";
-      }
-      else if (CheckSymbol("\\r"))
-      {
-        result += "\r";
-      }
-      else if (CheckSymbol("\\t"))
-      {
-        result += "\t";
-      }
-      else if (CheckSymbol("\\\\")) // Escaped \\ within the string literal
-      {
-        result += "\\";
-      }
-      else // unhandled escape sequence
-      {
-        // leave it there
-        result += "\\";
-        ++curp;
+        content_end = p;
+        p += 3;
+        break;
       }
     }
-    else // line ends
+    ++p;
+  }
+
+  if (!content_end)
+  {
+    SetCurPos(savedpos);
+    prevpos = savedpos;
+    return false;
+  }
+
+  string raw_value(content_start, content_end);
+  if (triple_quoted)
+  {
+    // The closing delimiter establishes the indentation removed from each
+    // content line.  It must otherwise be alone on its line to trim that
+    // line's preceding newline.
+    char * closing_line_start = content_end;
+    while ((closing_line_start > curfile->pstart)
+           && (closing_line_start[-1] != '\n') && (closing_line_start[-1] != '\r'))
     {
-      curp = savedpos;
-      return false;
+      --closing_line_start;
+    }
+    bool closing_delimiter_on_own_line = true;
+    for (char * q = closing_line_start; q < content_end; ++q)
+    {
+      if ((*q != ' ') && (*q != '\t'))
+      {
+        closing_delimiter_on_own_line = false;
+        break;
+      }
+    }
+
+    string indentation;
+    if (closing_delimiter_on_own_line)
+    {
+      indentation.assign(closing_line_start, content_end);
+
+      size_t content_before_indentation = raw_value.size() - indentation.size();
+      if (content_before_indentation > 0)
+      {
+        size_t newline_start = content_before_indentation;
+        if (raw_value[newline_start - 1] == '\n')
+        {
+          --newline_start;
+          if ((newline_start > 0) && (raw_value[newline_start - 1] == '\r')) --newline_start;
+          raw_value.erase(newline_start);
+        }
+        else if (raw_value[newline_start - 1] == '\r')
+        {
+          raw_value.erase(newline_start - 1);
+        }
+      }
+    }
+
+    if (raw_value.starts_with("\r\n")) raw_value.erase(0, 2);
+    else if (!raw_value.empty() && ((raw_value[0] == '\n') || (raw_value[0] == '\r'))) raw_value.erase(0, 1);
+
+    if (!indentation.empty())
+    {
+      string dedented;
+      for (size_t line_start = 0; line_start < raw_value.size(); )
+      {
+        size_t line_end = raw_value.find_first_of("\r\n", line_start);
+        if (line_end == string::npos) line_end = raw_value.size();
+        size_t text_start = line_start;
+        if (raw_value.compare(line_start, indentation.size(), indentation) == 0)
+        {
+          text_start += indentation.size();
+        }
+        dedented.append(raw_value, text_start, line_end - text_start);
+        if (line_end == raw_value.size()) break;
+        if ((raw_value[line_end] == '\r') && (line_end + 1 < raw_value.size()) && (raw_value[line_end + 1] == '\n'))
+        {
+          dedented += "\r\n";
+          line_start = line_end + 2;
+        }
+        else
+        {
+          dedented += raw_value[line_end];
+          line_start = line_end + 1;
+        }
+      }
+      raw_value = dedented;
     }
   }
 
+  string result;
+  for (size_t i = 0; i < raw_value.size(); ++i)
+  {
+    if ((raw_value[i] != '\\') || (i + 1 >= raw_value.size()))
+    {
+      result += raw_value[i];
+      continue;
+    }
+
+    char escaped = raw_value[++i];
+    switch (escaped)
+    {
+      case '"': result += '"'; break;
+      case '\'': result += '\''; break;
+      case 'n': result += '\n'; break;
+      case 'r': result += '\r'; break;
+      case 't': result += '\t'; break;
+      case '\\': result += '\\'; break;
+      default:
+        result += '\\';
+        result += escaped;
+        break;
+    }
+  }
+
+  curp = p;
+  RecalcCurLineCol();
+  last_token_end_line = curline;
   rvalue = result;
-  curcol = (curp - clstart) + 1;
   return true;
 }
 

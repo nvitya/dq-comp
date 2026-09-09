@@ -1,0 +1,52 @@
+// Triple-quoted strings trim delimiter-only boundary lines, dedent to the
+// closing delimiter, and retain the usual escape processing.
+
+use libc/stdio
+
+func putchar(c : char) -> int [[external]]
+
+func PrintEscaped(text : strview):
+    var i : int = 0
+    while i < text.length:
+        var ch : char = text[i]
+        if ch == char(9):
+            printf("\\t")
+        elif ch == char(10):
+            printf("\\n")
+        elif ch == char(13):
+            printf("\\r")
+        elif ch == char(92):
+            printf("\\\\")
+        else:
+            putchar(ch)
+        endif
+        i += 1
+    endwhile
+endfunc
+
+func PrintText(label : ^char, text : strview):
+    printf("%s = [%li] ", label, text.length)
+    PrintEscaped(text)
+    printf("\n")
+endfunc
+
+func *Main() -> int:
+    var double_quoted : str = """
+        first
+          second
+        """
+    var single_quoted : str = '''
+        alpha
+          beta
+        '''
+    var escaped : str = """
+        first\nsecond\t\\
+        """
+    var inline : str = """both \"quote\" kinds"""
+
+    PrintText("double", double_quoted) //?check(double, [14] first\n  second)
+    PrintText("single", single_quoted) //?check(single, [12] alpha\n  beta)
+    PrintText("escaped", escaped) //?check(escaped, [14] first\nsecond\t\\)
+    PrintText("inline", inline) //?check(inline, [18] both "quote" kinds)
+    return 0
+endfunc
