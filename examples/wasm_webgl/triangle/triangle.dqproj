@@ -1,0 +1,12 @@
+main = 'triangle.dq'
+output = 'triangle.wasm'
+target = 'wasm32-bare'
+link = true
+compiler_runtime = 'none'
+c_runtime = 'none'
+optlevel = 2
+linkoption = '--no-entry'
+linkoption = '--export=Init'
+linkoption = '--export=Render'
+linkoption = '--export-memory'
+linkoption = '--strip-all'
